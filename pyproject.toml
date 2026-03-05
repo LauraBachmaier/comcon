@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "comcon"
+version = "1.0.0"
+description = "Community Connectivity Package for multi-species marine larval dispersal modeling"
+readme = "README.md"
+license = "MIT"
+authors = [
+    {name = "Laura Bachmaier", email = "laura.bachmaier@plymouth.ac.uk"}
+]
+requires-python = ">=3.10"
+keywords = ["ocean", "connectivity", "dispersal", "larvae", "ecology", "marine", "parcels"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Oceanography",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "numpy>=1.21.0",
+    "pandas>=1.3.0",
+    "scipy>=1.7.0",
+    "xarray>=0.19.0",
+    "netCDF4>=1.5.0",
+    "matplotlib>=3.4.0",
+    "seaborn",
+    "folium>=0.12.0",
+    "tqdm>=4.62.0",
+    "psutil>=5.8.0",
+    "ipywidgets>=7.6.0",
+    "networkx",
+    "scikit-learn",
+    "pygbif>=0.6.0",
+    "copernicusmarine>=1.0.0",
+    "trajan>=0.8.0",
+    "cmocean>=2.0.0",
+    "pyworms",
+]
+
+[project.urls]
+Homepage = "https://github.com/LauraBachmaier/comcon"
+Documentation = "https://github.com/LauraBachmaier/comcon#readme"
+Repository = "https://github.com/LauraBachmaier/comcon"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+comcon = ["assets/*", "data/*"]

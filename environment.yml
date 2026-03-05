@@ -1,35 +1,56 @@
-name: community_connectivity  # Name of your environment
+# ComCon Environment Configuration
+# =================================
+# This file creates a conda environment with all dependencies needed for ComCon.
+# 
+# Usage:
+#   conda env create -f environment.yml
+#   conda activate comcon
+
+name: comcon
 channels:
-  - conda-forge              # Conda-forge channel for open-source packages
-  - defaults                 # Default Conda channel
+  - conda-forge
+  - defaults
 dependencies:
-  - python=3.9               # Python version (you can update this as needed)
-  - pip                      # Ensure pip is installed in the environment
-  - parcels                  # Ocean Parcels package
-  - compilers                # Platform-independent compilers (installs gcc, g++, clang as needed)
-  - gcc                      # Ensure compilers are installed
-  - gfortran                 # For Fortran packages
-  - libomp                   # OpenMP support
-  - libgcc-ng                # Ensures proper linking for C libraries
-  - numpy                    # Numerical computing library
-  - pandas                   # Data manipulation library
-  - jupyter                  # Jupyter notebook installation
-  - scipy                    # Scientific library
-  - xarray                   # Handling N-dimensional arrays
-  - matplotlib               # Plotting library
-  - geopandas                # Geospatial analysis tools
-  - shapely                  # Geospatial geometry processing
-  - netCDF4                  # For NetCDF file handling
-  - cartopy                  # Map projections
-  - ipython                  # For Jupyter integration
-  - requests                 # HTTP requests library
-  - folium                   # Interactive maps
-  - psutil                   # System and process utilities
-  - copernicusmarine         # For downloading Copernicus data
-  - trajan                   # Oceanographic and geospatial data
-  - cmocean                  # Colormaps for oceanographic visualizations
-  - pygbif                   # Python client for Global Biodiversity Information Facility (GBIF)
-  - ipywidgets               # Widgets for Jupyter notebooks
+  # Python version (3.10 required for parcels compatibility)
+  - python=3.10
+  
+  # Core ocean modelling - this installs parcels with all its dependencies
+  # including the gcc compiler needed for just-in-time compilation
+  - parcels>=3.0.0
+  
+  # Geospatial libraries
+  - cartopy>=0.20.0
+  - geopandas>=0.10.0
+  
+  # Jupyter environment
+  - jupyter
+  - jupyterlab
+  - notebook
+  - ipywidgets>=7.6.0
+  
+  # Data handling
+  - pandas>=1.3.0
+  - numpy>=1.21.0
+  - xarray>=0.19.0
+  - netCDF4>=1.5.0
+  - scipy>=1.7.0
+  
+  # Visualisation
+  - matplotlib>=3.4.0
+  - seaborn
+  - folium>=0.12.0
+  
+  # Utilities
+  - psutil>=5.8.0
+  - tqdm>=4.62.0
+  - networkx
+  - scikit-learn
+  
+  # Pip for packages not available on conda-forge
+  - pip
   - pip:
-      - community_connectivity  # Your own package to be installed via pip
-      - pytest                 # For running tests
+      - pygbif>=0.6.0
+      - copernicusmarine>=1.0.0
+      - trajan>=0.8.0
+      - cmocean>=2.0.0
+      - pyworms
