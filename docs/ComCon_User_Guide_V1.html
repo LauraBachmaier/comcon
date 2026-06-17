@@ -836,7 +836,7 @@
         <p><strong>2. Create the environment with all dependencies</strong></p>
         <p>Copy and paste the following command (all on one line) and press <kbd>Enter</kbd>:</p>
         
-        <pre><code>conda create -n comcon -c conda-forge python=3.10 parcels cartopy geopandas jupyter ipywidgets folium psutil tqdm networkx scikit-learn seaborn scipy</code></pre>
+        <pre><code>conda env create -f environment.yml</code></pre>
         
         <div class="info-box">
             <strong>What does this command do?</strong>
@@ -890,13 +890,6 @@ Executing transaction: done
         <div class="critical-box">
             <strong>Important:</strong> You must activate the comcon environment every time you open a new terminal window before working with ComCon. If you don't see <code>(comcon)</code> at the start of your prompt, the environment isn't active.
         </div>
-        
-        <p><strong>4. Install additional packages with pip</strong></p>
-        <p>Some packages aren't available through conda, so we install them with pip (another package installer). Copy and paste this entire line and press <kbd>Enter</kbd>:</p>
-
-        <pre><code>pip install pygbif copernicusmarine trajan cmocean pyworms</code></pre>
-
-        <p>Wait for it to finish, You'll see "Successfully installed..." messages.</p>
         <h2 id="terminal-navigation">Navigating with the Terminal</h2>
 
         <p>Before installing ComCon, you need to understand a few basic terminal commands. You will use these throughout the setup process and whenever you launch ComCon.</p>
@@ -954,12 +947,6 @@ Executing transaction: done
         <div class="warning-box">
             <strong>Windows Users:</strong> Python uses forward slashes (<code>/</code>) in file paths, not backslashes (<code>\</code>). If you copy a path from File Explorer, you may need to change <code>\</code> to <code>/</code>. Alternatively, put an <code>r</code> before the path string: <code>r"C:\Users\Laura\Documents"</code>
         </div>
-
-
-
-
-
-
         <h2 id="installing-comcon">Installing ComCon</h2>
 
         <p>With the environment ready, we can now install ComCon itself. You should have received a folder called <code>comcon_distribution</code> (either as a ZIP file or shared folder).</p>

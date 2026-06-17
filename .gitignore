@@ -1,10 +1,23 @@
+# Python
 __pycache__/
-*.pyc
-.ipynb_checkpoints/
-*.zarr/
+*.py[cod]
 *.egg-info/
+.ipynb_checkpoints/
+build/
+dist/
+
+# Environments
+.venv/
+venv/
+
+# ComCon generated outputs — anything the workflow creates, never source
+outputs/
+**/projects/
+*.zarr/
+*.tif
+**/saved_state/
+*.pkl
+
+# OS
 .DS_Store
 Thumbs.db
-*.nc
-*.pkl
-comcon_session*.pkl

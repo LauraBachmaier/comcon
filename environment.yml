@@ -39,11 +39,15 @@ dependencies:
   - matplotlib>=3.4.0
   - seaborn
   - folium>=0.12.0
+  - ipyleaflet>=0.17.0
   
   # Utilities
   - psutil>=5.8.0
   - tqdm>=4.62.0
   - networkx
+  - python-louvain
+  - gdk-pixbuf<=2.42.10
+  - ffmpeg
   - scikit-learn
   
   # Pip for packages not available on conda-forge

@@ -21,7 +21,7 @@ Open a terminal (Anaconda Prompt on Windows) and run these commands one after th
 cd path/to/comcon_distribution
 
 # Create environment with all dependencies
-conda create -n comcon -c conda-forge parcels cartopy jupyter pandas geopandas pygbif
+conda conda create -n comcon -c conda-forge python=3.10 parcels cartopy geopandas jupyter ipywidgets folium ipyleaflet psutil tqdm networkx python-louvain ffmpeg scikit-learn seaborn scipy
 
 # Activate the environment
 conda activate comcon

@@ -3,14 +3,17 @@
 ComCon Manual Mode
 ==================
 
-This module provides access to workflow functions for building custom
-connectivity modelling pipelines. Users can run specific sections of the
-workflow independently, which is useful for:
+This module provides access to the individual workflow functions of the trait-defined pathway, for building custom connectivity modelling pipelines.
+Users can run specific sections of the workflow independently, which is useful for:
 
 - Re-running analyses on existing data
 - Testing different parameters without full workflow reruns
 - Integrating ComCon functions into custom scripts
 - Debugging specific workflow sections
+
+Note:
+    Manual mode applies only to the trait-defined pathway.
+    The passive dispersal pathway (Path A) runs end-to-end via a single entry point (`passive_dispersal_pathway()` in `comcon.passive`) and is not split into manually callable sections.
 
 Usage:
 ------
@@ -34,7 +37,7 @@ STEP 1 - Hydrodynamic Data:
 
 STEP 2 - Species Occurrence:
     run_step2_species_data()    - Complete Step 2 with prompts
-    get_spp_occ()               - Download single species from GBIF
+    get_spp_occ()               - Download species from GBIF from a provided species list
     clean_spp_occ()             - Filter occurrence data
 
 STEP 3 - Grid Setup:
@@ -122,7 +125,7 @@ from comcon.interactive import (
     create_map,  # Create interactive map (displays widget)
     read_geojson,  # Read GeoJSON file
     get_aphia,  # Get species name from AphiaID
-    get_spp_occ,  # Download single species from GBIF
+    get_spp_occ,  # Download species from GBIF from a list
     get_all_spp_occ,  # Download all species in area
     make_coastalmask,  # Create coastal mask
     create_masks,  # Create land/coastal masks (displays plot)
@@ -156,6 +159,8 @@ from comcon.interactive import (
     get_zarr_size,  # Get zarr file size
     process_sim_results,  # Load simulation output
     assign_release_id,  # Assign cohort IDs
+    load_traj_from_chunks,  # Load full trajectory DataFrame from chunks
+    load_traj_starts_from_chunks,  # Load only release rows (obs=0) for mortality
     save_session,  # Save workflow state for resuming later
     load_session,  # Load saved workflow state
 
@@ -176,10 +181,10 @@ from comcon.interactive import (
     calculate_connectivity_metrics,  # Type 1: Connectivity metrics
     display_metrics_table,  # Display Type 1 results
     network_analysis,  # Type 2: Network analysis
+    add_custom_composite,  # build a user-defined composite from chosen metrics
     display_network_summary,  # Display Type 2 results
-    create_null_model,  # Create null model
-    compare_models,  # Compare trait vs null
-    display_model_comparison,  # Display comparison results
+    compare_models,  # Compare baseline vs modified-trait scenarios (Type 3)
+    display_sensitivity_comparison,  # Display Type 3 sensitivity results
     export_connectivity_metrics,  # Export Type 1 metrics to CSV
     export_network_results,  # Export Type 2 network results to CSV
 
@@ -188,6 +193,17 @@ from comcon.interactive import (
     create_network_map,  # Network connectivity map
     create_connectivity_matrix_plot,  # Matrix heatmap
     create_comparison_map,  # Side-by-side comparison
+
+    # Interactive result viewers (dropdown widgets — use in Jupyter Lab)
+    trait_metrics_viewer,  # Type 1 metrics, per species (dropdown)
+    network_metrics_viewer,  # Type 2 summary stats (dropdown)
+    trait_matrix_viewer,  # Type 2 connectivity matrix (dropdown)
+    trait_metric_viewer,  # Type 2 per-metric hotspot map (dropdown)
+    trait_heatmap_viewer,  # Type 2 site x metric heatmap (dropdown)
+    trait_community_viewer,  # Type 2 Louvain community map (dropdown)
+    build_heatmap_figure,  # Type 2 site x metric heatmap (static figure)
+    create_community_map,  # Type 2 Louvain community map (static figure)
+    create_matrix_with_map,  # Type 2 connectivity matrix + map (static figure)
 )
 # endregion
 
@@ -217,10 +233,10 @@ def list_functions():
         "Step 2: Species Occurrence Data": [
             ("[I] spp_occ", "Complete species occurrence workflow"),
             ("[D] read_geojson", "Load study area polygon"),
-            ("[D] get_spp_occ", "Download single species from GBIF"),
+            ("[D] get_spp_occ", "- Download species from GBIF from a provided species list"),
             ("[D] get_all_spp_occ", "Download all species in study area"),
             ("[D] create_masks", "Create land/coastal masks"),
-            ("[D] clean_spp_occ", "Filter occurrence by habitat type"),
+            ("[D] clean_spp_occ", "Filter occurrences by habitat type"),
             ("[D] validate_spp_occ", "Validate sample sizes"),
         ],
         "Step 3: Grid & Fieldset Setup": [
@@ -233,7 +249,7 @@ def list_functions():
         "Step 4: Particle Simulation": [
             ("[I] create_pset", "Create ParticleSet with prompts"),
             ("[I] execute_simulation", "Run simulation with prompts"),
-            ("[D] create_custom_kernels", "Build particle behavior kernels"),
+            ("[D] create_custom_kernels", "Build particle behaviour kernels"),
             ("[D] process_sim_results", "Load simulation output"),
             ("[D] assign_release_id", "Assign release cohort IDs"),
         ],
@@ -245,10 +261,14 @@ def list_functions():
         ],
         "Step 6: Connectivity Analysis": [
             ("[I] post_analysis", "Interactive analysis selection"),
-            ("[D] calculate_connectivity_metrics", "Type 1: Basic metrics"),
-            ("[D] network_analysis", "Type 2: Network analysis"),
-            ("[D] create_null_model", "Generate null model"),
-            ("[D] compare_models", "Compare trait vs null models"),
+            ("[D] calculate_connectivity_metrics", "Type 1: connectivity metrics"),
+            ("[D] display_metrics_table", "Type 1: display the metrics as a table"),
+            ("[D] display_network_summary", "Type 2: display the network summary"),
+            ("[D] network_analysis", "Type 2: network analysis"),
+            ("[D] run_multiscale_network", "Setup to run Type 2 analysis at several spatial scales"),
+            ("[D] add_custom_composite", "Type 2: build a custom composite from chosen metrics"),
+            ("[D] compare_models", "Type 3: compare baseline vs modified-trait scenarios"),
+            ("[D] display_sensitivity_comparison", "Display Type 3 sensitivity results"),
             ("[D] export_connectivity_metrics", "Export Type 1 metrics to CSV"),
             ("[D] export_network_results", "Export Type 2 network results to CSV"),
         ],
@@ -257,12 +277,29 @@ def list_functions():
             ("[D] plot_spp_occ", "Plot species occurrences"),
             ("[D] create_network_map", "Network connectivity map"),
             ("[D] create_connectivity_matrix_plot", "Connectivity matrix"),
+            ("[D] build_heatmap_figure", "Type 2: site x metric heatmap (static)"),
+            ("[D] create_community_map", "Type 2: Louvain community map (static)"),
+            ("[D] create_matrix_with_map", "Type 2: connectivity matrix + map (static)"),
+        ],
+        "Interactive Result Viewers (dropdown widgets, run in Jupyter)": [
+            ("[I] trait_metrics_viewer", "Type 1: browse connectivity metrics per species"),
+            ("[I] network_metrics_viewer", "Type 2: browse network summary stats"),
+            ("[I] trait_matrix_viewer", "Type 2: browse connectivity matrices"),
+            ("[I] trait_metric_viewer", "Type 2: browse per-metric hotspot maps"),
+            ("[I] trait_heatmap_viewer", "Type 2: browse the site x metric heatmap"),
+            ("[I] trait_community_viewer", "Type 2: browse Louvain community maps"),
         ],
         "Utilities": [
             ("[D] standardise_species_name", "Convert spaces to underscores"),
             ("[D] display_species_name", "Convert underscores to spaces"),
             ("[D] get_positive_integer", "Validated integer input"),
             ("[D] check_system_memory", "Check available RAM"),
+        ],
+        "Session & Shortcuts": [
+            ("[D] save_session", "Save the workflow so you can resume later"),
+            ("[D] load_session", "Reload a previously saved workflow"),
+            ("[D] run_postprocessing_only", "Re-run post-processing on loaded trajectory data without prompts (scriptable post_processing"),
+            ("[D] run_analysis_only", "Run Type 1/2 without no prompts (scriptable post_analysis)"),
         ],
     }
 
@@ -337,14 +374,14 @@ def example_workflow():
         "    fieldset, meshgrid, runtime",
         ")",
         "kernels = create_custom_kernels(pset)",
-        "output_path, traj = execute_simulation(",
+        "output_path, chunks_dir = execute_simulation(",
         "    pset, kernels, adjusted_runtime, interval",
         ")"
     ])
 
     code_box("Step 5: Post-process trajectories", [
         "final_processed, buffer = post_process(",
-        "    traj, traits, release_grids, settlement_grids, grid_ids",
+        "    chunks_dir, traits, release_grids, settlement_grids, grid_ids",
         ")"
     ])
 
@@ -353,8 +390,10 @@ def example_workflow():
         "results = post_analysis(final_processed)",
         "",
         "# Option B: Run specific analyses directly",
+        "traj_starts = load_traj_starts_from_chunks(chunks_dir)",
         "metrics = calculate_connectivity_metrics(",
-        "    final_processed, release_grids, settlement_grids, traits, traj",
+        "    final_processed, release_grids, settlement_grids, traits,",
+        "    traj_raw=traj_starts, grid_ids=grid_ids",
         ")",
         "display_metrics_table(metrics)"
     ])
@@ -365,9 +404,7 @@ def example_workflow():
     subsection_header("Example 2: Re-run Analysis on Existing Post-Processed Data")
 
     info_box([
-        "If you already have post-processed data and want to try different",
-        "analyses, you can call the analysis functions directly without",
-        "re-running the full workflow."
+        "If you already have post-processed data and want to try different analyses, you can call the analysis functions directly without re-running the full workflow.",
     ])
 
     code_box("Run analyses on existing data", [
@@ -396,9 +433,8 @@ def example_workflow():
     subsection_header("Example 3: Custom Post-Processing Pipeline")
 
     info_box([
-        "Use the individual filter functions to build a custom post-processing",
-        "pipeline. This is useful for testing different filtering parameters",
-        "without re-running the full workflow."
+        "Use the individual filter functions to build a custom post-processing pipeline. ",
+        "This is useful for testing different filtering parameters without re-running the full workflow.",
     ])
 
     code_box("Apply filters step by step", [
@@ -427,7 +463,6 @@ def example_workflow():
 
     code_box("Download and clean species data", [
         "from comcon.manual import *",
-        "import xarray as xr",
         "",
         "# Optional: Set up project directory",
         "project_dirs = setup_project_directory()",
@@ -440,7 +475,7 @@ def example_workflow():
         "distributions = pd.DataFrame(records)",
         "",
         "# Create masks from hydrodynamic data",
-        "hydro_data = xr.open_dataset(project_dirs['data'] + '/hydro_data.nc')",
+        "hydro_data = xr.open_dataset(project_dirs/hydro_data.nc')",
         "landmask, coastalmask, lonarray, latarray = create_masks(hydro_data)",
         "",
         "# Clean and filter data",
@@ -468,13 +503,13 @@ def example_workflow():
         "from comcon.manual import *",
         "",
         "# Load existing simulation",
-        "traj_df = process_sim_results(project_dirs['simulation'] + '/simulation.zarr',",
-        "                              chunk_size=50000, runtime_days=120)",
-        "traj = assign_release_id(traj_df, interval=7)",
+        "chunks_dir = process_sim_results(project_dirs/simulation.zarr',",
+        "                                 chunk_size=50000, runtime_days=120)",
+        "chunks_dir = assign_release_id(chunks_dir, interval=7)",
         "",
         "# Re-run post-processing with different traits or buffers",
         "final_processed, buffer = post_process(",
-        "    traj, traits, release_grids, settlement_grids, grid_ids",
+        "    chunks_dir, traits, release_grids, settlement_grids, grid_ids",
         ")"
     ])
 
@@ -524,14 +559,19 @@ def example_workflow():
         "pset: from create_pset()",
         "kernels: from create_custom_kernels(pset)",
         "adjusted_runtime, interval: from create_pset()",
-        "→ Returns: output_path, traj"
+        "→ Returns: output_path, chunks_dir"
     ])
 
-    data_box("post_process(traj, traits, release_grids, settlement_grids, grid_ids)", [
-        "traj: from execute_simulation()",
+    data_box("post_process(chunks_dir, traits, release_grids, settlement_grids, grid_ids)", [
+        "chunks_dir: from execute_simulation()",
         "traits: from params()",
         "release_grids, settlement_grids, grid_ids: from setup_release_settlement()",
         "→ Returns: final_processed, buffer"
+    ])
+
+    data_box("post_analysis(final_processed)", [
+        "final_processed: from post_process()",
+        "→ Returns: results (runs the interactive analysis menu)"
     ])
 
     section_header("End of Example Workflows")
@@ -749,7 +789,7 @@ def run_postprocessing_only(traj, traits, release_grids, settlement_grids,
     Parameters
     ----------
     traj : pandas.DataFrame
-        Trajectory data from process_sim_results() and assign_release_id()
+        Trajectory data loaded with load_traj_from_chunks(chunks_dir), where chunks_dir comes from process_sim_results() then assign_release_id().
         Must have columns: trajectory, time, obs, grid_id, lat, lon, release_id
     traits : list of dict
         Species trait data with spawning_start, spawning_end, min_PLD, max_PLD
@@ -820,15 +860,54 @@ def load_simulation_output(zarr_path, interval_days, chunk_size=50000, runtime_d
     print(f"Path: {zarr_path}")
     print(f"Chunk size: {chunk_size:}")
 
-    traj_df = process_sim_results(zarr_path, chunk_size, runtime_days)
-    traj = assign_release_id(traj_df, interval_days)
+    chunks_dir = process_sim_results(zarr_path, chunk_size, runtime_days)
+    chunks_dir = assign_release_id(chunks_dir, interval_days)
 
     display_line("-")
-    print(f"Loaded {len(traj):,} observations")
-    print(f"Unique trajectories: {traj['trajectory'].nunique():,}")
+    print(f"Trajectory data processed and stored on disk at: {chunks_dir}")
+    print(f"Use load_traj_from_chunks(chunks_dir) if you need the full DataFrame.")
     display_line("-")
 
-    return traj
+    return chunks_dir
+
+## Allows users to create the nested data structure to run analyses at multiple spatial scales
+def run_multiscale_network(final_processed, release_grids, settlement_grids,
+                           coastal_grid_df, grid_ids, full_grid_df,
+                           scales=(None,), site_name_lookup=None,
+                           exclude_self_recruitment=False):
+    """
+    Run network_analysis at one or more distance scales and return the nested structure the dropdown viewers expect:
+
+        {scale_label: {'community': ..., 'per_species': {species: ...}}}
+
+    Parameters
+    ----------
+    scales : iterable
+        Distance scales in km. Use None for the full domain (no distance
+        threshold). e.g. scales=[None, 30, 50].
+    site_name_lookup : dict, optional
+        {grid_id: name} for named site-based runs. If given, site names appear
+        in the outputs without you having to set anything else.
+
+    Returns
+    -------
+    dict ready to pass straight to network_metrics_viewer(), trait_matrix_viewer(),
+    or trait_community_viewer().
+    """
+    if site_name_lookup is not None:
+        import comcon.interactive as _ci
+        if getattr(_ci, 'spp_params', None) is None:
+            _ci.spp_params = {}
+        _ci.spp_params['site_name_lookup'] = site_name_lookup
+
+    all_network_results = {}
+    for scale in scales:
+        label = 'full_domain' if scale is None else f'{scale}km'
+        all_network_results[label] = network_analysis(
+            final_processed, release_grids, settlement_grids,
+            coastal_grid_df, grid_ids, full_grid_df, scale,
+            exclude_self_recruitment=exclude_self_recruitment)
+    return all_network_results
 # endregion
 
 
@@ -842,6 +921,7 @@ __all__ = [
     # Convenience wrappers
     'run_analysis_only',
     'run_postprocessing_only',
+    'run_multiscale_network',
     'load_simulation_output',
 
     # Constants
@@ -917,10 +997,11 @@ __all__ = [
     'calculate_connectivity_metrics',
     'display_metrics_table',
     'network_analysis',
+    'add_custom_composite',
+    'run_multiscale_network',
     'display_network_summary',
-    'create_null_model',
     'compare_models',
-    'display_model_comparison',
+    'display_sensitivity_comparison',
     'export_connectivity_metrics',
     'export_network_results',
 
@@ -928,6 +1009,15 @@ __all__ = [
     'plot_masks',
     'create_network_map',
     'create_connectivity_matrix_plot',
+    'trait_metrics_viewer',
+    'network_metrics_viewer',
+    'trait_matrix_viewer',
+    'trait_metric_viewer',
+    'trait_heatmap_viewer',
+    'trait_community_viewer',
+    'build_heatmap_figure',
+    'create_community_map',
+    'create_matrix_with_map',
     'create_comparison_map',
 
 ]

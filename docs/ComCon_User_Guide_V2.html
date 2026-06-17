@@ -1,0 +1,2777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ComCon User Guide - Community Connectivity Package</title>
+    <style>
+        /* Base styles */
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 17px;
+            color: #222222;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+        }
+        
+        /* Main container */
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+        }
+        
+        /* Table of contents sidebar */
+        .toc-sidebar {
+            width: 280px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            overflow-y: auto;
+            background-color: #f1f3f5;
+            padding: 20px;
+            border-right: 1px solid #dee2e6;
+        }
+        
+        .toc-sidebar h3 {
+            color: #2c5282;
+            font-size: 18px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #2c5282;
+        }
+        
+        .toc-sidebar ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .toc-sidebar > ul > li {
+            margin-bottom: 8px;
+        }
+        
+        .toc-sidebar a {
+            color: #4a5568;
+            text-decoration: none;
+            font-size: 14px;
+            display: block;
+            padding: 5px 0;
+        }
+        
+        .toc-sidebar a:hover {
+            color: #2c5282;
+            text-decoration: underline;
+        }
+        
+        .toc-sidebar .toc-h2 {
+            font-weight: bold;
+            color: #2d3748;
+        }
+        
+        .toc-sidebar .toc-h3 {
+            padding-left: 15px;
+            font-size: 13px;
+        }
+        
+        /* Main content */
+        .content {
+            margin-left: 300px;
+            padding: 40px;
+            background-color: white;
+            min-height: 100vh;
+        }
+        
+        /* Typography */
+        h1, h2, h3, h4, h5, h6 {
+            font-family: Georgia, serif;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        h1.title {
+            font-size: 2.5em;
+            text-align: center;
+            color: #1a365d;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.3em;
+            text-align: center;
+            color: #4a5568;
+            font-style: italic;
+            margin-bottom: 5px;
+        }
+        
+        .author, .date {
+            text-align: center;
+            color: #718096;
+            margin: 5px 0;
+        }
+        
+        h1 {
+            font-size: 2em;
+            border-bottom: 3px solid #2c5282;
+            padding-bottom: 10px;
+            margin-top: 50px;
+        }
+        
+        h2 {
+            font-size: 1.5em;
+            color: #2c5282;
+            margin-top: 40px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+        
+        h3 {
+            font-size: 1.2em;
+            color: #2d3748;
+            margin-top: 30px;
+        }
+        
+        p {
+            margin-bottom: 1.5em;
+        }
+        
+        /* Code styles */
+        pre, code {
+            font-family: "Consolas", "Fira Code", "Courier New", monospace;
+            font-size: 15px;
+            background-color: #f8f8f8;
+            border-radius: 5px;
+        }
+        
+        code {
+            background-color: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #c7254e;
+        }
+        
+        pre {
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            line-height: 1.5;
+        }
+        
+        pre code {
+            background-color: transparent;
+            color: #d4d4d4;
+            padding: 0;
+        }
+        
+        /* Comments in code */
+        .comment {
+            color: #6a9955;
+        }
+        
+        /* Boxes and callouts */
+        .info-box {
+            background-color: #ebf8ff;
+            border-left: 4px solid #3182ce;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .warning-box {
+            background-color: #fffaf0;
+            border-left: 4px solid #dd6b20;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .success-box {
+            background-color: #f0fff4;
+            border-left: 4px solid #38a169;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .critical-box {
+            background-color: #fff5f5;
+            border-left: 4px solid #e53e3e;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .tip-box {
+            background-color: #faf5ff;
+            border-left: 4px solid #805ad5;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        th, td {
+            border: 1px solid #e2e8f0;
+            padding: 12px 15px;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #2c5282;
+            color: white;
+            font-weight: bold;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f7fafc;
+        }
+        
+        tr:hover {
+            background-color: #edf2f7;
+        }
+        
+        /* Lists */
+        ul, ol {
+            margin-bottom: 1.5em;
+        }
+        
+        li {
+            margin-bottom: 0.5em;
+        }
+        
+        /* Screenshots placeholder */
+        .screenshot-placeholder {
+            background-color: #e2e8f0;
+            border: 2px dashed #a0aec0;
+            padding: 40px;
+            text-align: center;
+            color: #718096;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        /* Keyboard shortcuts */
+        kbd {
+            background-color: #edf2f7;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: "Consolas", monospace;
+            font-size: 14px;
+            box-shadow: 0 2px 0 #a0aec0;
+        }
+        
+        /* Expected output */
+        .expected-output {
+            background-color: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .expected-output-header {
+            font-weight: bold;
+            color: #2c5282;
+            margin-bottom: 10px;
+        }
+        
+        /* Footer */
+        footer {
+            margin-top: 60px;
+            padding: 20px;
+            text-align: center;
+            color: #718096;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        /* Responsive */
+        @media (max-width: 900px) {
+            .toc-sidebar {
+                position: relative;
+                width: 100%;
+                height: auto;
+            }
+            .content {
+                margin-left: 0;
+            }
+        }
+        
+        /* Print styles */
+        @media print {
+            .toc-sidebar {
+                display: none;
+            }
+            .content {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Table of Contents Sidebar -->
+<nav class="toc-sidebar">
+    <h3>Contents</h3>
+    <ul>
+        <li><a href="#overview" class="toc-h2">Guide Overview</a></li>
+        <li><a href="#quick-tips" class="toc-h2">Quick Tips Before You Start</a></li>
+        <li><a href="#glossary" class="toc-h2">Glossary</a></li>
+        <li><a href="#part1" class="toc-h2">Part 1: Getting Started</a>
+            <ul>
+                <li><a href="#what-is-comcon" class="toc-h3">What is ComCon?</a></li>
+                <li><a href="#installing-conda" class="toc-h3">Installing Conda</a></li>
+                <li><a href="#creating-environment" class="toc-h3">Creating the Environment</a></li>
+                <li><a href="#terminal-navigation" class="toc-h3">Navigating with the Terminal</a></li>
+                <li><a href="#installing-comcon" class="toc-h3">Installing ComCon</a></li>
+                <li><a href="#launching-jupyter" class="toc-h3">Launching Jupyter Lab</a></li>
+                <li><a href="#jupyter-guide" class="toc-h3">Jupyter Lab Guide</a></li>
+                <li><a href="#returning-to-project" class="toc-h3">Returning to a Started Project</a></li>
+                <li><a href="#file-management" class="toc-h3">How ComCon Organises Your Files</a></li>
+            </ul>
+        </li>
+        <li><a href="#part2" class="toc-h2">Part 2: Introduction to the ComCon Workflow</a>
+            <ul>
+                <li><a href="#importing-comcon" class="toc-h3">Importing ComCon</a></li>
+                <li><a href="#choosing-mode" class="toc-h3">Choosing a Mode</a></li>
+            </ul>
+        </li>
+        <li><a href="#part3-passive" class="toc-h2">Part 3: Running Your First Model — Passive Pathway</a></li>
+        <li><a href="#part4-interactive" class="toc-h2">Part 4: Running a Trait-Defined Model (Interactive Mode)</a>
+            <ul>
+                <li><a href="#interactive-walkthrough" class="toc-h3">Starting Interactive Mode</a></li>
+                <li><a href="#vignettes" class="toc-h3">Vignettes: Worked Examples</a></li>
+            </ul>
+        </li>
+        <li><a href="#part5-workflow" class="toc-h2">Part 5: The 6-Step Workflow</a>
+            <ul>
+                <li><a href="#step1" class="toc-h3">Step 1: Hydrodynamic Data</a></li>
+                <li><a href="#step2" class="toc-h3">Step 2: Species Occurrences</a></li>
+                <li><a href="#step3" class="toc-h3">Step 3: Release/Settlement Setup</a></li>
+                <li><a href="#step4" class="toc-h3">Step 4: Running the Simulation</a></li>
+                <li><a href="#step5" class="toc-h3">Step 5: Post-Processing</a></li>
+                <li><a href="#step6" class="toc-h3">Step 6: Connectivity Analysis</a></li>
+            </ul>
+        </li>
+        <li><a href="#part6-outputs" class="toc-h2">Part 6: Understanding Outputs</a></li>
+        <li><a href="#part7-data" class="toc-h2">Part 7: Preparing Your Own Data</a>
+            <ul>
+                <li><a href="#hydro-format" class="toc-h3">Hydrodynamic Data Format</a></li>
+                <li><a href="#traits-csv" class="toc-h3">Species Traits CSV Format</a></li>
+                <li><a href="#occurrence-csv" class="toc-h3">Occurrence Data CSV Format</a></li>
+                <li><a href="#site-based" class="toc-h3">Site-Based Analyses</a></li>
+            </ul>
+        </li>
+        <li><a href="#saving-sessions" class="toc-h2">Saving and Resuming Your Work</a></li>
+        <li><a href="#troubleshooting" class="toc-h2">Troubleshooting</a></li>
+        <li><a href="#quick-reference" class="toc-h2">Quick Reference</a></li>
+        <li><a href="#methods" class="toc-h2">Methods & Assumptions</a></li>
+        <li><a href="#references" class="toc-h2">References</a></li>
+    </ul>
+</nav>
+
+<!-- Main Content -->
+<div class="content">
+    
+    <!-- Header -->
+    <header>
+        <h1 class="title">ComCon User Guide</h1>
+        <p class="subtitle">Community Connectivity Package for Marine Larval Dispersal Modelling</p>
+        <p class="author">Authors: Laura Bachmaier, Pete Cotton, Louise Firth, David Bilton, Kerry Howell, Antony Knights</p>
+        <p class="date">Version 1.0 - May 2026</p>
+    </header>
+
+    <!-- Overview Section -->
+    <section id="overview">
+        <h1>Guide Overview</h1>
+
+        <p>Marine connectivity modelling has become an essential tool in ecology and conservation biology, helping us understand how marine populations are connected through larval dispersal. These models simulate how larvae (the early life stages of marine organisms) are transported by ocean currents from where they are released to where they eventually settle.</p>
+        
+        <p>This guide will take you through the step-by-step process of using the ComCon package to run multi-species connectivity models for your study region. You don't need any prior programming experience. This guide assumes you're starting from scratch.</p>
+        
+        <p>By the end of this guide, you will be able to:</p>
+        <ul>
+            <li>Install and set up the ComCon package on your computer</li>
+            <li>Understand the basic concepts of larval dispersal modelling</li>
+            <li>Run a complete dispersal simulation and connectivity analysis for multiple species</li>
+            <li>Interpret the outputs and connectivity metrics</li>
+            <li>Troubleshoot common issues</li>
+        </ul>
+        
+        <h2>Guide Structure</h2>
+        <ul>
+            <li><strong>Part 1:</strong> Getting Started: Installation and Setup</li>
+            <li><strong>Part 2:</strong> Introduction to the ComCon Workflow</li>
+            <li><strong>Part 3:</strong> Running Your First Model — Passive Pathway</li>
+            <li><strong>Part 4:</strong> Running a Trait-Defined Model (Interactive Mode)</li>
+            <li><strong>Part 5:</strong> The 6-Step Workflow Explained (Trait-Defined Pathway)</li>
+            <li><strong>Part 6:</strong> Understanding Your Outputs</li>
+            <li><strong>Part 7:</strong> Preparing Your Own Data</li>
+        </ul>
+        
+        <div class="info-box">
+            <strong>Estimated Time:</strong> Allow approximately 2-3 hours for the initial installation and configuration. The time it takes to run the simulation and post-processing varies widely from under an hour for a small single-species run on a laptop to overnight or longer for runs with many species or large spatial extents. The time it takes depends on the species count, particle numbers, domain size, runtime, grid resolution and your hardware.
+        </div>
+    </section>
+
+    </section>
+
+    <!-- Quick Tips Section -->
+    <section id="quick-tips">
+        <h2>Quick Tips Before You Start</h2>
+
+        <div class="info-box">
+            <strong>Default Parameters:</strong> Throughout the ComCon workflow, you can press <strong>Enter</strong> without typing anything to accept the default value shown in square brackets. For example, if you see <code>[default: 7]</code>, pressing Enter will use 7. This makes it easy to quickly run through the workflow with sensible defaults.
+        </div>
+
+        <h3>Basic Code Concepts</h3>
+        <p>While ComCon is designed so you don't need programming knowledge, understanding a few basic concepts will help you follow along:</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Concept</th>
+                    <th>What It Means</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Hash key <code>#</code></td>
+                    <td>Across many computing languages such as R and Python, lines starting with <code>#</code> are <strong>comments nestled within code.</strong> This allows users to include explanatory notes alongside lines of code that the computer ignores. You'll see these throughout code examples.</td>
+                </tr>
+                <tr>
+                    <td>Equals sign <code>=</code></td>
+                    <td>The <code>=</code> sign assigns a <strong>value to a named variable.</strong> Think of it as giving a name to a piece of information so you can use it later. For example: <code>study_extent = [-6.0, -2.0, 49.5, 51.5]</code> </td>
+                </tr>
+                <tr>
+                    <td><code>function()</code></td>
+                    <td>Words followed by parentheses are <strong>functions</strong> which perform specified actions. The parentheses may contain inputs the function needs such as saved parameters. For example: <code>download_hydrodynamic_data(**hydro_params)</code>. This is a function that you will use during the ComCon workflow to download hydrodynamic data and it uses the parameter <code>hydro_params</code> to tell the function what type of hydrodynamic data to download. </td>
+                </tr>
+                <tr>
+                    <td>Running a cell</td>
+                    <td>In Jupyter, press <strong>Shift + Enter</strong> to run the current cell. The code executes and moves to the next cell. Alternatively, you can press ▶ at the top of the webpage to run a cell. </td>
+                </tr>
+                <tr>
+                    <td>Cell Loading <code>[*]</code></td>
+                    <td>In Jupyter, this <code>[*]</code> is shown next to a specific code cell after running it and indicates that the cell is currently running. Once finished with the operation, this will change to <code>[1]</code>, or whichever number of cells you have run in your current session.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="warning-box">
+            <strong>Don't worry!</strong> You don't need to write any code yourself. ComCon handles everything through interactive prompts. These concepts just help you understand what's happening behind the scenes.
+        </div>
+    </section>
+
+    <!-- Glossary Section -->
+    <section id="glossary">
+        <h1>Glossary</h1>
+        <p>Before we begin, here are some key terms you'll encounter throughout this guide. You can refer back to this section at any time.</p>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Term</th>
+                    <th>Definition</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Advection</strong></td>
+                    <td>The transport of particles by ocean currents. The main driver of larval dispersal. ComCon uses advection algorithms (specifically RK4) to calculate how particles move through the velocity field.</td>
+                </tr>
+                <tr>
+                    <td><strong>AphiaID</strong></td>
+                    <td>A unique identifier for each marine species in the World Register of Marine Species (WoRMS) database. Used to ensure consistent species identification.</td>
+                </tr>
+                <tr>
+                    <td><strong>Betweenness Centrality</strong></td>
+                    <td>A network metric measuring how often a site lies on the shortest path between other sites. High betweenness indicates "stepping stone" sites critical for maintaining long-distance connectivity.</td>
+                </tr>
+                <tr>
+                    <td><strong>Cell</strong></td>
+                    <td>A block of code, or instructions, in Jupyter Lab. You write code in cells and run them one at a time to see results.</td>
+                </tr>
+                <tr>
+                    <td><strong>Closeness Centrality</strong></td>
+                    <td>A network metric measuring how close a site is to all other sites in the network. Sites with high closeness can quickly spread or receive propagules throughout the network.</td>
+                </tr>
+                <tr>
+                    <td><strong>Coastal Cell / Coastal Zone</strong></td>
+                    <td>Grid cells that are adjacent to land. In ComCon, these are the locations where intertidal larvae can be released from and settle at.</td>
+                </tr>
+                <tr>
+                    <td><strong>Community Detection (Louvain)</strong></td>
+                    <td>A method for identifying groups of sites that exchange more larvae with each other than with the rest of the network. ComCon applies the Louvain algorithm to an undirected, weighted version of the connectivity graph — undirected because community membership reflects mutual exchange (a connection from site A to site B and from B to A are combined into a single connection strength), and weighted by the number of particles exchanged. Louvain works by maximising <em>modularity</em>: it iteratively assigns sites to communities so that connections within a community are as dense, and connections between communities as sparse, as possible relative to what would be expected by chance. The result is a set of functionally connected groups of populations, which can inform conservation planning by identifying clusters that operate as semi-independent units.</td>
+                </tr>
+                <tr>
+                    <td><strong>Conda</strong></td>
+                    <td>A package and environment manager for Python. It helps install software and manage different "environments" with different packages.</td>
+                </tr>
+                <tr>
+                    <td><strong>Connectivity Hotspot</strong></td>
+                    <td>A site that ranks highly across multiple connectivity metrics. Hotspots are priority sites for conservation as they play important roles in maintaining population connectivity.</td>
+                </tr>
+                <tr>
+                    <td><strong>Connectivity Matrix</strong></td>
+                    <td>A table showing the number or proportion of larvae that successfully disperse from each source (y-axis) location to each sink (x-axis) location.</td>
+                </tr>
+                <tr>
+                    <td><strong>Connectivity Strength</strong></td>
+                    <td>The number of particles (propagules) successfully dispersing between two sites. Higher values indicate more individual connections.</td>
+                </tr>
+                <tr>
+                    <td><strong>Degree Centrality</strong></td>
+                    <td>A network metric counting the number of direct connections a site has. High degree sites are connected to many other locations.</td>
+                </tr>
+                <tr>
+                    <td><strong>Diffusivity</strong></td>
+                    <td>A parameter that controls how much random "spreading" particles experience beyond the main current flow. Represents small-scale turbulence.</td>
+                </tr>
+                <tr>
+                    <td><strong>Environment</strong></td>
+                    <td>A self-contained space on your computer with its own set of installed packages. Different projects can have different environments to avoid conflicts.</td>
+                </tr>
+                <tr>
+                    <td><strong>FieldSet</strong></td>
+                    <td>An OceanParcels object that contains all the velocity field data (ocean currents) needed to track particles. It includes the U (east-west) and V (north-south) velocity components, plus any additional fields like land masks or diffusivity. ComCon creates this automatically from your hydrodynamic data.</td>
+                </tr>
+                <tr>
+                    <td><strong>GBIF</strong></td>
+                    <td>Global Biodiversity Information Facility. A database of species occurrence records from around the world. ComCon can download occurrence data directly from GBIF.</td>
+                </tr>
+                <tr>
+                    <td><strong>Grid</strong></td>
+                    <td>A regular array of points covering your study area. Think of it like graph paper laid over a map. Each square is a grid cell. The grid spacing (resolution) determines how detailed your analysis is. ComCon uses the native hydrodynamic resolution for particle advection, but offers the option to use a coarser grid for release and settlement sites to improve computational efficiency on large domains (see Grid Auto-Scaling).</td>
+                </tr>
+                <tr>
+                    <td><strong>Grid Cell</strong></td>
+                    <td>A single square within the grid, representing one geographic location. Each grid cell has coordinates (latitude/longitude) and contains data values like current speed and direction. Release sites and settlement sites are defined at the grid cell level. Not to be confused with a Jupyter notebook "cell" which is where you write code.</td>
+                </tr>
+                <tr>
+                    <td><strong>Grid Resolution</strong></td>
+                    <td>The size of each grid cell, typically expressed in degrees (e.g., 1/12° ≈ 9km) or kilometres. Higher resolution (smaller cells) captures more detail but requires more computational resources.</td>
+                </tr>
+                <tr>
+                    <td><strong>Grid Scaling</strong></td>
+                    <td>A ComCon feature that recommends a coarser grid resolution for release and settlement sites when the study domain is large, to reduce computational cost. Particle advection always runs on the full native-resolution hydrodynamic grid. If grid-scaling is applied, only the release and settlement sites are affected. A coarser release/settlement grid means fewer sites, fewer particles and faster simulations, but less spatial detail in the connectivity results. You can choose the recommended, native or a custom resolution. For site-based analyses you can usually choose the native (finest) resolution rather than the coarser default, because only your study sites release particles, so far fewer are simulated. The native hydrodynamic resolution is the finest available, so two sites can be resolved separately only if they are further apart than one native cell. See <a href="#site-based">Site=-Based Analyses</a> for details.</td>
+                </tr>
+                <tr>
+                    <td><strong>Hydrodynamic Data</strong></td>
+                    <td>Data describing ocean current velocity. How fast and in which direction water moves at different locations and times. ComCon uses NEMO model data from the Copernicus Marine Service. The user can select the model they would like to use and for which hydrodynamic extent.</td>
+                </tr>
+                <tr>
+                    <td><strong>Hydrodynamic Extent</strong></td>
+                    <td>The geographic area covering the entire marine area in which you want to allow your larvae to disperse. This should be much larger than your area of connectivity interest.</td>
+                </tr>
+                <tr>
+                    <td><strong>Jupyter Lab</strong></td>
+                    <td>An interactive computing environment where you run Python code in "cells" and see results immediately. It's like a digital notebook and serves as a user-friendly interface.</td>
+                </tr>
+                <tr>
+                    <td><strong>Kernel (Jupyter)</strong></td>
+                    <td>The computational engine that runs your Python code in Jupyter Lab. Think of it as the "brain" behind your notebook. When you run a cell, the kernel executes the code and returns the result. <strong>Key actions:</strong> <em>Restart Kernel</em> (Kernel menu → Restart Kernel) clears all variables and starts fresh. This is useful when something goes wrong or you want to re-run from scratch. <em>Interrupt Kernel</em> (Kernel menu → Interrupt Kernel, or the ■ stop button) stops a currently running cell. This is useful if a simulation is taking too long or you made a mistake. After restarting the kernel, you need to re-run all your cells from the top (re-import ComCon, re-enter parameters, etc.).</td>
+                </tr>
+                <tr>
+                    <td><strong>Kernel (OceanParcels)</strong></td>
+                    <td>Not to be confused with the Jupyter kernel. In OceanParcels, a "kernel" is a set of rules defining how particles behave during the simulation. For example, how they move with currents (advection), how they interact with land (boundary conditions) and how distance is tracked. ComCon creates these automatically.</td>
+                </tr>
+                <tr>
+                    <td><strong>Lagrangian Particle Tracking</strong></td>
+                    <td>A method of simulating dispersal by tracking individual particles (representing larvae) as they move through the ocean. Each particle follows the ocean currents from its release point.</td>
+                </tr>
+                <tr>
+                    <td><strong>Lazy Loading</strong></td>
+                    <td>A technique where data is accessed on-demand from a remote server rather than downloading the entire dataset first. ComCon uses lazy loading by default for hydrodynamic data meaning it streams ocean current data directly from the Copernicus Marine Service as needed during the simulation. This means you do not need to download gigabytes of data to your computer. The optional "export to file" feature downloads a local copy for offline use but this is not required to run your analysis.</td>
+                </tr>
+                <tr>
+                    <td><strong>Mask</strong></td>
+                    <td>A filter that identifies which grid cells belong to different categories (land, ocean, coast). ComCon creates masks automatically from the hydrodynamic data to ensure particles stay in the water and can only settle in appropriate locations.</td>
+                </tr>
+                <tr>
+                    <td><strong>Mortality Rate</strong></td>
+                    <td>The proportion of released particles that fail to settle. Calculated as: 1 - settlement rate.</td>
+                </tr>
+                <tr>
+                    <td><strong>NEMO</strong></td>
+                    <td>Nucleus for European Modelling of the Ocean. A modelling platform ocean circulation model that provides the current data used in dispersal simulations.</td>
+                </tr>
+                <tr>
+                    <td><strong>NetCDF</strong></td>
+                    <td>A file format commonly used for storing scientific data, particularly oceanographic and climate data. The hydrodynamic data from Copernicus can optionally be saved in NetCDF format (.nc files) or Zarr format (.zarr files; see below). Note: you do not need to download the data to run ComCon. It streams data directly from Copernicus by default (see <em>Lazy Loading</em>).</td>
+                </tr>
+                <tr>
+                    <td><strong>OceanParcels</strong></td>
+                    <td>The underlying Python framework that ComCon uses to track particles through ocean current fields. It handles the physics of particle movement.</td>
+                </tr>
+                <tr>
+                    <td><strong>Parquet</strong></td>
+                    <td>A file format ComCon uses behind the scenes to store large trajectory datasets efficiently on disk during a simulation. You don't need to interact with these files directly — ComCon reads from them automatically, which is what lets you re-analyse or animate results later without re-running the simulation.</td>
+                </tr>
+                <tr>
+                    <td><strong>Particle</strong></td>
+                    <td>A virtual point in the simulation that represents a larva or group of larvae. Particles are released at specified locations and tracked as they drift with ocean currents. The terms "particle" and "propagule" are often used interchangeably in dispersal modelling.</td>
+                </tr>
+                <tr>
+                    <td><strong>ParticleSet (pset)</strong></td>
+                    <td>An OceanParcels object containing all the virtual particles to be simulated. It stores each particle's position, release time, species assignment and custom variables (like distance travelled). ComCon creates this in Step 3 based on your release sites and particle settings.</td>
+                </tr>
+                <tr>
+                    <td><strong>Planktonic Larval Duration (PLD)</strong></td>
+                    <td>The time a larva spends drifting in the water column before it becomes competent to settle. Different species have different PLDs, typically ranging from days to months.</td>
+                </tr>
+                <tr>
+                    <td><strong>Potential Connectivity Sites</strong></td>
+                    <td>The number of grid cells where connectivity could occur. If using species-specific release/settlement, this is the count of cells with at least one species' occurrence data. If using "all sites", this equals the total number of coastal cells in your study extent.</td>
+                </tr>
+                <tr>
+                    <td><strong>Propagule</strong></td>
+                    <td>Any dispersing life stage of an organism. In marine contexts, typically larvae, eggs or spores. In ComCon, each simulated particle represents one or more propagules.</td>
+                </tr>
+                <tr>
+                    <td><strong>Python</strong></td>
+                    <td>A programming language commonly used in scientific computing. You don't need to know Python to use ComCon. The package handles the programming for you. Think of it as the language that ComCon is written in.</td>
+                </tr>
+                <tr>
+                    <td><strong>Realised Connectivity Sites</strong></td>
+                    <td>The number of sites that actually contribute to overall network connectivity (i.e., at least one particle arrived at or departed from the site in the simulation results). This is always less than or equal to potential connectivity sites.</td>
+                </tr>
+                <tr>
+                    <td><strong>Self-Recruitment</strong></td>
+                    <td>When particles (larvae) settle back at or near their release site. High self-recruitment indicates a population that can sustain itself locally; low self-recruitment indicates dependence on external larval supply. In network analysis, self-recruitment appears as self-loops on the diagonal of the connectivity matrix. Note that self-recruitment is only counted where a site is both a release and a settlement site; if your release and settlement sets do not overlap it is zero by construction, so include the relevant sites in both if local retention matters for your question.</td>
+                </tr>
+                <tr>
+                    <td><strong>Self-Recruitment Rate</strong></td>
+                    <td>The proportion of settled particles that return to (or near) their release site. High self-recruitment indicates self-sustaining populations; low values indicate dependence on external sources.</td>
+                </tr>
+                <tr>
+                    <td><strong>Session / Working Environment</strong></td>
+                    <td>A session refers to the period from when you start Jupyter Lab to when you close it. All variables, data and results exist only during your session. If you restart the kernel or close Jupyter Lab, you lose any unsaved work. This is why ComCon saves parameter files (JSON) so that you can reload your settings in a new session without re-entering everything.</td>
+                </tr>
+                <tr>
+                    <td><strong>Settlement</strong></td>
+                    <td>The process by which larvae transition from their planktonic phase to their benthic (bottom-dwelling) phase, attaching to suitable habitat.</td>
+                </tr>
+                <tr>
+                    <td><strong>Settlement Rate</strong></td>
+                    <td>The proportion of released particles that successfully settle in suitable habitat. Calculated as: settled particles ÷ released particles × 100.</td>
+                </tr>
+                <tr>
+                    <td><strong>Sink Site</strong></td>
+                    <td>A location that receives larvae from other sites. Sink sites depend on immigration for population replenishment.</td>
+                </tr>
+                <tr>
+                    <td><strong>Sink Strength</strong></td>
+                    <td>A measure of how many particles a site receives from other locations. Strong sink sites depend heavily on immigration from other populations.</td>
+                </tr>
+                <tr>
+                    <td><strong>Source Site</strong></td>
+                    <td>A location that exports larvae to other sites. Strong sources release many larvae that successfully settle elsewhere.</td>
+                </tr>
+                <tr>
+                    <td><strong>Source Strength</strong></td>
+                    <td>A measure of how many particles a site exports to other locations. Strong source sites are important for replenishing downstream populations.</td>
+                </tr>
+                <tr>
+                    <td><strong>Spawning Window</strong></td>
+                    <td>The period of time during which a species releases larvae into the water. This is typically seasonal and varies between species.</td>
+                </tr>
+                <tr>
+                    <td><strong>Study Extent</strong></td>
+                    <td>The geographic area covering your sites of interest in your study, defined by minimum and maximum latitude and longitude coordinates. Also called the "study area" or "domain". The domain must be within the coverage of the hydrodynamic data.</td>
+                </tr>
+                <tr>
+                    <td><strong>Terminal</strong></td>
+                    <td>A text-based interface that lets you interact with your computer by typing commands instead of clicking with a mouse. It is what you will use to install ComCon.</td>
+                </tr>
+                <tr>
+                    <td><strong>Timestep</strong></td>
+                    <td>The interval at which particle positions are calculated during the simulation. Smaller timesteps are more accurate but slower. ComCon typically uses timesteps of minutes to hours. The output interval (how often positions are saved) can be different from the computational timestep.</td>
+                </tr>
+                <tr>
+                    <td><strong>Trajectory</strong></td>
+                    <td>The path a particle takes through the ocean during the simulation. Trajectories are recorded as a series of positions over time, showing where the particle was at each timestep. Trajectory data is stored in the simulation output file and used to calculate connectivity.</td>
+                </tr>
+                <tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- Part 1: Getting Started -->
+    <section id="part1">
+        <h1>Part 1: Getting Started</h1>
+        
+        <h2 id="what-is-comcon">What is ComCon?</h2>
+        <p>ComCon (Community Connectivity Package) is a Python package designed to make multi-species marine connectivity modelling accessible to researchers without extensive programming experience. It combines:</p>
+        <ul>
+            <li><strong>OceanParcels</strong> - for Lagrangian particle tracking</li>
+            <li><strong>NEMO hydrodynamic data</strong> - from the Copernicus Marine Service</li>
+            <li><strong>Species trait data</strong> - spawning windows and planktonic larval durations</li>
+            <li><strong>Network analysis tools</strong> - to identify connectivity patterns and hotspots</li>
+        </ul>
+        
+        <p>The package guides you through a 6-step workflow, handling the technical complexity while giving you control over the biological parameters that matter for your research.</p>
+        
+        <h3>Why Use ComCon?</h3>
+        <ul>
+            <li><strong>Multi-species:</strong> Model entire communities</li>
+            <li><strong>Trait-defined filtering:</strong> Apply species-specific spawning windows, PLDs and habitat preferences</li>
+            <li><strong>Automated data download:</strong> Downloads hydrodynamic and occurrence data for you</li>
+            <li><strong>Comprehensive outputs:</strong> Connectivity matrices, network metrics and visualisations</li>
+            <li><strong>No coding required:</strong> Interactive prompts guide you through each step</li>
+        </ul>
+        
+        <h2 id="installing-conda">Installing Conda (Miniconda)</h2>
+        <p>Before we can use ComCon, we need to install a tool called Conda. Conda is a package manager that helps us install Python and all the necessary libraries.</p>
+        
+        <div class="info-box">
+            <strong>What is Conda?</strong> Think of Conda as an app store for Python packages. Instead of finding and installing each package manually, Conda handles everything for you.
+        </div>
+        
+        <h3>Step-by-Step Installation</h3>
+        
+        <p><strong>1. Download Miniconda</strong></p>
+        <p>Visit the Miniconda download page: <a href="https://www.anaconda.com/download" target="_blank">https://www.anaconda.com/download</a></p>
+
+        <p>Click on <strong>Get Sarted</strong> and create a free account with Anaconda.</p>
+
+        <p>Once you have set up your account you should see the option to <strong>Choose Your Download</strong>. Select the <strong>Miniconda</strong> installer for your operating system:</p>
+        <ul>
+            <li><strong>Windows:</strong> Download "Windows 64-Bit Graphical Installer"</li>
+            <li><strong>macOS:</strong> Download "64-Bit (Apple silicon) Graphical Installer</li>
+            <li><strong>Linux:</strong> Download "64-bit (x86) Installer"</li>
+        </ul>
+        
+        <p><strong>2. Run the Installer</strong></p>
+        <ol>
+            <li>Double-click the downloaded .exe file</li>
+            <li>Click "Next" through the welcome screen</li>
+            <li>Accept the license agreement</li>
+            <li>Select "Just Me" when asked who to install for</li>
+            <li>Keep the default installation location (or choose your own, just keep in mind it will have to be installed to an empty folder)</li>
+            <li><strong>Important:</strong> On the "Advanced Installation Options" screen, check both boxes:
+                <ul>
+                    <li>"Create shortcuts (supported packages only)"</li>
+                    <li>"Register Miniconda3 as my default Python"</li>
+                </ul>
+            </li>
+            <li>Click "Install" and wait for completion</li>
+        </ol>
+        <p><strong>3. Verify Installation</strong></p>
+
+        <p>In order to verify the installation, we will need to open up a <strong>Terminal</strong>.
+
+        <h4>What is a Terminal?</h4>
+
+        <p>A terminal (also called a command prompt or command line) is a text-based way of talking to your computer. Instead of clicking buttons and icons, you type commands and press <kbd>Enter</kbd> to run them. It looks like a plain text window, usually with a dark or white background and a blinking cursor waiting for you to type something.</p>
+
+        <div style="text-align: center; margin: 20px 0;">
+            <img src="screenshots/anaconda_prompt.png"
+                 style="max-width: 100%; border: 1px solid #ddd; border-radius: 8px;">
+            <p style="color: #666; font-size: 14px;">An Anaconda Prompt Terminal</p>
+        </div>
+
+        <h4>How to Open the Anaconda Prompt (Windows)</h4>
+
+        <p>On Windows, you will use the <strong>Anaconda Prompt</strong>, which is a terminal that was installed with Miniconda. Here is how to find it:</p>
+
+        <ol>
+            <li>Click the <strong>Windows Start button</strong> (the Windows icon in the bottom-left corner of your screen or press the <kbd>Windows</kbd> key on your keyboard)</li>
+            <li>Start typing <strong>Anaconda Prompt</strong>. You should see it appear in the search results as you type</li>
+            <li>Click on <strong>Anaconda Prompt</strong> to open it</li>
+        </ol>
+
+        <div class="tip-box">
+            <strong>Tip:</strong> If you cannot find "Anaconda Prompt" in the search results, try searching for just "Anaconda" or "miniconda". If it still does not appear, you may need to reinstall Miniconda.
+        </div>
+
+        <p>A black window will open with text that looks something like this:</p>
+
+        <div class="expected-output">
+            <div class="expected-output-header">What the Anaconda Prompt looks like:</div>
+            <pre style="background-color: #1e1e1e; color: #d4d4d4;">
+<span style="color: #4ec9b0;">(base)</span> C:\Users\YourName></pre>
+        </div>
+
+        <p>The <code>(base)</code> at the start tells you that Conda is working and you are in the default environment. The blinking cursor after the <code>&gt;</code> is where you type your commands.</p>
+
+        <h4>How to Open the Terminal (macOS)</h4>
+
+        <ol>
+            <li>Press <kbd>Cmd</kbd> + <kbd>Space</kbd> to open Spotlight Search (or click the magnifying glass icon in the top-right corner of your screen)</li>
+            <li>Type <strong>Terminal</strong> and press <kbd>Enter</kbd></li>
+        </ol>
+
+        <p>A window will open with a command line. If Miniconda was installed correctly, you should see <code>(base)</code> at the start of the line, just like on Windows.</p>
+
+        <div class="info-box">
+            <strong>You will use this terminal throughout the setup process and every time you want to use ComCon.</strong> Whenever this guide says "open your terminal", it means open the Anaconda Prompt (Windows) or Terminal (macOS/Linux). You may want to pin it to your taskbar or dock for easy access.
+        </div>
+
+        <p>Now, to check we have installed conda properly, open your terminal and type:</p>
+        <pre><code>conda --version</code></pre>
+        
+        <div class="expected-output">
+            <div class="expected-output-header">Expected Output:</div>
+            <code>conda 24.x.x</code> (the numbers may vary)
+        </div>
+        
+        <h2 id="creating-environment">Creating the ComCon Environment</h2>
+        <p>Now we'll create a dedicated environment for ComCon. This is like creating a special workspace with exactly the right tools for the job.</p>
+        
+        <div class="info-box">
+            <strong>Why use environments?</strong> Different projects may need different versions of packages. Environments keep everything organised and prevent conflicts. The ComCon environment will contain everything you need for connectivity modelling.
+        </div>
+        
+        <h3>Step-by-Step Environment Setup</h3>
+        
+        <p><strong>1. Open your terminal</strong></p>
+        
+        <p><strong>2. Create the environment with all dependencies</strong></p>
+        <p>Copy and paste the following command (all on one line) and press <kbd>Enter</kbd>:</p>
+        
+        <pre><code>conda env create -f environment.yml</code></pre>
+        
+        <div class="info-box">
+            <strong>What does this command do?</strong>
+            <ul>
+                <li><code>conda create</code> - Creates a new environment</li>
+                <li><code>-n comcon</code> - Names it "comcon"</li>
+                <li><code>-c conda-forge</code> - Uses the conda-forge channel (a library of packages)</li>
+                <li>The rest are the packages needed for ComCon, including:
+                    <ul>
+                        <li><code>parcels</code> - Ocean particle tracking engine</li>
+                        <li><code>cartopy</code> - Map plotting library</li>
+                        <li><code>geopandas</code> - Geographic data handling</li>
+                        <li><code>jupyter</code> - Interactive notebook environment</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+        
+        <p>When prompted "Proceed ([y]/n)?", type <code>y</code> and press <kbd>Enter</kbd>.</p>
+        
+        <p>This will take several minutes as Conda downloads and installs all the required packages. You'll see a progress bar.</p>
+        
+        <div class="expected-output">
+            <div class="expected-output-header">Expected Output (when complete):</div>
+            <pre>Preparing transaction: done
+Verifying transaction: done
+Executing transaction: done
+#
+# To activate this environment, use
+#
+#     $ conda activate comcon
+#
+# To deactivate an active environment, use
+#
+#     $ conda deactivate</pre>
+        </div>
+        
+        <p><strong>3. Activate the environment</strong></p>
+        <p>Type the following and press <kbd>Enter</kbd>:</p>
+        <pre><code>conda activate comcon</code></pre>
+        
+        <p>You should see your prompt change to show <code>(comcon)</code> at the beginning. This tells you the environment is active:</p>
+        
+        <div class="expected-output">
+            <div class="expected-output-header">What your terminal should look like:</div>
+            <pre style="background-color: #1e1e1e; color: #d4d4d4;">
+<span style="color: #4ec9b0;">(comcon)</span> C:\Users\YourName>   <span style="color: #6a9955;">← Windows: The (comcon) means it's working!</span>
+<span style="color: #4ec9b0;">(comcon)</span> username@computer:~$  <span style="color: #6a9955;">← Mac/Linux version</span></pre>
+        </div>
+        
+        <div class="critical-box">
+            <strong>Important:</strong> You must activate the comcon environment every time you open a new terminal window before working with ComCon. If you don't see <code>(comcon)</code> at the start of your prompt, the environment isn't active.
+        </div>
+        <h2 id="terminal-navigation">Navigating with the Terminal</h2>
+
+        <p>Before installing ComCon, you need to understand a few basic terminal commands. You will use these throughout the setup process and whenever you launch ComCon.</p>
+
+        <h3>What Does <code>cd</code> Mean?</h3>
+
+        <p><code>cd</code> stands for "change directory". It tells your terminal to move into a different folder. Think of it like double-clicking a folder in File Explorer or Finder, but using text instead of your mouse.</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Command</th>
+                    <th>What It Does</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>cd folder_name</code></td>
+                    <td>Move into a subfolder</td>
+                </tr>
+                <tr>
+                    <td><code>cd ..</code></td>
+                    <td>Move up one level (to the parent folder)</td>
+                </tr>
+                <tr>
+                    <td><code>cd /full/path/to/folder</code></td>
+                    <td>Move to a specific location using the full path</td>
+                </tr>
+                <tr>
+                    <td><code>pwd</code> (macOS/Linux) or <code>cd</code> alone (Windows)</td>
+                    <td>Show the current directory you are in</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>How to Get a File Path</h3>
+
+        <p>Throughout ComCon, you may need to provide file paths (locations of files on your computer). Here's how to find them:</p>
+
+        <p><strong>Windows:</strong></p>
+        <ol>
+            <li>Navigate to the file in File Explorer</li>
+            <li>Click on the address bar at the top (it will highlight)</li>
+            <li>Copy the path (<kbd>Ctrl</kbd> + <kbd>C</kbd>)</li>
+            <li>In ComCon, paste the path when prompted</li>
+        </ol>
+
+        <p><strong>macOS:</strong></p>
+        <ol>
+            <li>Navigate to the file in Finder</li>
+            <li>Right-click the file and hold <kbd>Option</kbd></li>
+            <li>Select "Copy [filename] as Pathname"</li>
+        </ol>
+
+        <div class="warning-box">
+            <strong>Windows Users:</strong> Python uses forward slashes (<code>/</code>) in file paths, not backslashes (<code>\</code>). If you copy a path from File Explorer, you may need to change <code>\</code> to <code>/</code>. Alternatively, put an <code>r</code> before the path string: <code>r"C:\Users\Laura\Documents"</code>
+        </div>
+        <h2 id="installing-comcon">Installing ComCon</h2>
+
+        <p>With the environment ready, we can now install ComCon itself. You should have received a folder called <code>comcon_distribution</code> (either as a ZIP file or shared folder).</p>
+
+        <p><strong>1. Locate the ComCon folder</strong></p>
+        <p>If you received a ZIP file, first unzip it:</p>
+        <ul>
+            <li><strong>Windows:</strong> Right-click the ZIP file → "Extract All..." → Choose a location (e.g., Documents)</li>
+            <li><strong>Mac:</strong> Double-click the ZIP file to unzip it</li>
+        <div class="info-box">
+            <strong>Important: </strong>We recommend saving your ComCon project folder to a <strong>local drive</strong> rather than
+            a cloud-synced folder (such as OneDrive, Dropbox or Google Drive). Cloud sync services can
+            interfere with file read/write operations, particularly for simulation output files
+            (<code>.zarr</code> format) which consist of many small files that sync services try to
+            upload individually. If you experience unexpected file errors, try moving your project
+            folder to a local directory (e.g., <code>C:\Users\YourName\Documents\</code> on Windows
+            or <code>/Users/YourName/Documents/</code> on Mac).
+        </div>
+        </ul>
+
+        <p><strong>2. Navigate to the folder in your terminal</strong></p>
+        <p>You need to tell the terminal where the ComCon files are. Use the <code>cd</code> (change directory) command. Adjust the path to where you unzipped the folder.</p>
+
+        <pre><code><span class="comment"># Windows example: </span>
+cd C:\Users\YourName\Documents\comcon_distribution
+
+<span class="comment"># Mac example:</span>
+cd ~/Documents/comcon_distribution</code></pre>
+
+        <div class="tip-box">
+            <strong>Easy way to get the folder path:</strong>
+            <ul>
+                <li><strong>Windows:</strong> Open the folder in File Explorer, click in the address bar at the top, and copy the path. Then type <code>cd </code> (with a space) in your terminal and paste the path.</li>
+                <li><strong>Mac:</strong> Drag the folder from Finder into your Terminal window - it will paste the path automatically!</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin: 20px 0;">
+            <img src="screenshots/file_path.png"
+                 style="max-width: 100%; border: 1px solid #ddd; border-radius: 8px;">
+            <p style="color: #666; font-size: 14px;">How to easily copy and paste file paths for the entire workflow</p>
+        </div>
+
+        <p><strong>3. Install ComCon</strong></p>
+        <p>Make sure your environment is still activated (you should see <code>(comcon)</code> at the start of your prompt). Then run:</p>
+
+        <pre><code>pip install -e .</code></pre>
+
+        <p>Note: That's a dot at the end! It means "install from the current folder".</p>
+
+        <div class="expected-output">
+            <div class="expected-output-header">Expected Output:</div>
+            <pre>Successfully installed comcon-1.0.0</pre>
+        </div>
+
+        <div class="success-box">
+            <strong>✓ Installation complete!</strong> ComCon is now installed and ready to use.
+        </div>
+        
+        <h2 id="launching-jupyter">Launching Jupyter Lab</h2>
+
+        <p>Jupyter Lab is where you'll actually run ComCon. It's an interactive environment where you can write and run code in small chunks called "cells".</p>
+
+        <h3>What is a Working Directory?</h3>
+
+        <p>Your <strong>working directory</strong> is the folder on your computer that Jupyter Lab considers "home" for your current session. This means ComCon will search for any data you will use and any outputs you create during your session, in this folder. When ComCon saves a file to <code>./projects/MyProject/figures/map.png</code>, the <code>./</code> means "starting from the working directory". So the file ends up inside your working directory, in the project subfolder.</p>
+
+        <div class="warning-box">
+            <strong>Key Rule:</strong> Always launch Jupyter Lab from inside your <code>comcon_distribution</code> folder. This ensures your working directory is correct and all ComCon file paths work properly.
+        </div>
+
+        <h3>How to Launch Jupyter Lab</h3>
+
+        <p><strong>Step 1:</strong> Open your terminal (Anaconda Prompt on Windows, Terminal on macOS/Linux)</p>
+
+        <p><strong>Step 2:</strong> Activate the ComCon environment:</p>
+        <pre><code>conda activate comcon</code></pre>
+
+        <p><strong>Step 3:</strong> Navigate to your ComCon folder using the <code>cd</code> command:</p>
+
+        <p><strong>Windows:</strong></p>
+        <pre><code>cd C:\Users\YourName\Documents\comcon_distribution</code></pre>
+
+        <p><strong>macOS/Linux:</strong></p>
+        <pre><code>cd /Users/YourName/Documents/comcon_distribution</code></pre>
+
+        <div class="tip-box">
+            <strong>How to find the path:</strong>
+            <ul>
+                <li><strong>Windows:</strong> Open File Explorer, navigate to your comcon_distribution folder, click the address bar at the top and it will show the full path. Copy it.</li>
+                <li><strong>macOS:</strong> Open Finder, navigate to the folder, right-click the folder while holding <kbd>Option</kbd>, and select "Copy as Pathname".</li>
+            </ul>
+        </div>
+
+        <p><strong>Step 4:</strong> Launch Jupyter Lab:</p>
+        <pre><code>jupyter lab</code></pre>
+
+        <p>This will open Jupyter Lab in your web browser automatically. If it doesn't, copy the URL shown in the terminal (starts with http://localhost:8888) and paste it into your browser.</p>
+
+        <h2 id="jupyter-guide">Jupyter Lab Guide</h2>
+
+        <p>Before running ComCon, let's learn the basics of Jupyter Lab. This will help you navigate the interface and run code effectively.</p>
+
+        <h3>The Jupyter Lab Interface</h3>
+
+        <ul>
+            <li><strong>File Browser (left panel):</strong> Shows files in your current directory. You can navigate folders here.</li>
+            <li><strong>Launcher (main area):</strong> When you first open Jupyter Lab, you see the Launcher. Click "Python 3" under "Notebook" to create a new notebook.</li>
+            <li><strong>Notebook tabs:</strong> Open notebooks appear as tabs at the top.</li>
+            <li><strong>Cells:</strong> The boxes where you write code. Each cell can be run independently.</li>
+        </ul>
+
+        <h3>Creating a New Notebook</h3>
+        <ol>
+            <li>Click "Python 3 (ipykernel)" under the "Notebook" section in the Launcher</li>
+            <li>A new notebook will open with one empty cell</li>
+            <li>Right-click the "Untitled.ipynb" tab and select "Rename Notebook"</li>
+            <li>Give it a meaningful name like "ComCon_Analysis.ipynb"</li>
+        </ol>
+
+        <h3>Running Code in Cells</h3>
+
+        <p>There are several ways to run code your code. First click on the cell you want to run first. Then choose one of the following:</p>
+        <ul>
+            <li><kbd>Ctrl</kbd> + <kbd>Enter</kbd> (Windows) or <kbd>Cmd</kbd> + <kbd>Enter</kbd> (Mac): Run the current cell and stay on it</li>
+            <li><kbd>Shift</kbd> + <kbd>Enter</kbd>: Run the current cell and move to the next one</li>
+            <li>Click the "Play" button (▶) in the toolbar</li>
+        </ul>
+
+        <div class="info-box">
+            <strong>Default Values:</strong> Throughout ComCon, when you see a prompt with <code>[default: X]</code>, you can simply press <kbd>Enter</kbd> to accept the default value. This is useful when you want to use the recommended settings.
+        </div>
+
+        <h3>Adding New Cells</h3>
+        <ul>
+            <li>Press <kbd>B</kbd> (when not editing a cell) to add a cell below</li>
+            <li>Press <kbd>A</kbd> (when not editing a cell) to add a cell above</li>
+            <li>Or click the "+" button in the toolbar</li>
+        </ul>
+
+        <h3>The Kernel</h3>
+
+        <p>The <strong>kernel</strong> is the computational engine that runs your Python code. When you run a cell (press <kbd>Shift</kbd> + <kbd>Enter</kbd>), the kernel executes the code and returns the result. The kernel remembers all variables and data from previous cells. This is your <strong>session</strong>.</p>
+
+        <p>Key kernel actions (all found in the <strong>Kernel</strong> menu at the top of Jupyter Lab):</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Action</th>
+                    <th>When to Use</th>
+                    <th>What Happens</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Restart Kernel</strong></td>
+                    <td>Something went wrong or you want to start fresh</td>
+                    <td>All variables and data are cleared. You must re-run all cells from the top.</td>
+                </tr>
+                <tr>
+                    <td><strong>Interrupt Kernel</strong></td>
+                    <td>A cell is taking too long or you made a mistake</td>
+                    <td>Stops the currently running cell. Your data and variables are preserved.</td>
+                </tr>
+                <tr>
+                    <td><strong>Restart and Run All</strong></td>
+                    <td>Re-run the entire notebook from scratch</td>
+                    <td>Clears everything and runs every cell in order. Useful for testing.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="warning-box">
+            <strong>Important:</strong> After restarting the kernel, all your imported packages, variables, and loaded data are lost. You will need to re-run <code>import comcon</code> and all subsequent cells from the beginning. This is why ComCon automatically saves your parameters to JSON files. This allows you to reload them quickly in a new session without re-entering everything.
+        </div>
+
+        <h3>Sessions</h3>
+
+        <p>A <strong>session</strong> lasts from when you start Jupyter Lab (or restart the kernel) to when you close it (or restart the kernel again). Everything you create during a session such as variables, loaded data or simulation results, exists only in your computer's memory until you save it to a file.</p>
+
+        <p>This means:</p>
+        <ul>
+            <li>If you close Jupyter Lab, your variables are gone (but any files ComCon saved to disk are still there)</li>
+            <li>If you restart the kernel, you need to re-import ComCon and re-run your cells</li>
+            <li>ComCon saves parameters to JSON files automatically, so you can reload them in a new session</li>
+        </ul>
+
+        <h2 id="returning-to-project">Returning to a Started Project</h2>
+
+        <p>Once you have completed the initial setup (installing Miniconda, creating
+        the environment and installing ComCon), you do <strong>not</strong> need to
+        repeat these steps every time you use ComCon. The table below clarifies what you need to do once versus
+        every time you sit down to work.</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Action</th>
+                    <th>When</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Install Miniconda</td>
+                    <td><strong>Once only.</strong> Already done if you followed Part 1.</td>
+                </tr>
+                <tr>
+                    <td>Create the comcon environment (<code>conda create ...</code>)</td>
+                    <td><strong>Once only.</strong> The environment remains on your computer.</td>
+                </tr>
+                <tr>
+                    <td>Install packages (<code>pip install ...</code>)</td>
+                    <td><strong>Once only.</strong> Packages stay installed inside the environment.</td>
+                </tr>
+                <tr>
+                    <td>Install ComCon (<code>pip install -e .</code>)</td>
+                    <td><strong>Once only</strong> (unless you receive an updated version).</td>
+                </tr>
+                <tr>
+                    <td>Activate the environment (<code>conda activate comcon</code>)</td>
+                    <td><strong>Every time</strong> you open a new terminal window.</td>
+                </tr>
+                <tr>
+                    <td>Navigate to your folder (<code>cd path/to/comcon_distribution</code>)</td>
+                    <td><strong>Every time</strong> you open a new terminal window.</td>
+                </tr>
+                <tr>
+                    <td>Launch Jupyter Lab (<code>jupyter lab</code>)</td>
+                    <td><strong>Every time</strong> you want to use ComCon.</td>
+                </tr>
+                <tr>
+                    <td>Run <code>import comcon</code></td>
+                    <td><strong>Every time</strong> you start a new notebook session or restart the kernel.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Step-by-Step: Picking Up Where You Left Off</h3>
+
+        <p>When you come back to continue working on an existing project, here is
+        exactly what to do:</p>
+
+        <ol>
+            <li>Open the Anaconda Prompt (Windows) or Terminal (macOS/Linux)</li>
+            <li>Activate the environment:
+                <pre><code>conda activate comcon</code></pre>
+            </li>
+            <li>Navigate to your ComCon folder:
+                <pre><code>cd path/to/comcon_distribution</code></pre>
+            </li>
+            <li>Launch Jupyter Lab:
+                <pre><code>jupyter lab</code></pre>
+            </li>
+            <li>Open your existing notebook from the file browser on the left</li>
+            <li>In the first cell, run:
+                <pre><code>import comcon</code></pre>
+            </li>
+            <li>Continue from where you left off. When you run a workflow step,
+            ComCon will detect your saved parameter files and offer to reuse them.</li>
+        </ol>
+
+        <div class="info-box">
+            <strong>What about your project folder?</strong> Your project folder
+            and all its files (parameters, data, figures, results) are saved on
+            disk and persist between sessions. When you enter the same project name
+            during setup, ComCon will use the existing folder. You do not need to
+            re-download data or re-enter parameters. ComCon saves everything to
+            JSON files so you can reload your settings quickly.
+        </div>
+
+        <div class="tip-box">
+            <strong>Tip:</strong> You do not need to re-enter all your parameters.
+            When you run <code>workflow_step(1)</code> again, ComCon will find your
+            saved <code>hydrodynamic_parameters.json</code> file and ask if you want
+            to reuse it. Say "yes" and you are back where you left off. The same
+            applies to species occurrence parameters in Step 2.
+        </div>
+
+        <div class="warning-box">
+            <strong>After restarting the kernel:</strong> If you restart the kernel
+            (or close and reopen Jupyter Lab), all variables in memory are cleared.
+            This means you need to re-run <code>import comcon</code> and your
+            workflow steps from the beginning. However, ComCon will detect your
+            previously saved files and offer to reload them, so this is usually
+            quick. Any files already saved to disk (figures, CSVs, simulation
+            output) are not affected by a kernel restart.
+        </div>
+        <div class="info-box">
+            <strong>When would I need to repeat the setup steps?</strong>
+            One of the advantages of using a Conda environment is that it locks in
+            the exact versions of every package that were installed when you created
+            it. Unlike some other languages, packages do not update themselves
+            unexpectedly, so your analysis remains reproducible even months later.
+            You would only need to re-run the setup steps if:
+            <ul>
+                <li>You receive a <strong>new version of ComCon</strong> — navigate
+                    to the new folder, activate your environment, and run
+                    <code>pip install -e .</code> again</li>
+                <li>A <strong>major package update</strong> is required (e.g., a new
+                    version of OceanParcels) — in this case, it is safest to delete
+                    the old environment (<code>conda remove -n comcon --all</code>)
+                    and recreate it from scratch following the original instructions</li>
+                <li>You <strong>move to a new computer</strong> — the full setup
+                    (Miniconda, environment, ComCon) needs to be done once on each
+                    machine</li>
+            </ul>
+            In day-to-day use, you will never need to reinstall anything. Just
+            activate, navigate and launch.
+        </div>
+
+        <h2 id="file-management">How ComCon Organises Your Files</h2>
+
+        <p>At the start of every analysis (the first thing in Step 1, before you select your data source), ComCon asks you to set up a <strong>project directory</strong>. This is the folder where all outputs for this analysis will be saved. You have two options:</p>
+
+        <h4>Option 1: Create a ComCon Project Folder (Recommended)</h4>
+
+        <p>ComCon asks you for a <strong>project name</strong> and creates a structured folder inside <code>projects/</code> in your working directory. All outputs are automatically saved into the correct subfolder:</p>
+
+        <pre><code>comcon_distribution/
+└── projects/
+    └── MyProject/
+        ├── config/           — Saved parameter files (.json)
+        ├── hydro_data/       — Exported hydrodynamic data
+        ├── occurrence_data/  — Cleaned species occurrence data
+        ├── grids/            — Release and settlement grids
+        ├── simulation/       — Simulation output (.zarr)
+        ├── figures/          — All saved maps and plots
+        └── results/          — Connectivity metrics and network analysis CSVs</code></pre>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Subfolder</th>
+                    <th>What Goes Here</th>
+                    <th>Created By</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>config/</code></td>
+                    <td>Saved parameter files (<code>.json</code>) so you can reload settings</td>
+                    <td>Steps 1 and 2</td>
+                </tr>
+                <tr>
+                    <td><code>hydro_data/</code></td>
+                    <td>Exported hydrodynamic data (if you choose to download rather than stream)</td>
+                    <td>Step 1 (if you choose to download)</td>
+                </tr>
+                <tr>
+                    <td><code>occurrence_data/</code></td>
+                    <td>Cleaned species occurrence data</td>
+                    <td>Step 2</td>
+                </tr>
+                <tr>
+                    <td><code>grids/</code></td>
+                    <td>Release and settlement grid CSVs</td>
+                    <td>Step 3</td>
+                </tr>
+                <tr>
+                    <td><code>simulation/</code></td>
+                    <td>Simulation output (<code>.zarr</code> files)</td>
+                    <td>Step 4</td>
+                </tr>
+                <tr>
+                    <td><code>figures/</code></td>
+                    <td>All saved maps and plots</td>
+                    <td>Steps 2, 5, 6</td>
+                </tr>
+                <tr>
+                    <td><code>results/</code></td>
+                    <td>Connectivity metrics and network analysis CSVs</td>
+                    <td>Step 6</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="info-box">
+            <strong>You do not need to create any folders manually.</strong> ComCon creates everything for you. All you need to do is launch Jupyter Lab from the right place and provide a project name when asked.
+        </div>
+
+        <h4>Option 2: Use Your Own Directory (Advanced Users)</h4>
+
+        <p>If you prefer to organise your files differently or want to save outputs to a specific location (e.g. an external drive, a shared network folder or an existing project folder), you can choose "Use your own directory" during project setup.</p>
+
+        <p>When you choose this option, ComCon will ask:</p>
+        <ol>
+            <li><strong>The path to your directory</strong> (ComCon will create it if it does not exist)</li>
+            <li><strong>Whether to create ComCon subfolders inside it</strong>
+                <ul>
+                    <li><strong>Yes (default):</strong> Creates the same <code>config/</code>, <code>hydro_data/</code>, <code>figures/</code> (etc.) subfolders inside your directory</li>
+                    <li><strong>No:</strong> All outputs are saved directly into your directory with no subfolders (flat structure)</li>
+                </ul>
+            </li>
+        </ol>
+
+        <div class="expected-output">
+            <div class="expected-output-header">Example: Custom directory with subfolders</div>
+            <pre>Select option (1/2) [default: 1]: 2
+Enter the path to your directory: D:\Research\Channel_2024
+Create ComCon subfolders inside this directory? (yes/no) [default: yes]: yes
+
+  Project directory created: D:\Research\Channel_2024
+  Subfolders: config, hydro_data, occurrence_data, grids, simulation, figures, results</pre>
+        </div>
+
+        <div class="tip-box">
+            <strong>When to use a custom directory:</strong>
+            <ul>
+                <li>You already have a project folder structure you want to keep</li>
+                <li>You want to save outputs to a different drive or location</li>
+                <li>You are integrating ComCon into an existing analysis pipeline</li>
+                <li>You are using Manual Mode and want full control over file paths</li>
+            </ul>
+        </div>
+
+        <div class="warning-box">
+            <strong>Note for Manual Mode users:</strong> If you are using Manual Mode and calling functions directly in a script, you can set up a project directory at any point by running <code>project = setup_project_directory()</code>. If you do not set up a project directory, output paths will default to <code>./outputs</code> in your working directory.
+        </div>
+
+        <h3>When Does Project Setup Happen?</h3>
+
+        <p>Project setup is the <strong>first thing</strong> that happens when you begin a new analysis:</p>
+        <ul>
+            <li><strong>Interactive Mode:</strong> At the start of Step 1, before you select your hydrodynamic data source</li>
+            <li><strong>Automatic Mode:</strong> Section 1 of the parameter collection (the very first prompt)</li>
+            <li><strong>Manual Mode:</strong> Call <code>setup_project_directory()</code> whenever you want, or skip it entirely and provide your own paths to each function</li>
+        </ul>
+
+        <p>Once set up, your project directory is remembered for the rest of the session. All default file paths throughout the workflow will point to the appropriate subfolder in your project directory. You can always override these defaults by typing a different path when prompted.</p>
+
+        <h3>What If Something Goes Wrong with File Paths?</h3>
+
+        <p>If you see errors like <code>FileNotFoundError</code> or <code>No such file or directory</code>, it almost always means one of these:</p>
+        <ol>
+            <li><strong>Wrong working directory:</strong> You launched Jupyter Lab from the wrong folder. To verify your working directory run:</li>
+            <pre><code>import os
+print(os.getcwd())</code></pre>
+
+        <div class="success-box">
+            <strong>Expected output:</strong> The path should end with <code>comcon_distribution</code> (or whatever you named your folder). For example: <code>/Users/Laura/Documents/comcon_distribution</code>
+        </div>
+
+        <div class="critical-box">
+            <strong>Common Mistake:</strong> If you just type <code>jupyter lab</code> without first navigating to the correct folder using <code>cd</code>, Jupyter Lab will open in your home directory (e.g., <code>C:\Users\YourName</code>). ComCon will then not be able to find its files and will produce errors. Always <code>cd</code> first.
+        </div>
+
+
+            <li><strong>Typo in path:</strong> Check for typos, especially backslashes vs forward slashes</li>
+            <li><strong>File does not exist yet:</strong> Make sure you have run the earlier workflow steps first</li>
+        </ol>
+
+        <div class="tip-box">
+            <strong>Tip:</strong> Keep your data files in your working directory or a subfolder. ComCon's project folder system does this automatically. If you need to reference a file outside your working directory, use the full path (e.g., <code>/Users/Laura/Desktop/my_data.csv</code>).
+        </div>
+        <div class="info-box">
+            <strong>Note:</strong> When inputing folder paths and file names throughout the ComCon workflow, you can optionally add the file extension but this is not required. Both <code>/Users/Laura/Desktop/my_data.csv</code> or <code>/Users/Laura/Desktop/my_data</code> will work.
+        </div>
+
+    </section>
+    <!-- Part 2: Running Your First Model -->
+    <section id="part2">
+        <h1>Part 2: Introduction to the ComCon Workflow</h1>
+        <p>Before running anything, it helps to see how ComCon fits together. The workflow has <strong>two pathways</strong>, and the trait-defined pathway can be run in <strong>three modes</strong>. The flowchart below shows the whole picture; the sections that follow walk through each piece.</p>
+
+        <figure style="margin: 1.5em 0; text-align: center;">
+            <img src="images/flowchart.png" alt="ComCon workflow flowchart: passive and trait-defined pathways, and the three modes of the trait-defined pathway"
+                 style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 6px;">
+            <figcaption style="font-size: 0.9em; color: #555; margin-top: 0.5em;">
+                The ComCon workflow. The passive dispersal pathway gives a quick, trait-free overview; the trait-defined pathway runs species-specific connectivity in interactive, automatic or manual mode.
+            </figcaption>
+        </figure>
+
+        <h3>The two pathways</h3>
+        <ul>
+            <li><strong>Passive dispersal pathway.</strong> The simplest way in. You provide only a study area, and ComCon runs 28-day summer (July) and winter (February) simulations releasing particles from all ocean cells, then extracts connectivity at 7, 14, 21 and 28 days. No species or trait data needed — ideal for a first look at dispersal in your region. Follows James et al. (2025). See <a href="#part3-passive">the Passive Dispersal Pathway section</a> for full detail.</li>
+            <li><strong>Trait-defined pathway.</strong> The full species-specific workflow. You supply species traits (pelagic larval duration, spawning window, habitat), and ComCon filters dispersal accordingly to produce community and per-species connectivity. This is the pathway used for the 6-step workflow in Part 5.</li>
+        </ul>
+
+        <h3>The three modes (trait-defined pathway)</h3>
+        <p>The trait-defined pathway can be run in whichever mode suits how hands-on you want to be — all three produce the same results from the same settings:</p>
+        <ul>
+            <li><strong>Interactive mode.</strong> ComCon guides you through each of the six steps with prompts and on-screen output. Best for learning the workflow and for one-off analyses.</li>
+            <li><strong>Automatic mode.</strong> You answer all the questions up front, then ComCon runs the whole workflow unattended. Best when you know your settings and want to walk away while it runs.</li>
+            <li><strong>Manual mode.</strong> Direct access to every individual function, for scripting and advanced customisation. Best when you want to build your own pipeline or run only part of the workflow.</li>
+        </ul>
+        <h2 id="importing-comcon">Importing ComCon</h2>
+        <p>With everything installed, we're ready to start using ComCon! In your Jupyter notebook, create a new cell and type:</p>
+        
+        <pre><code>import comcon</code></pre>
+        
+        <p>Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> (or <kbd>Cmd</kbd> + <kbd>Enter</kbd> on Mac) to run the cell.</p>
+        
+        <div class="expected-output">
+            <div class="expected-output-header">Expected Output:</div>
+            <p>You should see the ComCon logo appear, followed by a welcome message and a dropdown menu to select your mode.</p>
+        </div>
+        
+        <div class="warning-box">
+            <strong>If you see an error:</strong>
+            <ul>
+                <li>Make sure you activated the comcon environment before launching Jupyter Lab</li>
+                <li>Try restarting the kernel (Kernel menu → Restart Kernel)</li>
+                <li>Check the <a href="#troubleshooting">Troubleshooting</a> section</li>
+            </ul>
+        </div>
+        
+        <h2 id="choosing-mode">Choosing a Mode</h2>
+        <p>ComCon offers two pathways and three modes within the trait-defined pathway:</p>
+
+        <h3>Pathway Selection</h3>
+        <p>When you import ComCon, you first choose between two pathways:</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Pathway</th>
+                    <th>Best For</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Passive Dispersal</strong></td>
+                    <td>Quick exploration, no trait data needed</td>
+                    <td>Runs 28-day summer/winter simulations with minimal user input. The easiest way to run your first model. See <a href="#part3-passive">Part 3</a>.</td>
+                </tr>
+                <tr>
+                    <td><strong>Trait-Defined</strong></td>
+                    <td>Full species-specific analysis</td>
+                    <td>Uses species PLDs, spawning windows and habitat preferences for biologically-informed connectivity modelling. See <a href="#part4-interactive">Part 4</a>.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Trait-Defined Pathway Modes</h3>
+        <p>If you select the trait-defined pathway, you then choose one of three modes:</p>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Mode</th>
+                    <th>Best For</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Interactive Mode</strong></td>
+                    <td>First-time users, exploring data</td>
+                    <td>Guides you step-by-step with explanations and visualisations at each stage. You can pause, review, and edit parameters between steps.</td>
+                </tr>
+                <tr>
+                    <td><strong>Automatic Mode</strong></td>
+                    <td>Repeat analyses, batch processing</td>
+                    <td>Collects all parameters upfront, then runs the entire workflow automatically. Great when you know what settings you want.</td>
+                </tr>
+                <tr>
+                    <td><strong>Manual Mode</strong></td>
+                    <td>Custom workflows, advanced users</td>
+                    <td>Access individual functions to build custom pipelines. Useful for re-running specific analyses or integrating into existing code.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p><strong>For your very first run, try the passive dispersal pathway.</strong> It needs only a study area (latitude/longitude) and gives a quick overview of dispersal in your region with no trait setup — the easiest way to see ComCon working end to end. When you're ready to model specific species, switch to the <strong>trait-defined pathway</strong> in <strong>Interactive Mode</strong>, which walks you through each step.</p>
+        </section>
+
+    <!-- Part 3: Running Your First Model — Passive Pathway -->
+    <section id="part3-passive">
+        <h1>Part 3: Running Your First Model — Passive Pathway</h1>
+
+        <p>The passive dispersal pathway (Pathway 1) provides a quick hydrodynamic overview of your study area without requiring species-specific trait data. It follows the approach described in James et al. (2025).</p>
+
+        <h2>When to Use the Passive Pathway</h2>
+        <ul>
+            <li>As an exploratory first step to understand general dispersal patterns before investing time in the full trait-defined workflow</li>
+            <li>When you want a quick comparison of summer vs winter dispersal</li>
+            <li>When species trait data is unavailable or uncertain</li>
+            <li>To identify connectivity barriers and corridors at a broad hydrodynamic level</li>
+        </ul>
+
+        <h2>How It Works</h2>
+        <p>The passive pathway runs 28-day simulations for both summer (July) and winter (February), following James et al. (2025). Particles are released from all ocean cells within the study area and connections are extracted at fixed timepoints (7, 14, 21, and 28 days) to represent a range of dispersal capabilities.</p>
+
+        <h3>What the User Provides</h3>
+        <ul>
+            <li>Latitude and longitude bounds of the study area</li>
+            <li>A project folder name</li>
+            <li>Copernicus Marine Service credentials (first run only; saved for future use)</li>
+        </ul>
+
+        <h3>What Is Set Automatically</h3>
+        <ul>
+            <li>Hydrodynamic dataset and grid resolution (auto-scaled by domain size)</li>
+            <li>Simulation time window (February for winter, July for summer)</li>
+            <li>Number of particles, runtime, timestep and horizontal diffusivity</li>
+            <li>All analysis parameters</li>
+        </ul>
+
+        <h2>Running the Passive Pathway</h2>
+        <pre><code>from comcon.passive import *
+passive_dispersal_pathway()</code></pre>
+
+        <p>The pathway runs end-to-end with minimal user input and produces the following outputs for both summer and winter:</p>
+
+        <h3>Outputs</h3>
+        <ul>
+            <li><strong>Land mask visualisation:</strong> Native and (if applicable) binned resolution maps showing ocean, coastal and land cells</li>
+            <li><strong>Connectivity matrices:</strong> Source × destination heatmaps at each timepoint (7, 14, 21, 28 days) and pooled across timepoints</li>
+            <li><strong>Network maps:</strong> Top 10 hotspot maps showing the most connected sites</li>
+            <li><strong>Community detection:</strong> Louvain community maps showing functionally connected groups of sites</li>
+            <li><strong>Summary statistics:</strong> Settlement rates, dispersal distances and network metrics for each timepoint</li>
+        </ul>
+
+        <h3>Datasets Produced</h3>
+        <p>The passive pathway produces 15 datasets in total: 8 raw datasets (4 timepoints × 2 seasons), 4 timepoint-pooled datasets (pooled across seasons for each timepoint), 2 season-pooled datasets (pooled across timepoints for each season), and 1 fully pooled dataset (all timepoints and seasons combined).</p>
+
+        <div class="info-box">
+            <strong>Note:</strong> The passive pathway uses the same grid auto-scaling system as the trait-defined pathway. For small domains, the native hydrodynamic resolution is used. For large domains, the grid is automatically coarsened to keep computation time manageable. The resolution chosen is displayed in a grid summary before the maps are shown.
+        </div>
+    </section>
+    <!-- Part 4: Running a Trait-Defined Model (Interactive Mode) -->
+    <section id="part4-interactive">
+        <h1>Part 4: Running a Trait-Defined Model (Interactive Mode)</h1>
+        <p>This walks through running a species-specific model in interactive mode — the guided, prompt-by-prompt way to use the trait-defined pathway. (For the simpler trait-free first run, see Part 3.)</p>
+
+        <h2 id="interactive-walkthrough">Starting Interactive Mode</h2>
+        
+        <p>After selecting Interactive Mode and clicking Start, you'll see instructions to begin the workflow. In a <strong>new cell</strong>, type:</p>
+        
+        <pre><code>from comcon.interactive import *
+workflow_step(1)</code></pre>
+        
+        <p>Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to run the cell. This begins Step 1 of the workflow.</p>
+        
+        <div class="info-box">
+            <strong>The workflow_step() function:</strong> This is how you progress through the analysis. Each step handles a different part of the connectivity modelling process. After completing each step, you'll be prompted to run the next one.
+        </div>
+        
+        <h3>How Interactive Mode Works</h3>
+        <ul>
+            <li><strong>Text prompts:</strong> ComCon will ask you questions. Type your answer and press <kbd>Enter</kbd></li>
+            <li><strong>Default values:</strong> Shown in square brackets like <code>[default: 1]</code>. Press <kbd>Enter</kbd> without typing anything to use the default</li>
+            <li><strong>Choices:</strong> Often shown as numbered options (1, 2, 3...). Type the number and press <kbd>Enter</kbd></li>
+            <li><strong>Yes/No questions:</strong> Type <code>yes</code> or <code>no</code> (or just <code>y</code> or <code>n</code>) and press <kbd>Enter</kbd></li>
+        </ul>
+        <h2 id="manual-mode">Manual Mode: Running Functions Directly</h2>
+        <p>Manual mode gives you direct access to every ComCon function, for scripting, customisation, or running only part of the workflow. It does not walk you through the steps — instead you call the functions you need, in the order you need them. This is the most flexible mode and the one to use when you want to build your own pipeline or re-run just one stage.</p>
+
+        <p>Two built-in helpers orient you:</p>
+        <ul>
+            <li><code>list_functions()</code> — prints every available function grouped by workflow step, each tagged <strong>[I]</strong> (interactive — has prompts, run in Jupyter) or <strong>[D]</strong> (direct — no prompts, safe to script).</li>
+            <li><code>example_workflow()</code> — prints a complete worked example you can copy and adapt.</li>
+        </ul>
+
+        <h3>Common tasks</h3>
+        <p><strong>Re-run only the analysis on an existing simulation</strong> (you already have trajectory output and don't want to re-simulate):</p>
+        <pre><code>import comcon.manual as cc
+
+# Load previously processed trajectories, then run connectivity analysis
+results = cc.run_analysis_only(final_processed, release_grids, settlement_grids, traits,
+                               coastal_grid_df, grid_ids, full_grid_df)
+
+            # ...or call the pieces directly:
+metrics = cc.calculate_connectivity_metrics(final_processed, release_grids,
+                                            settlement_grids, traits, grid_ids=grid_ids)
+network = cc.network_analysis(final_processed, release_grids, settlement_grids,
+                              coastal_grid_df, grid_ids, full_grid_df, 30)   # final arg = scale (km)</code></pre>
+
+        <p><strong>Post-process raw simulation output, then export to CSV.</strong> Post-processing needs the trajectories in memory, so load them from the on-disk chunks first:</p>
+        <pre><code>traj = cc.load_traj_from_chunks(chunks_dir)
+final_processed = cc.run_postprocessing_only(traj, traits, release_grids,
+                                             settlement_grids, grid_ids)
+
+# export_* take an output DIRECTORY (filenames are chosen for you):
+cc.export_connectivity_metrics(metrics, "results")
+cc.export_network_results(network, "results")</code></pre>
+
+        <p><strong>Plot a single result directly</strong> (run in Jupyter Lab):</p>
+        <pre><code>cc.create_connectivity_matrix_plot(network['connectivity_matrix'])
+cc.create_network_map(network['site_metrics'], network['site_metrics'].head(10),
+                      composite_col='overall_composite')</code></pre>
+
+        <div class="tip-box">
+            <strong>Tip:</strong> the dropdown viewers (<code>trait_metrics_viewer</code>, <code>network_metrics_viewer</code>, <code>trait_community_viewer</code>) are built for the multi-scale results structure that Interactive and Automatic modes produce — a dict keyed by scale, e.g. <code>{'full_domain': {'community': network}}</code>. In a manual script, the <code>create_*</code> functions above are the simplest way to plot a single result.
+        </div>
+
+        <h2 id="vignettes">Vignettes: Worked Examples</h2>
+
+        <p>ComCon includes a set of worked example vignettes as Jupyter Notebooks and HTML files. These demonstrate complete workflows from start to finish and are the best way to learn how to use the package. You can find them in the <code>docs/vignettes/</code> folder.</p>
+
+        <p>The Jupyter Notebooks allow you to open the explanatory text directly alongside the code. This means you can simple run each code cell rather than having to input any of your own. </p>
+        <p>If you prefer to work through the vignettes more hands-on, then choose the HTML file. The content is identical, but in HTML you will have to create your own Jupyter Notebook and add code cells yourself, being able to copy the code from the HTML file.</p>
+
+        <h3 id="vignettes-single">Available Vignettes</h3>
+
+        <p>The vignettes are organised into two groups:</p>
+
+        <h4>Single-Species Vignettes</h4>
+
+        <p>These three vignettes cover the same analysis: A connectivity study of <em>Patella vulgata</em> (common limpet) in the south-west of England using each of ComCon's three modes. Choose the one that matches your preferred workflow style:</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Vignette</th>
+                    <th>Mode</th>
+                    <th>Best For</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>1.1_single_species_quickstart_interactive.ipynb</code></td>
+                    <td>Interactive</td>
+                    <td>First-time users. Step-by-step guided prompts walk you through each decision.</td>
+                </tr>
+                <tr>
+                    <td><code>1.2_single_species_quickstart_manual.ipynb</code></td>
+                    <td>Manual</td>
+                    <td>Users who want reproducible scripts. Direct function calls give you full control.</td>
+                </tr>
+                <tr>
+                    <td><code>1.3_single_species_quickstart_automatic.ipynb</code></td>
+                    <td>Automatic</td>
+                    <td>Users who already know what parameters they want. Collects everything upfront, then runs hands-off.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>All three produce identical results. They differ only in how you interact with ComCon. If you are new to ComCon, start with the <strong>Interactive Mode</strong> vignette.</p>
+
+        <h4 id="vignettes-multi">Multi-Species Vignettes</h4>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Vignette</th>
+                    <th>Analysis Type</th>
+                    <th>What It Covers</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>2_multi_species_connectivity.ipynb</code></td>
+                    <td>Type 2: Network Analysis</td>
+                    <td>Multi-species workflow with three species of contrasting PLDs. Identifies connectivity hotspots at community and per-species levels.</td>
+                </tr>
+                <tr>
+                    <td><code>3_trait_uncertainty_hypothesis_testing.ipynb</code></td>
+                    <td>Type 3: Trait Sensitivity</td>
+                    <td>Tests how robust connectivity results are to uncertainty in trait data. Compares a baseline trait model against modified-trait runs, testing PLD and spawning-timing sensitivity.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>Vignettes 2 and 3 use <strong>Manual Mode</strong> and build on each other. Vignette 3 reuses the simulation output from Vignette 2.</p>
+
+        <h3 id="vignettes-howto">How to Use the Vignettes</h3>
+
+        <div class="info-box">
+            <strong>Running the vignettes (Jupyter Notebook):</strong>
+            <ol>
+                <li>Activate your ComCon conda environment</li>
+                <li>Navigate to the <code>docs/vignettes/</code> folder</li>
+                <li>Launch Jupyter Lab: <code>jupyter lab</code></li>
+                <li>Open the <code>.ipynb</code> file</li>
+                <li>Run cells sequentially with <strong>Shift + Enter</strong></li>
+            </ol>
+        </div>
+
+        <div class="tip-box">
+            <strong>Tip:</strong> The vignettes are also available as read-only <code>.html</code> files in the same folder if you just want to see the outputs without running the code.
+        </div>
+
+        <div class="warning-box">
+            <strong>Note:</strong> Running the vignettes requires a free <a href="https://data.marine.copernicus.eu/register">Copernicus Marine Service account</a> for downloading hydrodynamic data. Your results will not match the vignette outputs exactly, as GBIF data and ocean model outputs may have been updated since the vignettes were created.
+        </div>
+    </section>
+
+    <!-- Part 5: The 6-Step Workflow -->
+    <section id="part5-workflow">
+        <h1>Part 5: The 6-Step Workflow</h1>
+        
+        <p>The ComCon workflow consists of 6 main steps. Each step builds on the previous one, taking you from raw data to connectivity analysis outputs.</p>
+        
+        <div class="info-box">
+            <strong>Workflow Overview:</strong>
+            <ol>
+                <li>Hydrodynamic Data Setup - Load ocean current data</li>
+                <li>Species Occurrence Data - Define where species are found</li>
+                <li>Release/Settlement Setup - Configure particle release and settlement</li>
+                <li>Particle Simulation - Run the dispersal model</li>
+                <li>Post-Processing - Apply species-specific filters</li>
+                <li>Connectivity Analyses - Calculate metrics and visualise results</li>
+            </ol>
+        </div>
+        
+        <h2 id="step1">Step 1: Hydrodynamic Data Setup</h2>
+        
+        <p>In this step, you'll load the ocean current data needed to simulate larval dispersal. The currents drive the particle movement in the model.</p>
+        
+        <h3>What Happens in Step 1</h3>
+        <ol>
+            <li><strong>Load species traits:</strong> Select species from the built-in database or provide your own CSV file</li>
+            <li><strong>Calculate dispersal period:</strong> Determine the simulation timeframe based on spawning windows and PLDs</li>
+            <li><strong>Download hydrodynamic data:</strong> Get NEMO ocean current data from Copernicus Marine Service</li>
+            <li><strong>Grid resolution selection:</strong> Choose the resolution for release and settlement sites (see below)</li>
+            <li><strong>Visualise the hydrodynamic extent:</strong> View land/ocean/coastal masks with your chosen resolution</li>
+        </ol>
+        
+        <h3>Grid Resolution for Release and Settlement</h3>
+        <p>After the hydrodynamic data is downloaded, ComCon lets you choose the grid resolution used for release and settlement sites. Particle advection always runs on the full native-resolution hydrodynamic grid. Only the sites where particles are released and settle are affected by this choice.</p>
+        <p>A coarser grid means fewer release/settlement sites, fewer particles and faster simulations, but less spatial detail in the connectivity results. ComCon recommends a resolution based on your domain size and shows you a grid summary with native and (if applicable) binned ocean and coastal cell counts.</p>
+        <p>For small domains, the native resolution is typically recommended. For large domains (e.g., Mediterranean-wide studies), a coarser grid significantly reduces computation time while preserving meaningful connectivity patterns.</p>
+        
+        <h3>Species Trait Data</h3>
+        <p>Species traits tell the model when each species spawns and how long larvae remain in the plankton. You can:</p>
+        <ul>
+            <li><strong>Option 1:</strong> Select species from the built-in database (covers common intertidal species)</li>
+            <li><strong>Option 2:</strong> Provide your own CSV file (see <a href="#traits-csv">Section: Species Traits CSV Format</a>)</li>
+        </ul>
+
+        <h4>Built-in Traits Database</h4>
+        <p>ComCon includes a built-in species trait database covering approximately 25–30 common intertidal and shallow subtidal species found in the North East Atlantic. The database provides spawning seasonality (start and end months) and planktonic larval duration (minimum and maximum PLD in days) for each species.</p>
+
+        <p>Trait values were compiled from peer-reviewed literature and the <a href="https://www.marlin.ac.uk/" target="_blank">Marine Life Information Network (MarLIN)</a>. Where published values varied between studies or geographic regions, ranges were chosen to represent typical conditions for UK and NE Atlantic populations. Not all data is specific to the NE Atlantic however as data is limited.</p>
+
+        <div class="warning-box">
+            <strong>Important caveats:</strong>
+            <ul>
+                <li><strong>PLD estimates are approximate.</strong> Larval duration varies with temperature, food availability and other environmental conditions. The database provides literature-based ranges, not exact values for your study area.</li>
+                <li><strong>Spawning windows are generalised.</strong> Actual spawning timing varies with latitude, local conditions and year-to-year variation.</li>
+                <li><strong>Use Type 3 analysis</strong> (trait sensitivity) to test how sensitive your results are to uncertainty in these trait values.</li>
+            </ul>
+        </div>
+
+        <div class="tip-box">
+            <strong>Tip:</strong> You can view the full built-in database by selecting Option 1 in Step 1 and browsing the species list. If your target species is not included or if you have more accurate trait data for your study region, provide your own CSV file using Option 2 (see <a href="#traits-csv">Species Traits CSV Format</a>).
+        </div>
+        
+        <h3>Copernicus Marine Service Login</h3>
+        <p>ComCon downloads ocean current data from the Copernicus Marine Service. You'll need a free account.</p>
+        
+        <div class="tip-box">
+            <strong>First time using Copernicus?</strong>
+            <ol>
+                <li>Go to <a href="https://marine.copernicus.eu/" target="_blank">https://marine.copernicus.eu/</a></li>
+                <li>Click "Register" and create a free account</li>
+                <li>Verify your email address</li>
+                <li>When ComCon prompts for login, enter your email and password</li>
+            </ol>
+            <p>Your credentials will be saved locally so you won't need to enter them again.</p>
+        </div>
+        
+        <h3>Choosing Your Study Area</h3>
+        <p>You'll be asked to define the geographic extent of your study area using coordinates:</p>
+        <ul>
+            <li><strong>Minimum longitude (west):</strong> The western boundary</li>
+            <li><strong>Maximum longitude (east):</strong> The eastern boundary</li>
+            <li><strong>Minimum latitude (south):</strong> The southern boundary</li>
+            <li><strong>Maximum latitude (north):</strong> The northern boundary</li>
+        </ul>
+        
+        <div class="info-box">
+            <strong>Coordinate tips:</strong>
+            <ul>
+                <li>Longitude: Negative values = West, Positive values = East</li>
+                <li>Latitude: Negative values = South, Positive values = North</li>
+                <li>Example for UK waters: Lon: -10 to 2, Lat: 49 to 61</li>
+            </ul>
+        </div>
+
+        <h3>Supported Hydrodynamic Models</h3>
+        <p>ComCon uses ocean current data from the <a href="https://marine.copernicus.eu/" target="_blank">Copernicus Marine Service</a>. The default model is the <strong>Global Ocean Physics Analysis and Forecast</strong> NEMO configuration (<code>cmems_mod_glo_phy_anfc_0.083deg_PT1H-m</code>), which provides global coverage at approximately 9 km horizontal resolution. Several regional models are also offered in the dataset menu (NW European Shelf at ~1.5 km, Atlantic–Iberian–Mediterranean at ~3 km, and Mediterranean Sea at ~4 km), and you can enter any other Copernicus dataset ID for your region.</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Dataset ID</th>
+                    <th>Coverage</th>
+                    <th>Resolution</th>
+                    <th>Best For</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>cmems_mod_nws_phy-cur_anfc_1.5km-2D_PT1H-i</code></td>
+                    <td>NW European Shelf</td>
+                    <td>~1.5 km, hourly</td>
+                    <td>UK, Ireland, North Sea, Bay of Biscay (forecast, multi-year)</td>
+                </tr>
+                <tr>
+                    <td><code>cmems_mod_glo_phy_my_0.083deg_P1D-m</code></td>
+                    <td>Global</td>
+                    <td>~8 km (1/12°), daily</td>
+                    <td>Studies outside European shelf waters (reanalysis, multi-year)</td>
+                </tr>
+                <tr>
+                    <td><code>cmems_mod_ibi_phy_anfc_0.027deg-2D_PT1H-m</code></td>
+                    <td>Iberian-Biscay-Ireland</td>
+                    <td>~3 km, hourly</td>
+                    <td>Atlantic coast of Europe, Iberian Peninsula (forecast, multi-year)</td>
+                </tr>
+                <tr>
+                    <td><code>cmems_mod_med_phy_my_4.2km-2D_PT1H-i</code></td>
+                    <td>Mediterranean Sea</td>
+                    <td>~4 km, hourly</td>
+                    <td>Mediterranean studies (reanalysis, multi-year)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="info-box">
+            <strong>Choosing a dataset:</strong> The dataset is selected from a menu in Step 1 (Global Ocean is the default). For higher-resolution UK and NW European coastal waters, choose the NW European Shelf model (<code>cmems_mod_nws_phy-cur_anfc_1.5km-2D_PT1H-i</code>). For other regions, pick one of the listed regional models or browse the <a href="https://data.marine.copernicus.eu/products" target="_blank">Copernicus catalogue</a> and enter a custom dataset ID. ComCon works with any NEMO-format dataset that provides U and V current velocity fields.
+        </div>
+        <div class="warning-box">
+    <strong>Reanalysis vs Forecast:</strong> Reanalysis data has been quality-controlled and assimilated with observations, making it more reliable. Forecast models, on the other hand, are often available in high spatial and temporal resolution.
+</div>
+
+
+        <h3>Continuing to Step 2</h3>
+        <p>After Step 1 completes, you'll see a message like:</p>
+        <pre><code>Step 1 completed.
+To continue, run in the next cell:
+workflow_step(2)</code></pre>
+        
+        <p>Create a new cell and run <code>workflow_step(2)</code> to continue.</p>
+        
+        <h2 id="step2">Step 2: Species Occurrence Data</h2>
+        
+        <p>This step defines where each species is found within your study area. Occurrence data is used to determine appropriate release and settlement locations. After the study area polygon is created, ComCon displays the hydrodynamic extent with your study area overlaid so you can verify spatial coverage.</p>
+        
+        <h3>Data Source Options</h3>
+        <ul>
+            <li><strong>Option 1: Download from GBIF</strong> - ComCon automatically downloads occurrence records for your species from the Global Biodiversity Information Facility</li>
+            <li><strong>Option 2: Your own data</strong> - Provide a CSV file with species occurrence coordinates (see <a href="#occurrence-csv">Section: Occurrence Data CSV Format</a>)</li>
+        </ul>
+        
+        <h3>Defining the Study Area Boundary</h3>
+        <p>You can define your study area boundary using:</p>
+        <ul>
+            <li><strong>Interactive map:</strong> Draw a polygon on a map</li>
+            <li><strong>GeoJSON file:</strong> Load a pre-defined boundary</li>
+            <li><strong>Bounding box:</strong> Use the coordinates from Step 1</li>
+        </ul>
+        
+        <h3>Creating Land and Coastal Masks</h3>
+        <p>ComCon creates masks to distinguish between:</p>
+        <ul>
+            <li><strong>Land cells:</strong> Where particles cannot go</li>
+            <li><strong>Ocean cells:</strong> Open water</li>
+            <li><strong>Coastal cells:</strong> Where settlement can occur</li>
+        </ul>
+        
+        <h2 id="step3">Step 3: Release and Settlement Setup</h2>
+        
+        <p>This step configures how particles are released into the simulation and where they can settle. The grid resolution for release and settlement was already selected in Step 1. If the domain was binned, the coarser grid is used for release/settlement while the native resolution is used for particle advection.</p>
+        
+        <h3>Release Strategy</h3>
+        <p>Choose how particles are released:</p>
+        <ul>
+            <li><strong>All coastal cells:</strong> Release from every coastal grid cell in your study area</li>
+            <li><strong>Species occurrence locations:</strong> Release only from cells where species have been recorded</li>
+            <li><strong>Site-based (CSV upload):</strong> Release from named sites with latitude/longitude coordinates provided in a CSV file. Useful for monitoring-site-based analyses.</li>
+        </ul>
+        
+        <h3>Settlement Strategy</h3>
+        <p>Choose where particles are allowed to settle. The options mirror the release options, with two extra:</p>
+        <ul>
+            <li><strong>All coastal cells:</strong> Particles can settle anywhere along the coast</li>
+            <li><strong>Same as release (mirror):</strong> Settlement is allowed only at the same sites used for release</li>
+            <li><strong>Species occurrence locations:</strong> Particles settle only where each species has been recorded (using the occurrence data from Step 2)</li>
+            <li><strong>Custom habitat data:</strong> Upload a separate occurrence/habitat CSV that defines suitable settlement sites</li>
+            <li><strong>Site-based (CSV upload):</strong> Settle only at named study sites provided in a CSV (latitude/longitude, optional <code>site_name</code>) — the settlement equivalent of the site-based release option</li>
+        </ul>
+        <p>Release, by comparison, offers: <strong>all coastal cells</strong>, <strong>species occurrence locations</strong>, or <strong>site-based (CSV upload)</strong>.</p>
+        
+        <h3>Particle Parameters</h3>
+        <p>You'll configure:</p>
+        <ul>
+            <li><strong>Particles per site:</strong> How many particles to release from each location (more particles = more accurate but slower)</li>
+            <li><strong>Release frequency:</strong> How often new particles are released during the spawning window</li>
+            <li><strong>Horizontal diffusivity:</strong> Small-scale random movement (typical values: 1-100 m²/s)</li>
+        </ul>
+        
+        <div class="tip-box">
+            <strong>Recommended starting values:</strong>
+            <ul>
+                <li>Particles per site: 100 for testing, 1000–10000 for publication-quality runs</li>
+                <li>Release frequency: Weekly (good balance between temporal coverage and particle count). Daily releases give finer resolution but produce more particles.</li>
+                <li>Diffusivity: 1 m²/s is typical for coastal/shelf seas. Higher values (10–100 m²/s) may be appropriate for open ocean or highly turbulent areas.</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <strong>Particle numbers:</strong> The number of particles per site controls the <em>sampling resolution</em> of the model. It is not meant to represent the actual number of larvae released by organisms. More particles give more statistically robust connectivity estimates. For preliminary exploration, 100 particles is sufficient. For results you plan to publish, use at least 1000.
+        </div>
+        
+        <h2 id="step4">Step 4: Running the Simulation</h2>
+        
+        <p>This step executes the actual particle tracking simulation. Particles are released and tracked as they drift with the ocean currents.</p>
+        
+        <h3>What to Expect</h3>
+        <ul>
+            <li><strong>Progress bar:</strong> Shows simulation progress</li>
+            <li><strong>Memory monitoring:</strong> ComCon monitors system memory to prevent crashes</li>
+            <li><strong>Runtime:</strong> Depends on number of particles and simulation length (minutes to hours)</li>
+        </ul>
+        
+        <div class="warning-box">
+            <strong>During the simulation:</strong>
+            <ul>
+                <li>Don't close Jupyter Lab or your terminal</li>
+                <li>Avoid running other memory-intensive programs</li>
+                <li>If your computer goes to sleep, the simulation may pause or fail</li>
+            </ul>
+        </div>
+
+        <div class="warning-box">
+            <strong>Session restore note:</strong> The particle set and kernels from Step 3 contain compiled simulation code that cannot be saved between sessions. If you restart the kernel, ComCon will automatically rebuild these from saved configuration when you run Step 4. Steps 3 and 4 run most efficiently in the same kernel session.
+        </div>
+
+        <h2 id="step5">Step 5: Post-Processing</h2>
+        
+        <p>After the simulation, this step applies species-specific filters to the trajectory data.</p>
+        
+        <h3>Filtering Steps</h3>
+        <ol>
+            <li><strong>Spawning filter:</strong> Keeps only particles released during each species' spawning window</li>
+            <li><strong>PLD filter:</strong> Keeps only particles that settle within the species' PLD range</li>
+            <li><strong>Habitat filter:</strong> Keeps only particles that settle in suitable habitat</li>
+        </ol>
+        
+        <h3>Why Filter?</h3>
+        <p>The simulation releases particles throughout the entire simulation period. But not all particles represent biologically realistic dispersal events:</p>
+        <ul>
+            <li>A particle released in January shouldn't count for a species that spawns in July</li>
+            <li>A particle that settles after 100 days shouldn't count for a species with a 30-day PLD</li>
+        </ul>
+        
+        <h2 id="step6">Step 6: Connectivity Analyses</h2>
+        
+        <p>The final step calculates connectivity metrics and produces visualisations. Results are displayed in interactive dropdown viewers and can be exported to CSV.</p>
+        
+        <h3>Type 1: Connectivity Metrics</h3>
+        <p>Dispersal statistics at community and per-species level, displayed in an interactive dropdown viewer:</p>
+        <ul>
+            <li>Total particles released and settled</li>
+            <li>Settlement and mortality rates</li>
+            <li>Self-recruitment rate</li>
+            <li>Mean, min, and max dispersal distance (km)</li>
+            <li>Mean, min, and max realised PLD (days)</li>
+        </ul>
+
+        <h3>Type 2: Network Analysis</h3>
+        <p>Treats sites as nodes in a directed connectivity network. Results include interactive viewers for:</p>
+        <ul>
+            <li><strong>Network summary:</strong> Site counts, connection counts, community counts per species and community</li>
+            <li><strong>Connectivity matrix:</strong> Source × sink of particle exchanges</li>
+            <li><strong>Hotspot map:</strong> Top 10 sites ranked across source, sink, self-recruitment, betweenness, closeness and degree centrality</li>
+            <li><strong>Site × metric heatmap:</strong> Visual comparison of all six network metrics across sites</li>
+            <li><strong>Community map:</strong> Louvain community detection showing functionally connected groups</li>
+        </ul>
+
+        <div class="info-box">
+            <strong>Self-recruitment exclusion:</strong> You can optionally exclude self-recruitment (particles returning to their release site) from source/sink metrics. This helps distinguish between sites that are genuine exporters/importers and sites that simply retain their own larvae. Self-recruitment is always calculated regardless of this choice.
+        </div>
+        
+        <h3>Type 3: Trait Sensitivity Analysis</h3>
+        <p>Compare how different trait values affect connectivity. Requires a temporal buffer to have been set in Step 1:</p>
+        <ul>
+            <li><strong>PLD modification:</strong> Test how increasing or decreasing planktonic larval duration changes connectivity patterns</li>
+            <li><strong>Spawning window shift:</strong> Test how shifting spawning timing affects which sites are connected</li>
+        </ul>
+    </section>
+
+    <!-- Part 4: Understanding Outputs -->
+    <section id="part6-outputs">
+        <h1>Part 6: Understanding Your Outputs</h1>
+        
+        <p>ComCon produces various outputs saved to your working directory. Here's what each file contains:</p>
+        
+        <h2>Output Files</h2>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>File/Folder</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>hydro_data</code></td>
+                    <td>Downloaded NEMO ocean current data (NetCDF files)</td>
+                </tr>
+                <tr>
+                    <td><code>simulation_output.zarr</code></td>
+                    <td>Raw particle trajectory data from the simulation</td>
+                </tr>
+                <tr>
+                    <td><code>connectivity_metrics.csv</code></td>
+                    <td>Summary statistics for each species and/or community</td>
+                </tr>
+                <tr>
+                    <td><code>network_metrics.csv</code></td>
+                    <td>Centrality and functional role metrics for each site</td>
+                </tr>
+                <tr>
+                    <td><code>connectivity_matrix.csv</code></td>
+                    <td>Raw particle-exchange counts between every source site (rows) and sink site (columns). The on-screen matrix shows log<sub>10</sub> of these counts for clarity (see <em>Connectivity Strength</em> in the Glossary); this file holds the absolute numbers.</td>
+                </tr>
+                <tr>
+                    <td><code>figures/</code></td>
+                    <td>Saved maps and plots, organised into one subfolder per analysis level and scale (e.g. <code>community_full_domain/</code>), containing the hotspot map, network-only map, community map, connectivity matrix, site × metric heatmap and per-metric hotspot maps.</td>
+                </tr>
+                <tr>
+
+                </tr><td><code>comcon_outputs.xlsx</code></td>
+                    <td>A record of the run across three sheets: an outputs catalogue (what each file is, and whether it was saved), the full run configuration, and a Metric Definitions sheet explaining how every reported metric is calculated. Use this alongside your results to interpret and reproduce them.</td>
+            </tbody>
+        </table>
+        
+        <h2>Interpreting Results</h2>
+        
+        <h3>Connectivity Matrices</h3>
+        <p>A connectivity matrix shows how many (or what proportion of) particles travel from each source site (rows) to each sink site (columns):</p>
+        <ul>
+            <li><strong>Diagonal values:</strong> Self-recruitment (particles that settled where they were released)</li>
+            <li><strong>Off-diagonal values:</strong> Dispersal between different sites</li>
+            <li><strong>Row sums:</strong> Total export from each source</li>
+            <li><strong>Column sums:</strong> Total import to each sink</li>
+        </ul>
+        
+        <h3>Network Roles</h3>
+        <ul>
+            <li><strong>Sources:</strong> Sites that export many larvae to other sites (high out-degree)</li>
+            <li><strong>Sinks:</strong> Sites that receive many larvae from other sites (high in-degree)</li>
+            <li><strong>Stepping stones:</strong> Sites that connect other sites (high betweenness centrality)</li>
+            <li><strong>Self-recruiters:</strong> Sites with high self-recruitment</li>
+        </ul>
+    </section>
+
+    <!-- Part 7: Data Preparation -->
+    <section id="part7-data">
+        <h1>Part 7: Preparing Your Own Data</h1>
+        <h2 id="hydro-format">Hydrodynamic Data File Format</h2>
+
+        <p>If you choose to load hydrodynamic data from a local file instead of streaming from Copernicus, the file must meet the following requirements:</p>
+
+        <h3>Supported File Formats</h3>
+        <ul>
+            <li><strong>NetCDF</strong> (<code>.nc</code>) — the standard format used by Copernicus Marine Service</li>
+            <li><strong>Zarr</strong> (<code>.zarr</code>) — a modern chunked format, smaller and faster for large datasets</li>
+        </ul>
+
+        <div class="info-box">
+            <strong>Easiest approach:</strong> Run ComCon once with internet and choose to export the hydrodynamic data when prompted. This saves a file in the correct format automatically. You can then reload this file in future sessions without internet.
+        </div>
+
+        <h3>Required Variables</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Variable Name</th>
+                    <th>Description</th>
+                    <th>Units</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>uo</code></td>
+                    <td>Eastward sea water velocity (U component)</td>
+                    <td>m/s</td>
+                </tr>
+                <tr>
+                    <td><code>vo</code></td>
+                    <td>Northward sea water velocity (V component)</td>
+                    <td>m/s</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Required Dimensions</h3>
+        <p>The data must have either 3 or 4 dimensions:</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Dimension</th>
+                    <th>Accepted Names</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Time</td>
+                    <td><code>time</code> or <code>t</code></td>
+                    <td>Temporal dimension (ComCon will rename <code>t</code> to <code>time</code> automatically)</td>
+                </tr>
+                <tr>
+                    <td>Latitude</td>
+                    <td><code>lat</code> or <code>latitude</code></td>
+                    <td>Latitude in decimal degrees (ComCon will rename <code>latitude</code> to <code>lat</code> automatically)</td>
+                </tr>
+                <tr>
+                    <td>Longitude</td>
+                    <td><code>lon</code> or <code>longitude</code></td>
+                    <td>Longitude in decimal degrees (ComCon will rename <code>longitude</code> to <code>lon</code> automatically)</td>
+                </tr>
+                <tr>
+                    <td>Depth (optional)</td>
+                    <td><code>depth</code></td>
+                    <td>Only needed for 3D models. If present, ComCon uses the surface layer.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Additional Requirements</h3>
+        <ul>
+            <li>Land cells must be represented as <code>NaN</code> values in the velocity fields (this is how ComCon identifies land vs ocean)</li>
+            <li>The data must be on a regular grid (evenly spaced latitude and longitude values)</li>
+            <li>The temporal extent must cover your entire simulation period (spawning start to dispersal end, plus a 31-day safety buffer)</li>
+            <li>The spatial extent must be larger than your study area to allow particles to disperse beyond the study boundaries</li>
+        </ul>
+
+        <div class="warning-box">
+            <strong>Important:</strong> The variable names must be exactly <code>uo</code> and <code>vo</code>. If your data uses different names (e.g., <code>u</code>, <code>v</code>, <code>U</code>, <code>V</code>), you will need to rename them before loading. In Python:
+            <pre><code>import xarray as xr
+ds = xr.open_dataset('my_data.nc')
+ds = ds.rename({'u': 'uo', 'v': 'vo'})
+ds.to_netcdf('my_data_renamed.nc')</code></pre>
+        </div>
+
+        <div class="tip-box">
+            <strong>Tip:</strong> All data downloaded from the Copernicus Marine Service already meets these requirements. If you previously exported data using ComCon's export option, your file is guaranteed to be in the correct format. This feature is primarily useful for reloading previously saved data in a new session without needing internet or working in localised areas not covered by Copernicus data.
+        </div>
+        
+        <h2 id="traits-csv">Species Traits CSV Format</h2>
+        
+        <p>If you want to model species not in the built-in database, you'll need to create a CSV file with the following columns:</p>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Column Name</th>
+                    <th>Required?</th>
+                    <th>Description</th>
+                    <th>Example</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>species_name</code></td>
+                    <td>Yes*</td>
+                    <td>Scientific name of the species</td>
+                    <td><i>Patella vulgata</i></td>
+                </tr>
+                <tr>
+                    <td><code>aphia_id</code></td>
+                    <td>Yes*</td>
+                    <td>WoRMS AphiaID for the species</td>
+                    <td>140685</td>
+                </tr>
+                <tr>
+                    <td><code>spawning_start</code></td>
+                    <td>Yes</td>
+                    <td>Start of spawning period (DD/MM or DD/MM/YYYY)</td>
+                    <td>01/10</td>
+                </tr>
+                <tr>
+                    <td><code>spawning_end</code></td>
+                    <td>Yes</td>
+                    <td>End of spawning period (DD/MM or DD/MM/YYYY)</td>
+                    <td>31/01</td>
+                </tr>
+                <tr>
+                    <td><code>min_PLD</code></td>
+                    <td>Yes</td>
+                    <td>Minimum planktonic larval duration (days)</td>
+                    <td>2</td>
+                </tr>
+                <tr>
+                    <td><code>max_PLD</code></td>
+                    <td>Yes</td>
+                    <td>Maximum planktonic larval duration (days)</td>
+                    <td>10</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <p>*Either species_name OR aphia_id must be provided. Both can be provided.</p>
+        
+        <h3>Example CSV</h3>
+        <pre><code>species_name,aphia_id,spawning_start,spawning_end,min_PLD,max_PLD
+Patella vulgata,140685,01/10,31/01,2,10
+Littorina littorea,140262,01/02,30/06,11,30
+Semibalanus balanoides,106210,01/02,30/04,21,60</code></pre>
+
+        <div class="tip-box">
+            <strong>Tip:</strong> The example above shows three species with contrasting PLDs: Short (<em>Patella vulgata</em>, 2–10 days), medium (<em>Littorina littorea</em>, 11–30 days) and long (<em>Semibalanus balanoides</em>, 21–60 days). This is the same combination used in the multi-species vignettes.
+        </div>
+        
+        <h2 id="occurrence-csv">Occurrence Data CSV Format</h2>
+        
+        <p>If providing your own species occurrence data, use this format:</p>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Column Name</th>
+                    <th>Required?</th>
+                    <th>Description</th>
+                    <th>Example</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>species</code></td>
+                    <td>Yes</td>
+                    <td>Species name (must match traits file)</td>
+                    <td><i>Patella_vulgata</i></td>
+                </tr>
+                <tr>
+                    <td><code>latitude</code></td>
+                    <td>Yes</td>
+                    <td>Latitude in decimal degrees</td>
+                    <td>50.3721</td>
+                </tr>
+                <tr>
+                    <td><code>longitude</code></td>
+                    <td>Yes</td>
+                    <td>Longitude in decimal degrees</td>
+                    <td>-4.1427</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="warning-box">
+            <strong>Important:</strong> Species names in the occurrence file must exactly match those in your traits file. Use underscores instead of spaces (e.g., <code>Patella_vulgata</code> not <code>Patella vulgata</code>).
+        </div>
+        <h2 id="site-based">Site-Based Analyses</h2>
+
+        <p>A site-based analysis uses your own monitoring or field sites — uploaded as a CSV with <code>latitude</code>, <code>longitude</code> and an optional <code>site_name</code> column — as the release and/or settlement locations, instead of all coastal cells or species occurrence records. Site names are carried through to every output, so your figures and CSVs are labelled with your site names rather than grid IDs.</p>
+
+        <p><strong>What switches it on:</strong> including a <code>site_name</code> column in the occurrence data you upload in Step 2. When ComCon detects that column it treats your sites as the labelled units of the analysis and reports every result by site name. No separate mode needs to be selected — the column is the trigger.</p>
+
+        <h3>How sites map to the grid</h3>
+        <p>Each site is snapped to the nearest grid cell of your chosen habitat type (coastal or ocean) using a nearest-neighbour search. Connectivity is then resolved at the grid-cell scale: the model can only tell two sites apart if they fall in different cells. The grid resolution you set in Step 1 therefore decides whether nearby sites stay separate or merge into one.</p>
+
+        <h3>Choosing a resolution for site-based runs</h3>
+        <p>Finer resolutions (smaller cells) keep nearby sites separate; coarser resolutions merge them. The <strong>native hydrodynamic resolution is the finest available</strong> — you cannot resolve detail below the resolution of the current data itself. Because a site-based run releases particles from only your handful of sites (far fewer particles than a whole-domain run), you can usually afford the native resolution even over a large area, where a whole-domain run would need a coarser grid. As a rule of thumb, choose a resolution finer than the smallest distance between any two of your sites, so each site occupies its own cell. If you already know your sites and their spacing, set this resolution when prompted in Step 1.</p>
+
+        <div class="info-box">
+            <strong>Worked example:</strong> 21 sites spread across the Mediterranean, with native current data at 4&nbsp;km. The default recommendation for an area that large might be ~30&nbsp;km, which would merge any sites within 30&nbsp;km of each other. Because only 21 sites release particles, you can instead choose the native 4&nbsp;km resolution: any two sites more than ~4&nbsp;km apart then fall in separate cells and are analysed as distinct sites.
+        </div>
+
+        <div class="warning-box">
+            <strong>Sites closer than the data resolution:</strong> Two sites closer together than the native hydrodynamic resolution — for example a natural and an artificial reef 100&nbsp;m apart, with 4&nbsp;km data — will always fall in the same cell and cannot be separated by any resolution choice, because the current data has no information at that sub-cell scale. ComCon reports such co-located sites together, under both names, and still analyses every species present across them. Resolving co-located sites as fully separate nodes (sharing the cell's dispersal but keeping their own per-site results) is planned for a future version.
+        </div>
+
+        <h2 id="geojson-format">GeoJSON Study Area Format</h2>
+
+        <p>ComCon includes an interactive map for drawing your study area polygon. However, if you prefer to provide your own GeoJSON file (e.g., from QGIS, R or another tool), it must follow this format:</p>
+
+        <pre><code>{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {},
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-6.0, 49.5],
+          [-6.0, 51.0],
+          [-3.0, 51.0],
+          [-3.0, 49.5],
+          [-6.0, 49.5]
+        ]]
+      }
+    }
+  ]
+}</code></pre>
+
+        <div class="warning-box">
+            <strong>Important:</strong>
+            <ul>
+                <li>The file must contain a single polygon (not MultiPolygon)</li>
+                <li>Coordinates must be in <strong>[longitude, latitude]</strong> order (GeoJSON standard)</li>
+                <li>The polygon must be <strong>closed</strong> (first and last coordinate must be identical)</li>
+                <li>The file must have a <code>.geojson</code> extension</li>
+                <li>The study area should fit within your hydrodynamic data extent</li>
+            </ul>
+        </div>
+
+        <div class="tip-box">
+            <strong>Tip:</strong> If you have created a study area polygon in QGIS or R, export it as GeoJSON using WGS84 (EPSG:4326) coordinates.
+        </div>
+    </section>
+
+    <section id="saving-sessions">
+        <h1>Saving and Resuming Your Work</h1>
+
+        <p>ComCon allows you to save your workflow progress at any point and resume it later, even after restarting your computer or Jupyter kernel. This is particularly useful for long simulations where you may want to re-run analyses (Step 6) without re-running the full simulation (Step 4).</p>
+
+        <h2>How It Works</h2>
+
+        <p>At the end of each workflow step, ComCon will ask if you want to save a session checkpoint. This saves all your current variables (species traits, grids, simulation output, filtered data, etc.) into a single file. You can then close Jupyter, restart your computer and pick up exactly where you left off.</p>
+
+        <h2>Saving a Session vs Exporting Hydrodynamic Data</h2>
+
+        <p>These two options sound similar but do different things, and it's worth knowing which you want.</p>
+
+        <p><strong>Exporting hydrodynamic data</strong> saves the ocean current data itself to a standalone file (NetCDF or Zarr) that you can reopen later — for example, to re-run ComCon offline without downloading from Copernicus again, or to share the exact data you used. This is the file you reload at Step 1.</p>
+
+        <p><strong>Saving a session</strong> saves your whole workflow state — traits, grids, filtered results, and so on — into a single checkpoint, so you can close Jupyter and resume exactly where you left off. To make the session resumable, ComCon also tucks a copy of the ocean velocity fields (the u and v currents) inside it, so the simulation can continue when you reload. It is not a general-purpose hydro file, though: it keeps only the velocity fields the simulation needs, and you cannot open it as a dataset on its own. If you want a reusable hydro file, use the export option above.</p>
+
+        <p><strong>One practical note:</strong> saving a session immediately after Step 1 is slow, because ComCon has to pull the entire hydrodynamic field into memory to store it. Only save at that point if you are genuinely stopping for a while. If you are carrying straight on to Step 2, just answer "no" — you do not need a checkpoint yet.</p>
+
+        <h2>Saving a Session</h2>
+
+        <p>In <strong>Interactive Mode</strong>, you will be prompted to save after each step. Simply type <code>yes</code> when asked.</p>
+
+        <p>In <strong>Manual Mode</strong>, you can save at any time by running:</p>
+
+        <pre><code># To save to a default location
+save_session()
+
+# To save to a custom location
+save_session('my_checkpoint.pkl')</code></pre>
+
+        <p>The session file is saved in your project's config folder by default or in the current directory if no project directory has been set up.</p>
+
+        <h2>Loading a Session</h2>
+
+        <p>To resume from a saved session, start a new Jupyter notebook (or restart your kernel), import ComCon again and run:</p>
+
+        <pre><code># Loads from default location
+load_session()
+
+# To resume from Step 6 to re-analyse the data
+workflow_step(6)</code></pre>
+
+        <p>Or in Manual Mode:</p>
+
+        <pre><code># To load from a custom location
+load_session('my_checkpoint.pkl')
+
+# To resume from Step 6 to re-analyse the data
+metrics = calculate_connectivity_metrics(
+    final_processed, release_grids,
+    settlement_grids, traits,
+    grid_ids=grid_ids
+)                                                         </code></pre>
+
+        <p><code>load_session()</code> will tell you which steps you can resume from based on the data it restored.</p>
+
+        <h2>What Gets Saved</h2>
+
+        <p>The session file includes all variables needed to resume from any step: species traits, hydrodynamic parameters, a stripped copy of the ocean velocity fields (u and v currents), cleaned occurrence data, masks, release/settlement grids, grid IDs, and filtered results.</p>
+
+        <h3>How Trajectory Data is Handled</h3>
+        <p>ComCon saves your simulation results to disk as you go, so you can close the notebook and pick up later or re-analyse data without re-running the simulation. This happens automatically. You don't need to manage any of the underlying files yourself.</p>
+
+        <h3>How Hydrodynamic Data is Handled</h3>
+        <p>The hydrodynamic data (ocean currents) is streamed from Copernicus during the simulation and cached in memory. On save, ComCon strips the streaming backend and saves a clean copy. On first save after Step 1, this may take a moment as the data is materialised — subsequent saves are instant.</p>
+
+        <h3>Particle Set and Kernels</h3>
+        <p>The particle set (<code>pset</code>) and simulation kernels contain compiled C code that cannot be serialised. ComCon saves the configuration parameters (release interval, particles per site, diffusivity) to a JSON file. If you restart and run Step 4, ComCon automatically rebuilds the particle set and kernels from this saved configuration without requiring manual re-entry of parameters.</p>
+
+        <div class="warning-box">
+            <strong>Important:</strong> Session and simulation files can be large (depending on your simulation size). If you are low on disk space, delete old session files once you no longer need them. Keep the contents of your project's <code>simulation/</code> folder if you want to be able to re-analyse or animate results after reloading a session.
+        </div>
+    </section>
+
+    <!-- Troubleshooting Section -->
+    <section id="troubleshooting">
+        <h1>Troubleshooting</h1>
+        
+        <h2>Installation Issues</h2>
+        
+        <h3>"conda is not recognized" error</h3>
+        <p><strong>Cause:</strong> Conda wasn't added to your PATH during installation.</p>
+        <p><strong>Solution:</strong></p>
+        <ul>
+            <li>Windows: Search for "Anaconda Prompt" in the Start Menu and use that instead of Command Prompt</li>
+            <li>Mac/Linux: Close and reopen your terminal, then try again</li>
+        </ul>
+        
+        <h3>"parcels not found" or similar errors</h3>
+        <p><strong>Cause:</strong> The comcon environment wasn't activated.</p>
+        <p><strong>Solution:</strong> Run <code>conda activate comcon</code> before launching Jupyter Lab</p>
+        
+        <h3>Jupyter Lab won't start</h3>
+        <p><strong>Solution:</strong></p>
+        <ol>
+            <li>Make sure the comcon environment is activated</li>
+            <li>Try: <code>conda install -c conda-forge jupyterlab</code></li>
+            <li>Try: <code>jupyter lab --no-browser</code> and manually copy the URL</li>
+        </ol>
+        
+        <h2>Runtime Issues</h2>
+        
+        <h3>"Memory Error" during simulation</h3>
+        <p><strong>Cause:</strong> Not enough RAM for the simulation size.</p>
+        <p><strong>Solutions:</strong></p>
+        <ul>
+            <li>Reduce the number of particles per site</li>
+            <li>Reduce the study area size</li>
+            <li>Close other applications</li>
+            <li>Use the memory monitoring settings when prompted</li>
+        </ul>
+        
+        <h3>Simulation is very slow</h3>
+        <p><strong>Tips:</strong></p>
+        <ul>
+            <li>Start with fewer particles for testing (100-500 per site)</li>
+            <li>Reduce output frequency (save every 6 hours instead of every hour)</li>
+            <li>Use a smaller study area for initial tests</li>
+        </ul>
+        
+        <h3>Copernicus login fails</h3>
+        <p><strong>Solutions:</strong></p>
+        <ul>
+            <li>Check your username and password are correct</li>
+            <li>Make sure your account is verified (check email)</li>
+            <li>Try logging in at <a href="https://marine.copernicus.eu/">https://marine.copernicus.eu/</a> first</li>
+        </ul>
+        
+        <h3>"Kernel died" message</h3>
+        <p><strong>Cause:</strong> Usually a memory issue or package conflict.</p>
+        <p><strong>Solutions:</strong></p>
+        <ul>
+            <li>Restart Jupyter Lab and try again</li>
+            <li>Reduce simulation size</li>
+            <li>Check you have enough free disk space</li>
+        </ul>
+        <h2>Data Issues</h2>
+        
+        <h3>"No occurrences found" for a species</h3>
+        <p><strong>Causes:</strong></p>
+        <ul>
+            <li>Species not recorded in GBIF for your study area</li>
+            <li>Species name spelled incorrectly</li>
+            <li>Study area too small</li>
+        </ul>
+        <p><strong>Solution:</strong> Provide your own occurrence data or expand the study area</p>
+        
+        <h3>Connectivity results show zero connections</h3>
+        <p><strong>Causes:</strong></p>
+        <ul>
+            <li>Spawning window doesn't overlap with hydrodynamic data period</li>
+            <li>PLD too short for dispersal to occur</li>
+            <li>No suitable settlement habitat defined</li>
+        </ul>
+        <h3>"Widget not displaying" or blank output after import comcon</h3>
+        <p><strong>Cause:</strong> Jupyter widgets extension not enabled.</p>
+        <p><strong>Solution:</strong></p>
+        <ol>
+            <li>In your terminal (with comcon environment activated), run: <code>jupyter labextension install @jupyter-widgets/jupyterlab-manager</code></li>
+            <li>Restart Jupyter Lab</li>
+        </ol>
+        <h3>"Show more outputs" button appears during workflow steps</h3>
+        <p><strong>Cause:</strong> JupyterLab limits the number of output lines per cell by default.</p>
+        <p><strong>Solution:</strong> ComCon attempts to disable this limit automatically. If you still see the button, click it to reveal all output. To disable permanently: go to <strong>Settings → Settings Editor → Notebook</strong> and set <code>maxNumberOutputs</code> to <code>0</code>. Restart JupyterLab after changing this setting.</p>
+        <h3>Maps not displaying or showing blank</h3>
+        <p><strong>Cause:</strong> Cartopy or folium display issues.</p>
+        <p><strong>Solution:</strong></p>
+        <ul>
+            <li>Try running the cell again</li>
+            <li>Restart the kernel and re-run from the beginning</li>
+            <li>Check your internet connection (maps need to download tiles)</li>
+        </ul>
+        <h3>Simulation starts but then shows "Kernel died"</h3>
+        <p><strong>Cause:</strong> Usually an out-of-memory error.</p>
+        <p><strong>Solution:</strong></p>
+        <ul>
+            <li>Reduce particles per site (try 100 first)</li>
+            <li>Reduce study area size</li>
+            <li>Close other applications (especially web browsers with many tabs)</li>
+            <li>If on a laptop, make sure it's plugged in and power settings allow full performance</li>
+        </ul>
+    </section>
+
+    <!-- Quick Reference Section -->
+    <section id="quick-reference">
+        <h1>Quick Reference</h1>
+        
+        <h2>Essential Commands</h2>
+        <p>These are the commands you'll use most often. Copy and paste them into your terminal.</p>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Task</th>
+                    <th>Command</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Activate environment (do this first!)</td>
+                    <td><code>conda activate comcon</code></td>
+                </tr>
+                <tr>
+                    <td>Navigate to ComCon folder</td>
+                    <td><code>cd path/to/comcon_distribution</code></td>
+                </tr>
+                <tr>
+                    <td>Install ComCon (first time only)</td>
+                    <td><code>pip install -e .</code></td>
+                </tr>
+                <tr>
+                    <td>Launch Jupyter Lab</td>
+                    <td><code>jupyter lab</code></td>
+                </tr>
+                <tr>
+                    <td>Import ComCon (in Jupyter)</td>
+                    <td><code>import comcon</code></td>
+                </tr>
+                <tr>
+                    <td>Start Interactive Mode (in Jupyter)</td>
+                    <td><code>from comcon.interactive import *</code></td>
+                </tr>
+                <tr>
+                    <td>Start Manual Mode (in Jupyter)</td>
+                    <td><code>from comcon.manual import *</code></td>
+                </tr>
+                <tr>
+                    <td>Start Automatic Mode (in Jupyter)</td>
+                    <td><code>from comcon.automatic import start_automatic_mode</code></td>
+                </tr>
+                <tr>
+                    <td>Run workflow step (Interactive/Manual)</td>
+                    <td><code>workflow_step(n)</code> where n = 1-6</td>
+                </tr>
+                <tr>
+                    <td>Run entire workflow (Automatic)</td>
+                    <td><code>results = start_automatic_mode()</code></td>
+                </tr>
+                <tr>
+                    <td>Check working directory (in Jupyter)</td>
+                    <td><code>import os</code>
+                    <p><code>print(os.getcwd())</code></td></p>
+                </tr>
+            </tbody>
+        </table>
+        
+        <h2>Keyboard Shortcuts (Jupyter Lab)</h2>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Action</th>
+                    <th>Windows/Linux</th>
+                    <th>macOS</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Run cell</td>
+                    <td><kbd>Ctrl</kbd> + <kbd>Enter</kbd></td>
+                    <td><kbd>Cmd</kbd> + <kbd>Enter</kbd></td>
+                </tr>
+                <tr>
+                    <td>Run cell and move to next</td>
+                    <td><kbd>Shift</kbd> + <kbd>Enter</kbd></td>
+                    <td><kbd>Shift</kbd> + <kbd>Enter</kbd></td>
+                </tr>
+                <tr>
+                    <td>Add cell below</td>
+                    <td><kbd>B</kbd> (when not editing)</td>
+                    <td><kbd>B</kbd> (when not editing)</td>
+                </tr>
+                <tr>
+                    <td>Add cell above</td>
+                    <td><kbd>A</kbd> (when not editing)</td>
+                    <td><kbd>A</kbd> (when not editing)</td>
+                </tr>
+                <tr>
+                    <td>Delete cell</td>
+                    <td><kbd>D</kbd> <kbd>D</kbd> (press D twice)</td>
+                    <td><kbd>D</kbd> <kbd>D</kbd> (press D twice)</td>
+                </tr>
+                <tr>
+                    <td>Save notebook</td>
+                    <td><kbd>Ctrl</kbd> + <kbd>S</kbd></td>
+                    <td><kbd>Cmd</kbd> + <kbd>S</kbd></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Project Folder Structure</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Subfolder</th>
+                    <th>Contents</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>config/</code></td>
+                    <td>Saved parameter files (.json)</td>
+                </tr>
+                <tr>
+                    <td><code>hydro_data/</code></td>
+                    <td>Exported hydrodynamic data (if downloaded rather than streamed)</td>
+                </tr>
+                <tr>
+                    <td><code>occurrence_data/</code></td>
+                    <td>Cleaned species occurrence CSVs</td>
+                </tr>
+                <tr>
+                    <td><code>grids/</code></td>
+                    <td>Release and settlement grid CSVs</td>
+                </tr>
+                <tr>
+                    <td><code>simulation/</code></td>
+                    <td>Simulation output (.zarr)</td>
+                </tr>
+                <tr>
+                    <td><code>figures/</code></td>
+                    <td>All saved figures</td>
+                </tr>
+                <tr>
+                    <td><code>results/</code></td>
+                    <td>Connectivity metrics and network analysis CSVs</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>For details on project setup options and custom directories, see <a href="#file-management">How ComCon Organises Your Files</a> in Part 1.</p>
+
+
+    </section>
+
+    <section id="methods">
+        <h1>Methods & Assumptions</h1>
+        <p>This section summarises the modelling choices and assumptions ComCon makes, so you can interpret your results and know what is happening under the hood. For the full methodology and references, see the ComCon methods paper.</p>
+
+        <h2>Particle transport</h2>
+        <ul>
+            <li><strong>Lagrangian particle tracking</strong> using <a href="https://oceanparcels.org/" target="_blank">OceanParcels</a>. Each particle represents a larva (propagule) advected by ocean currents.</li>
+            <li><strong>Advection scheme:</strong> fourth-order Runge–Kutta (<code>AdvectionRK4</code>). The simulation timestep is short (minutes) while trajectory positions are written at a coarser interval (hours).</li>
+            <li><strong>Hydrodynamic forcing:</strong> NEMO ocean-current fields from the Copernicus Marine Service (default: Global Ocean, ~9&nbsp;km). Data are streamed (lazy-loaded) by default rather than downloaded.</li>
+            <li><strong>Coastlines:</strong> a reflective-boundary kernel prevents particles from beaching or becoming stuck on land cells.</li>
+        </ul>
+
+        <h2>Larval behaviour (trait-defined pathway)</h2>
+        <ul>
+            <li><strong>Spawning window:</strong> particles are released only during each species' spawning period, at a release frequency you set.</li>
+            <li><strong>Competency (minimum PLD):</strong> a larva cannot settle until it has reached its minimum planktonic larval duration.</li>
+            <li><strong>Mortality (maximum PLD):</strong> a larva that has not settled by its maximum PLD is assumed to have died. Mortality is therefore derived from the proportion of released particles that never settle.</li>
+            <li><strong>Settlement:</strong> a competent larva settles when it lands in a designated settlement cell (all coastal cells, species habitat, study sites, or custom, depending on your settlement strategy). Settlement is exact-cell: the larva must reach the settlement cell itself, with the settlement-cell resolution setting the spatial tolerance.</li>
+        </ul>
+
+        <h2>Passive pathway</h2>
+        <ul>
+            <li>Trait-free: particles are released from all ocean cells in the study area, with no spawning, competency or mortality filtering.</li>
+            <li>Runs 28-day simulations for summer (July) and winter (February), with connectivity extracted at fixed timepoints (7, 14, 21 and 28 days) to represent a range of dispersal capabilities. Follows James et&nbsp;al. (2025).</li>
+        </ul>
+
+        <h2>Connectivity and network analysis</h2>
+        <ul>
+            <li><strong>Connectivity matrix:</strong> the number of particles travelling from each source site to each sink site. Figures display log<sub>10</sub>(count&nbsp;+&nbsp;1) for clarity; the exported CSV holds raw counts.</li>
+            <li><strong>Network:</strong> sites are nodes in a directed, weighted graph (edge weight = particles exchanged). Optional distance thresholds filter out connections longer than a chosen scale.</li>
+            <li><strong>Site metrics:</strong> source and sink strength (weighted out-/in-degree, with the option to exclude a site's own self-recruitment so it does not inflate these), self-recruitment (self-connections), and degree, betweenness and closeness centrality (via NetworkX). Each metric is ranked (rank&nbsp;1&nbsp;=&nbsp;highest); composites are the mean of their member metrics' ranks (equal weight, scale-independent; lower&nbsp;=&nbsp;higher priority). ComCon reports three fixed composites &mdash; <em>functional</em> (source, sink, self-recruitment), <em>centrality</em> (betweenness, closeness, degree) and <em>overall</em> (all six) &mdash; and lets you build a <em>custom</em> composite from any subset of metrics so a study can prioritise the aspects of connectivity that matter to it.</li>
+            <li><strong>Communities:</strong> Louvain community detection on the undirected, weighted graph, by modularity maximisation — groups of sites that exchange more larvae with each other than with the rest of the network.</li>
+        </ul>
+        <h2>Spatial resolution and sites</h2>
+        <ul>
+            <li><strong>Resolution:</strong> connectivity is resolved at the hydrodynamic grid-cell scale. Two locations within the same cell cannot be distinguished by dispersal; choose a finer grid if you need to separate nearby sites.</li>
+            <li><strong>Site snapping:</strong> uploaded study sites are snapped to the nearest grid cell of your selected habitat type (coastal or ocean) using KD-tree nearest-neighbour search; occurrence records are snapped the same way, so uploading the same points as occurrence data or as study sites gives the same connectivity. Site names attach to grid cells: a named cell shows its name everywhere in the outputs, an unnamed cell shows its grid_id (<code>site_&lt;grid_id&gt;</code>), and you can name some, all, or none of your sites. If two named sites fall in the same cell, both names are reported together for that cell.</li>
+            <li><strong>Distances:</strong> inter-site distances and distance-threshold filtering use a spherical approximation of 1° ≈ 111 km.</li>
+        </ul>
+        <p>Every metric's exact definition and formula is also written into the <code>comcon_outputs.xlsx</code> file produced with each run (Metric Definitions sheet), so the calculations travel with your results.</p>
+    </section>
+
+    <!-- References Section -->
+    <section id="references">
+        <h1>References</h1>
+
+        <p>Copernicus Marine Service (2024) <em>Copernicus Marine Service</em>. Available at: <a href="https://marine.copernicus.eu">https://marine.copernicus.eu</a> (Accessed: December 2025).</p>
+
+        <p>Delandmeter, P. and van Sebille, E. (2019) 'The Parcels v2.0 framework for Lagrangian ocean analysis', <em>Geoscientific Model Development</em>, 12(8), pp. 3571–3584. doi:10.5194/gmd-12-3571-2019.</p>
+
+        <p>GBIF.org (2024) <em>GBIF Home Page</em>. Available at: <a href="https://www.gbif.org">https://www.gbif.org</a> (Accessed: December 2025).</p>
+
+        <p>James, M.K., Lessin, G., Al Azhar, M., Bedington, M., Clubley, C.H., Somerfield, P. and Knights, A.M. (2025) 'The ‘everything is everywhere’ framework: Holistic network analysis as a marine spatial management tool', <em>Ecological Informatics</em>, 87, 103105. doi:10.1016/j.ecoinf.2025.103105.</p>
+
+    </section>
+    <!-- Footer -->
+    <footer>
+        <p>ComCon User Guide v1.0 | Authors: Laura Bachmaier, Pete Cotton, Louise Firth, David Bilton, Kerry Howell, Antony Knights | University of Plymouth | May 2026</p>
+        <p>For issues or questions, contact: <a href="mailto:laura.bachmaier@plymouth.ac.uk">laura.bachmaier@plymouth.ac.uk</a></p>
+    </footer>
+
+</div>
+
+<script>
+    // Smooth scrolling for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        });
+    });
+</script>
+
+</body>
+</html>
