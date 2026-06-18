@@ -131,7 +131,7 @@ from comcon.interactive import (
     create_masks,  # Create land/coastal masks (displays plot)
     clean_spp_occ,  # Filter occurrence data
     validate_spp_occ,  # Validate sample sizes
-    get_spp_colours,  # Get colors for species
+    get_spp_colours,  # Get colours for species
     plot_spp_occ,  # Plot species occurrences
     validate_uploaded_data,  # Validate uploaded data
 
@@ -208,6 +208,7 @@ from comcon.interactive import (
 # endregion
 
 # region Documentation Functions
+## Print a categorised list of all available manual-mode functions
 def list_functions():
     """
     Print a categorized list of all available functions with brief descriptions.
@@ -239,7 +240,7 @@ def list_functions():
             ("[D] clean_spp_occ", "Filter occurrences by habitat type"),
             ("[D] validate_spp_occ", "Validate sample sizes"),
         ],
-        "Step 3: Grid & Fieldset Setup": [
+        "Step 3: Release and Settlement Setup": [
             ("[I] setup_release_settlement", "Complete grid setup with prompts"),
             ("[D] map_spp_to_grid", "Map species occurrences to grid"),
             ("[D] filter_by_polygon", "Filter grid to study area"),
@@ -259,7 +260,7 @@ def list_functions():
             ("[D] pld_filter", "Filter by PLD with settlement check"),
             ("[D] habitat_filter", "Filter by release habitat"),
         ],
-        "Step 6: Connectivity Analysis": [
+        "Step 6: Connectivity Analyses": [
             ("[I] post_analysis", "Interactive analysis selection"),
             ("[D] calculate_connectivity_metrics", "Type 1: connectivity metrics"),
             ("[D] display_metrics_table", "Type 1: display the metrics as a table"),
@@ -313,6 +314,7 @@ def list_functions():
     print("For detailed help: help(function_name)")
     print("For example workflows: example_workflow()\n")
 
+## Print example workflows illustrating common manual-mode usage patterns
 def example_workflow():
     """
     Print example workflows showing how to use manual mode functions.
@@ -578,6 +580,7 @@ def example_workflow():
     print("For detailed help on any function: help(function_name)")
     print("For a list of all functions: list_functions()\n")
 
+## Print detailed parameter requirements for a named function
 def get_function_requirements(function_name):
     """
     Get detailed parameter requirements for a specific function.
@@ -717,6 +720,7 @@ dict containing:
 
 
 # region Convenience Wrapper Functions
+## Run connectivity analyses on existing post-processed data without re-running the full workflow
 def run_analysis_only(final_processed, release_grids, settlement_grids, traits,
                       coastal_grid_df, grid_ids, full_grid_df,
                       run_type1=True, run_type2=True, type2_scale=30):
@@ -778,6 +782,7 @@ def run_analysis_only(final_processed, release_grids, settlement_grids, traits,
     return results
 
 
+## Re-run post-processing on loaded trajectory data with different parameters
 def run_postprocessing_only(traj, traits, release_grids, settlement_grids,
                             grid_ids, buffer=1):
     """
@@ -834,6 +839,7 @@ def run_postprocessing_only(traj, traits, release_grids, settlement_grids,
     return final_processed
 
 
+## Load and process an existing simulation zarr file, adding release_id assignments
 def load_simulation_output(zarr_path, interval_days, chunk_size=50000, runtime_days=None):
     """
     Load existing simulation output for further processing.
@@ -876,23 +882,35 @@ def run_multiscale_network(final_processed, release_grids, settlement_grids,
                            scales=(None,), site_name_lookup=None,
                            exclude_self_recruitment=False):
     """
-    Run network_analysis at one or more distance scales and return the nested structure the dropdown viewers expect:
+    Run network_analysis at one or more distance scales and return the nested structure the dropdown viewers expect.
 
-        {scale_label: {'community': ..., 'per_species': {species: ...}}}
+    Output structure: {scale_label: {'community': ..., 'per_species': {species: ...}}}
 
     Parameters
     ----------
+    final_processed : dict
+        Post-processed trajectory data from post_process() or habitat_filter().
+    release_grids : dict
+        Release grids by species from setup_release_settlement().
+    settlement_grids : dict
+        Settlement grids by species from setup_release_settlement().
+    coastal_grid_df : pandas.DataFrame
+        Coastal grid from setup_release_settlement().
+    grid_ids : numpy.ndarray
+        Grid ID array from setup_release_settlement().
+    full_grid_df : pandas.DataFrame
+        Full grid from setup_release_settlement().
     scales : iterable
-        Distance scales in km. Use None for the full domain (no distance
-        threshold). e.g. scales=[None, 30, 50].
+        Distance scales in km. Use None for the full domain (no distance threshold). e.g. scales=[None, 30, 50].
     site_name_lookup : dict, optional
-        {grid_id: name} for named site-based runs. If given, site names appear
-        in the outputs without you having to set anything else.
+        {grid_id: name} for named site-based runs. If given, site names appear in the outputs automatically.
+    exclude_self_recruitment : bool, default False
+        If True, exclude self-recruitment from source/sink metrics.
 
     Returns
     -------
-    dict ready to pass straight to network_metrics_viewer(), trait_matrix_viewer(),
-    or trait_community_viewer().
+    dict
+        Nested results ready to pass to network_metrics_viewer(), trait_matrix_viewer(), or trait_community_viewer().
     """
     if site_name_lookup is not None:
         import comcon.interactive as _ci

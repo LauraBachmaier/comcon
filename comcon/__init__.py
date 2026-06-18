@@ -56,6 +56,7 @@ except Exception:
 width = 92
 
 
+## Full-width horizontal line for Jupyter and terminal output
 def display_line(char="═"):
     """Display a line that fills the container width dynamically."""
     try:
@@ -65,6 +66,7 @@ def display_line(char="═"):
         print(char * width)
 
 
+## Display the ComCon logo on import
 def display_logo():
     """Display package logo in Jupyter environments."""
     try:
@@ -111,6 +113,7 @@ except (FileNotFoundError, OSError):
 display_logo()
 
 # region Setup Functions
+## Welcome message printed on import
 def welcome_message():
     """Display welcome message and package information."""
     display_line("═")
@@ -140,6 +143,7 @@ def welcome_message():
     print("Please select a pathway below:")
 
 
+## Pathway and mode selection widget displayed on import
 def choose_pathway():
     """Display pathway selection, with a nested mode dropdown for the trait-defined pathway."""
     pathway_dropdown = widgets.Dropdown(
@@ -161,7 +165,9 @@ def choose_pathway():
 
     display(pathway_dropdown, pathway_button, pathway_output)
 
+    ## Print pathway instructions for the passive dispersal option
     def show_passive_instructions():
+        """Print the passive dispersal pathway instructions and entry-point commands."""
         display_line("═")
         print("\nPassive dispersal pathway")
         display_line("─")
@@ -195,7 +201,9 @@ def choose_pathway():
         print("passive_dispersal_pathway()")
         display_line("═")
 
+    ## Display the trait-defined pathway description and mode selection dropdown
     def show_trait_mode_dropdown():
+        """Display the trait-defined pathway overview and present the interactive/automatic/manual mode selector."""
         display_line("═")
         print("\nTrait-defined pathway")
         display_line("─")
@@ -213,21 +221,23 @@ def choose_pathway():
         print("  - Selection of your study area")
         print("     - This can be done interactively via the package or uploaded as a GeoJSON file of a spatial polygon")
         print("  - Selection of release and settlement preferences using habitat suitability or species occurrence data")
-        print("     - This can be done using occurrence data downloaded from GBIF or uploaded as a CSV")
-        print("     - There is also the option to remove species-specific preferences")
+        print("     - This can be done using GBIF to download occurrence data or uploaded as a CSV")
+        print("     - There is the option to include site names to run a site-focused analysis")
+        print("     - There is also the option to remove species-specific preferences entirely")
         print("  - Selection of your simulation parameters")
         print("     - This includes the number of particles, timestep, output frequency and horizontal diffusivity")
         print("  - Selection of the analyses you want to run")
         print("     - This include:")
-        print("         - Type 1: Connectivity Metrics")
-        print("         - Type 2: Network Analysis")
-        print("         - Type 3: Trait Sensitivity")
+        print("        - Type 1: Connectivity Metrics")
+        print("        - Type 2: Network Analysis")
+        print("        - Type 3: Trait Sensitivity")
+        print("")
         print("All user input requirements have defaults available for easy-access.")
         print("")
-        print("   You can use the pathway in three modes:")
-        print("       1. Interactive Mode: Step-by-step guided workflow")
-        print("       2. Automatic Mode: Collect user-choice upfront and run end-to-end")
-        print("       3. Manual Mode: Access individual functions for custom workflows")
+        print("You can use the pathway in three modes:")
+        print("   1. Interactive Mode: Step-by-step guided workflow")
+        print("   2. Automatic Mode: Collect user-choice upfront and run end-to-end")
+        print("   3. Manual Mode: Access individual functions for custom workflows")
         print("")
         print("For full methodological details, see Part 3 of the User Guide.")
         print("")
@@ -254,7 +264,9 @@ def choose_pathway():
 
         display(mode_dropdown, mode_button, mode_output)
 
+        ## Handle mode button click and display the selected mode's instructions
         def on_mode_click(b):
+            """Display start instructions for the selected trait-defined pathway mode."""
             selected_mode = mode_dropdown.value
             with mode_output:
                 mode_output.layout.height = 'auto'
@@ -270,7 +282,7 @@ def choose_pathway():
                     print("Step-by-step workflow with 6 main steps:")
                     print("  1. Hydrodynamic and Trait Data Setup")
                     print("  2. Species Occurrence Data Setup")
-                    print("  3. Release/Settlement Site Setup")
+                    print("  3. Release/Settlement Setup")
                     print("  4. Particle Simulation")
                     print("  5. Post-Processing")
                     print("  6. Connectivity Analyses")
@@ -318,7 +330,9 @@ def choose_pathway():
 
         mode_button.on_click(on_mode_click)
 
+    ## Handle pathway button click and route to the appropriate instructions
     def on_pathway_click(b):
+        """Show passive instructions or trait mode dropdown depending on the selected pathway."""
         selected_pathway = pathway_dropdown.value
         with pathway_output:
             pathway_output.layout.height = 'auto'

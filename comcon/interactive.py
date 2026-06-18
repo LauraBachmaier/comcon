@@ -51,6 +51,9 @@ import getpass
 import copy
 import inspect
 import itertools
+import textwrap
+import webbrowser
+from collections import defaultdict
 from datetime import timedelta, datetime
 from operator import attrgetter
 import numpy as np
@@ -77,6 +80,7 @@ from netCDF4 import Dataset
 from glob import glob
 import geopandas as gpd
 from shapely.geometry import Point, Polygon
+from shapely.geometry import polygon as shapely_polygon_mod
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import folium
@@ -198,7 +202,10 @@ def info_box(text_lines):
     """
     print()
     for line in text_lines:
-        print(f"  {line}")
+        if not line.strip():
+            print()
+            continue
+        print(line)
     print()
     display_line("─")
 
@@ -583,7 +590,9 @@ def get_valid_path(prompt, must_exist=True, default=None, extensions=None):
     Press Enter with no input to open a file browser (if available)."""
 
     # Build file type filter for tkinter
+    ## Build the filetypes list for the tkinter file dialog
     def _get_filetypes(extensions):
+        """Return a tkinter filetypes list for the given list of file extensions."""
         if not extensions:
             return [("All files", "*.*")]
         ext_str = " ".join(f"*{e}" for e in extensions)
@@ -653,6 +662,140 @@ def get_valid_path(prompt, must_exist=True, default=None, extensions=None):
                 if not retry:
                     continue
         return user_input
+
+## Get a directory path from the user, opening a folder browser if they press Enter
+def get_valid_dir(prompt, default=None):
+    """Get a directory path from user input, opening a folder browser on Enter.
+
+    Parameters
+    ----------
+    prompt : str
+        Prompt text shown to the user.
+    default : str, optional
+        Default directory returned if the user presses Enter with a typed path omitted.
+
+    Returns
+    -------
+    str
+        Validated or user-supplied directory path (created if it doesn't exist).
+    """
+    browse_hint = " (or press Enter to browse)"
+    if default:
+        typed = input(f"{prompt} [default: {default}]{browse_hint}: ").strip()
+        if typed:
+            return os.path.expanduser(typed)
+        if typed == '':
+            # Try browser first, fall back to default
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+                _root = tk.Tk()
+                _root.withdraw()
+                _root.attributes('-topmost', True)
+                chosen = filedialog.askdirectory(title=prompt)
+                _root.destroy()
+                if chosen:
+                    print(f"  Selected: {chosen}")
+                    return chosen
+            except Exception:
+                pass
+            return default
+    else:
+        typed = input(f"{prompt}{browse_hint}: ").strip()
+        if typed:
+            return os.path.expanduser(typed)
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            _root = tk.Tk()
+            _root.withdraw()
+            _root.attributes('-topmost', True)
+            chosen = filedialog.askdirectory(title=prompt)
+            _root.destroy()
+            if chosen:
+                print(f"  Selected: {chosen}")
+                return chosen
+        except Exception:
+            pass
+        return typed  # empty string — caller should handle
+
+
+## Get a save file path from the user, opening a save dialog if they press Enter
+def get_save_path(prompt, default=None, extensions=None):
+    """Get a save file path from user input, opening a save-file dialog on Enter.
+
+    Parameters
+    ----------
+    prompt : str
+        Prompt text shown to the user.
+    default : str, optional
+        Default path returned when the user presses Enter without typing.
+    extensions : list of str, optional
+        Allowed file extensions, e.g. ['.csv', '.nc'].  The first entry becomes
+        the default extension in the save dialog.
+
+    Returns
+    -------
+    str
+        The path the user chose or typed.
+    """
+    browse_hint = " (or press Enter to browse)"
+    if default:
+        typed = input(f"{prompt} [default: {default}]{browse_hint}: ").strip()
+        if typed:
+            return os.path.expanduser(typed)
+        # blank → browser
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            _root = tk.Tk()
+            _root.withdraw()
+            _root.attributes('-topmost', True)
+            ft = [("All files", "*.*")]
+            if extensions:
+                ext_str = " ".join(f"*{e}" for e in extensions)
+                ft = [(f"Supported files ({ext_str})", ext_str)] + ft
+            defext = extensions[0].lstrip('.') if extensions else ''
+            chosen = filedialog.asksaveasfilename(
+                title=prompt,
+                defaultextension=defext,
+                filetypes=ft,
+            )
+            _root.destroy()
+            if chosen:
+                print(f"  Selected: {chosen}")
+                return chosen
+        except Exception:
+            pass
+        return default
+    else:
+        typed = input(f"{prompt}{browse_hint}: ").strip()
+        if typed:
+            return os.path.expanduser(typed)
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            _root = tk.Tk()
+            _root.withdraw()
+            _root.attributes('-topmost', True)
+            ft = [("All files", "*.*")]
+            if extensions:
+                ext_str = " ".join(f"*{e}" for e in extensions)
+                ft = [(f"Supported files ({ext_str})", ext_str)] + ft
+            defext = extensions[0].lstrip('.') if extensions else ''
+            chosen = filedialog.asksaveasfilename(
+                title=prompt,
+                defaultextension=defext,
+                filetypes=ft,
+            )
+            _root.destroy()
+            if chosen:
+                print(f"  Selected: {chosen}")
+                return chosen
+        except Exception:
+            pass
+        return typed  # empty string — caller should handle
+
 
 ## Auto scales the grid resolution used for release and settlement (not the hydro grid resolution used for the simulation)
 def calculate_resolution(lat_extent, lon_extent):
@@ -780,15 +923,14 @@ def bin_mask(native_landmask, native_lonarray, native_latarray, target_km):
     return binned_landmask, binned_lonarray, binned_latarray
 
 
+## Map each native-resolution cell to its corresponding binned coastal grid_id
 def create_native_grid_ids_from_binned(native_lonarray, native_latarray, native_landmask,
                                         binned_coastalmask, binned_lonarray, binned_latarray,
                                         binned_grid_df):
     """
-    Create a native-resolution grid_ids array that maps each native cell to its
-    corresponding binned coastal grid cell.
+    Create a native-resolution grid_ids array that maps each native cell to its corresponding binned coastal grid cell.
 
-    This allows the OceanParcels fieldset (at native resolution) to assign
-    binned grid_ids to particles during simulation.
+    This allows the OceanParcels fieldset (at native resolution) to assign binned grid_ids to particles during simulation.
 
     Parameters
     ----------
@@ -806,8 +948,7 @@ def create_native_grid_ids_from_binned(native_lonarray, native_latarray, native_
     Returns
     -------
     grid_ids_native : numpy.ndarray
-        2D array at native resolution where each cell holds the grid_id of
-        the nearest binned coastal cell, or -1 if the cell is land.
+        2D array at native resolution where each cell holds the grid_id of the nearest binned coastal cell, or -1 if the cell is land.
     """
     # Get binned cell centroids
     binned_lats_1d = binned_latarray[:, 0]
@@ -848,6 +989,7 @@ def create_native_grid_ids_from_binned(native_lonarray, native_latarray, native_
     return grid_ids_native
 
 
+## Prompt the user to select a grid resolution for release/settlement sites
 def choose_grid_resolution(lonarray, latarray, landmask):
     """
     Present grid resolution options to the user for the trait-defined pathway.
@@ -1128,7 +1270,7 @@ def save_session(filepath=None):
     print(f"    load_session('{filepath}')")
     print(f"    workflow_step({next_step})")
 
-# Allows the users to save their session including all data loaded into the environment to easily stop/start the workflow
+## Load a previously saved workflow session and restore all variables to the module namespace
 def load_session(filepath='comcon_session.pkl'):
     """
     Load a previously saved workflow session.
@@ -1339,7 +1481,7 @@ def get_output_choice():
 
     if save_fig:
         default_dir = get_default_dir('figures')
-        output_dir = input(f"Output directory [default: {default_dir}]: ").strip() or default_dir
+        output_dir = get_valid_dir("Output directory", default=default_dir)
         os.makedirs(output_dir, exist_ok=True)
         output_format, dpi = get_output_format()
 
@@ -1660,7 +1802,7 @@ def load_spp_traits():
     traits : list
         List of dictionaries, one per species, containing trait data
     """
-    subsection_header("Species Traits Data")
+    subsection_header("Species Trait Data")
 
     print("\nHow would you like to provide species traits data?")
     print("  1. Select species from built-in trait database")
@@ -1732,7 +1874,7 @@ def load_spp_traits():
 
             # Always save selected traits to CSV for reuse
             default_dir = get_default_dir('data')
-            output_dir = input(f"Output directory [default: {default_dir}]: ").strip() or default_dir
+            output_dir = get_valid_dir("Output directory", default=default_dir)
             os.makedirs(output_dir, exist_ok=True)
             filename = input("Filename [default: selected_traits]: ").strip() or "selected_traits"
             if not filename.endswith('.csv'):
@@ -1880,7 +2022,7 @@ def load_spp_traits():
     # ═══════════════════════════════════════════════════════════════════
 
     # Display loaded traits
-    subsection_header("Species Traits Data")
+    subsection_header("Species Trait Data")
     traits_display = pd.DataFrame(traits)
     print(traits_display.to_string(index=False))
     status_message(f"Total species: {len(traits)}", "info")
@@ -1933,7 +2075,7 @@ def load_spp_traits():
                 print("  Please enter a valid number or 'done'.")
 
         # Re-display updated traits
-        subsection_header("Updated Species Traits Data")
+        subsection_header("Updated Species Trait Data")
         traits_display = pd.DataFrame(traits)
         print(traits_display.to_string(index=False))
         display_line("─")
@@ -2191,7 +2333,6 @@ def collect_hydro_params():
             print(f"\n  Selected: {dataset_id}")
             break
         elif choice == '6':
-            import webbrowser
             webbrowser.open("https://data.marine.copernicus.eu/products")
             print("  Opening Copernicus Marine Data Store in your browser...")
             print("  Find your dataset, then select option 5 to enter its ID.\n")
@@ -2299,9 +2440,7 @@ def collect_hydro_params():
         else:
             default_hydro_path = f"./data/hydro_data{file_ext}"
 
-        output_path = input(
-            f"Enter the output path and file name [default: {default_hydro_path}]: "
-        ).strip() or default_hydro_path
+        output_path = get_save_path("Output path and file name", default=default_hydro_path, extensions=[file_ext]) or default_hydro_path
 
         # Ensure correct extension
         if export_format == 'zarr' and not output_path.endswith('.zarr'):
@@ -2463,7 +2602,7 @@ def edit_hydro_params(hydro_params):
                 traits_loaded = False
 
                 while not traits_loaded:
-                    new_path = input(f"Enter the new file path for species traits CSV: ").strip()
+                    new_path = get_valid_path("Species traits CSV", must_exist=True, extensions=['.csv'])
 
                     # Add .csv extension if missing
                     if not new_path.endswith('.csv'):
@@ -3069,7 +3208,7 @@ def params():
 
                 # Display traits as a DataFrame
                 if 'species_traits_path' in hydro_params and hydro_params['species_traits_path']:
-                    subsection_header("Species Traits Data")
+                    subsection_header("Species Trait Data")
                     species_traits_path = hydro_params['species_traits_path']
                     if species_traits_path == 'builtin_database_selection':
                         traits_df = load_builtin_traits()
@@ -3340,7 +3479,7 @@ def download_hydrodynamic_data(**kwargs):
 
     return hydro_data
 
-# Standardising the coordinates
+## Standardise Copernicus dataset dimension names to time/lat/lon
 def standardise_dims(hydro_data):
     """
     Standardise Copernicus dataset dimension names and order.
@@ -3374,21 +3513,17 @@ def standardise_dims(hydro_data):
 
 # endregion
 
-# Loading hydrodynamic data thats been downloaded
+## Load hydrodynamic data from a local NetCDF or Zarr file (no internet required)
 def load_hydrodynamic_data(file_path):
     """
     Load hydrodynamic data from a local NetCDF or Zarr file.
 
-    Use this to reload previously downloaded data without needing
-    an internet connection. The file must contain 'uo' (eastward velocity)
-    and 'vo' (northward velocity) variables with time, latitude, and
-    longitude dimensions.
+    Use this to reload previously downloaded data without needing an internet connection. The file must contain 'uo' (eastward velocity) and 'vo' (northward velocity) variables with time, latitude, and longitude dimensions.
 
     Parameters
     ----------
     file_path : str
-        Path to a NetCDF (.nc) or Zarr (.zarr) file containing
-        hydrodynamic velocity data.
+        Path to a NetCDF (.nc) or Zarr (.zarr) file containing hydrodynamic velocity data.
 
     Returns
     -------
@@ -3450,6 +3585,7 @@ def load_hydrodynamic_data(file_path):
 # endregion
 
 # region Project Directory Setup
+## Create or reuse a project folder with standard subfolders for organising outputs
 def setup_project_directory(project_name=None, custom_path=None, subfolders=None):
     """
     Create or use a project directory for organising all ComCon outputs.
@@ -3551,9 +3687,18 @@ def setup_project_directory(project_name=None, custom_path=None, subfolders=None
             choice = '1'
 
     if choice == '2':
-        # Custom directory
+        # Custom directory — open a folder browser (same pattern as choice 3)
         if custom_path is None:
-            custom_path = input("\nEnter the path to your directory: ").strip()
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+                _root = tk.Tk()
+                _root.withdraw()
+                _root.attributes('-topmost', True)
+                custom_path = filedialog.askdirectory(title="Select your project directory")
+                _root.destroy()
+            except Exception:
+                custom_path = input("Enter the path to your project directory: ").strip()
 
         if not custom_path:
             print("No path provided. Using default project setup instead.")
@@ -3678,7 +3823,7 @@ def edit_spp_params(spp_params):
                 while True:
                     geojson_choice = input("Choose option (1/2): ").strip()
                     if geojson_choice == '1':
-                        new_value = input("Enter the file path to GeoJSON: ").strip()
+                        new_value = get_valid_path("GeoJSON file", must_exist=True, extensions=['.geojson', '.json'])
                         if not new_value.endswith(".geojson"):
                             new_value += ".geojson"
                         if not os.path.exists(new_value):
@@ -3806,7 +3951,6 @@ def create_map():
     # Try ipyleaflet first (better UX — captures polygon directly)
     try:
         from ipyleaflet import Map, DrawControl, basemaps
-        import ipywidgets as widgets
 
         print("\nDraw a polygon around your study area on the map below.")
         print("  1. Click the polygon tool (pentagon icon) on the left side of the map")
@@ -3829,7 +3973,9 @@ def create_map():
         status_output = widgets.Output()
         drawn_polygons = []
 
+        ## Handle draw/delete events from the Leaflet drawing control
         def handle_draw(target, action, geo_json):
+            """Update the drawn polygon list and print status when the user draws or deletes a polygon."""
             with status_output:
                 clear_output()
                 if action == 'created':
@@ -3854,7 +4000,9 @@ def create_map():
         confirmed = [False]
         confirm_output = widgets.Output()
 
+        ## Save the drawn polygon to a GeoJSON file when the Confirm button is clicked
         def on_confirm(b):
+            """Export the most recently drawn polygon to a GeoJSON file."""
             with confirm_output:
                 clear_output()
                 if not drawn_polygons:
@@ -3869,7 +4017,6 @@ def create_map():
                         "properties": {}
                     }]
                 }
-                import json
                 with open(save_path, 'w') as f:
                     json.dump(geojson_data, f, indent=2)
                 print(f"  Study area saved to: {save_path}")
@@ -3904,9 +4051,9 @@ def create_map():
         print("\n  Note: Install 'ipyleaflet' for a better experience (pip install ipyleaflet)")
         print("  Using folium. You will need to manually export and enter the file path.\n")
         print("Follow these steps to define your study area:")
-        print("  1. Use the drawing tool on the map to draw a polygon around your area of interest.")
-        print("  2. After drawing, click the 'Export' button on the map to save the polygon as a GeoJSON file.")
-        print("  3. Once you have saved the file, return here and enter the full path to your saved GeoJSON file below.")
+        print("  1. Use the drawing tool on the map to draw a polygon around your area of interest")
+        print("  2. After drawing, click the 'Export' button on the map to save the polygon as a GeoJSON file")
+        print("  3. Once you have saved the file, return here and enter the full path to your saved GeoJSON file below")
 
         m = folium.Map()
         draw = plugins.Draw(
@@ -3975,7 +4122,6 @@ def read_geojson(geojson_file_path):
     shapely_polygon = Polygon(polygon_coords)
 
     # Ensure counter-clockwise winding order (required by GBIF API)
-    from shapely.geometry import polygon as shapely_polygon_mod
     shapely_polygon = shapely_polygon_mod.orient(shapely_polygon, sign=1.0)
     # Update polygon_coords to match the oriented polygon
     polygon_coords = list(shapely_polygon.exterior.coords)
@@ -4423,7 +4569,7 @@ def plot_masks(landmask, coastalmask, lonarray, latarray, geojson_file_path=None
 
     if save_map in ['yes', 'y']:
         default_dir = get_default_dir('figures')
-        save_dir = input(f"Enter file path [default: {default_dir}]: ").strip() or default_dir
+        save_dir = get_valid_dir("Output directory", default=default_dir)
         filename = input("Enter the filename [default: dispersal_domain]: ").strip() or 'dispersal_domain'
         file_format = input("Select the format (tif/png/pdf/svg) [default: tif]: ").strip().lower() or 'tif'
 
@@ -4886,11 +5032,11 @@ def get_spp_colours(n_species):
     Parameters:
     -----------
     n_species : int
-        Number of species to generate colors for
+        Number of species to generate colours for
 
     Returns:
     --------
-    colors : list
+    colours : list
         List of RGBA tuples, one per species
     """
     if n_species <= 10:
@@ -4907,15 +5053,15 @@ def get_spp_colours(n_species):
         # For >20 species, combine multiple colormaps
         colors = []
 
-        # Get colors from tab20 (first 20)
+        # Get colours from tab20 (first 20)
         tab20 = colormaps.get_cmap('tab20')
         colors.extend([tab20(i) for i in range(20)])
 
-        # Add colors from Set3 (pastel, 12 colors)
+        # Add colours from Set3 (pastel, 12 colours)
         set3 = colormaps.get_cmap('Set3')
         colors.extend([set3(i) for i in range(12)])
 
-        # Add colors from Paired (12 colors)
+        # Add colours from Paired (12 colours)
         paired = colormaps.get_cmap('Paired')
         colors.extend([paired(i) for i in range(12)])
 
@@ -4934,7 +5080,9 @@ def plot_spp_occ(distributions, clean_spp, geojson_file_path, habitat_type, lona
 
     Uses the same layout as plot_masks (single map + legend row) to ensure consistent styling across all ComCon figures.
     """
+    ## Format a species name for use as a matplotlib label (italicised LaTeX string)
     def format_species_name(name, italic=True):
+        """Return the species name with underscores replaced by spaces, optionally formatted as an italic LaTeX string."""
         formatted = str(name).replace('_', ' ')
         if not italic:
             return formatted
@@ -5009,6 +5157,7 @@ def plot_spp_occ(distributions, clean_spp, geojson_file_path, habitat_type, lona
     else:
         legend_ncol = 4
 
+    ## Build a single species occurrence map figure with a legend row (used for before and after panels)
     def _make_panel(data, title_text, info_text):
         """Create a single figure with map + legend row, matching plot_masks style."""
         fig = plt.figure(figsize=(12, 8))
@@ -5084,7 +5233,7 @@ def plot_spp_occ(distributions, clean_spp, geojson_file_path, habitat_type, lona
     save_map = input("\nSave species maps? (yes/no) [default: no]: ").strip().lower() or 'no'
     if save_map in ['yes', 'y']:
         default_dir = get_default_dir('figures')
-        save_dir = input(f"Enter file path [default: {default_dir}]: ").strip() or default_dir
+        save_dir = get_valid_dir("Output directory", default=default_dir)
         file_format = input("Format (tif/png/pdf/svg) [default: tif]: ").strip().lower() or 'tif'
         if file_format not in ['tif', 'png', 'pdf', 'svg']:
             file_format = 'tif'
@@ -5572,7 +5721,7 @@ def spp_occ(hydro_data, species_traits_path):
                     retry = get_yes_no("Try another file?", default='yes')
                     if not retry:
                         raise ValueError("Cannot proceed without valid species data.")
-                    file_path = input("Enter new file path: ").strip()
+                    file_path = get_valid_path("Occurrence data CSV", must_exist=True, extensions=['.csv'])
                     if not file_path.endswith(".csv"):
                         file_path += ".csv"
                     spp_params['user_data_file_path'] = file_path
@@ -5632,7 +5781,7 @@ def spp_occ(hydro_data, species_traits_path):
                 retry = get_yes_no("Try another file?", default='yes')
                 if not retry:
                     raise ValueError("Cannot proceed without valid species data.")
-                file_path = input("Enter new file path: ").strip()
+                file_path = get_valid_path("Occurrence data CSV", must_exist=True, extensions=['.csv'])
                 if not file_path.endswith(".csv"):
                     file_path += ".csv"
                 spp_params['user_data_file_path'] = file_path
@@ -5823,8 +5972,10 @@ def spp_occ(hydro_data, species_traits_path):
     cleaning_applied = habitat_type != 'none'
     spp_params['saved_files'] = {}
 
+    ## Prompt the user for an output path and save a DataFrame to CSV
     def _save_occ_csv(df, label, default_name):
-        path = input(f"\nEnter output path and filename for the {label} data [default: {default_name}]: ").strip()
+        """Ask the user for a filename and save the given DataFrame to CSV."""
+        path = get_save_path(f"Output path and filename for the {label} data", default=default_name, extensions=['.csv'])
         if not path:
             path = default_name
         if not path.endswith(".csv"):
@@ -5855,7 +6006,7 @@ def spp_occ(hydro_data, species_traits_path):
     # Step 8: Offer to save filtered data (for ALL users)
     save_choice = 'yes' if get_yes_no("Save filtered species data to CSV?", default='no') else 'no'
     if save_choice in ['yes', 'y']:
-        csv_path = input("\nEnter output path and filename [default: filtered_species.csv]: ").strip()
+        csv_path = get_save_path("Output path and filename", default="filtered_species.csv", extensions=['.csv'])
         if not csv_path:
             csv_path = "filtered_species.csv"
         if not csv_path.endswith(".csv"):
@@ -5908,9 +6059,9 @@ def create_grid(coastalmask, landmask, lonarray, latarray):
             - 'grid_id' : int
                 Unique sequential identifier (1, 2, 3, ...)
             - 'lon' : float
-                Longitude of grid cell center
+                Longitude of grid cell centre
             - 'lat' : float
-                Latitude of grid cell center
+                Latitude of grid cell centre
             - 'row_idx' : int
                 Row index in original grid array
             - 'col_idx' : int
@@ -5921,7 +6072,7 @@ def create_grid(coastalmask, landmask, lonarray, latarray):
         - Grid IDs are assigned sequentially starting from 1
         - Only cells where coastalmask==1 are included
         - Row and column indices are preserved for mapping back to original arrays
-        - Coordinates represent cell centers, not corners
+        - Coordinates represent cell centres, not corners
         - Grid IDs are persistent across function calls with same coastalmask
 
         Grid Cell Ordering
@@ -6156,7 +6307,7 @@ def save_grids(release_grids=None, settlement_grids=None, full_grid=None, grid_d
             print(f"       This is the grid used for all analyses.")
 
         if get_yes_no("\nExport these grids to CSV?", default='no'):
-            output_dir = input(f"  Output directory [default: {default_dir}]: ").strip() or default_dir
+            output_dir = get_valid_dir("  Output directory", default=default_dir)
             os.makedirs(output_dir, exist_ok=True)
 
             if full_grid_df is not None:
@@ -6188,7 +6339,7 @@ def save_grids(release_grids=None, settlement_grids=None, full_grid=None, grid_d
         print(f"    These show which grid cells each species releases from/settles to.")
 
         if get_yes_no("Export species-specific grids to CSV?", default='no'):
-            output_dir = input(f"  Output directory [default: {default_dir}]: ").strip() or default_dir
+            output_dir = get_valid_dir("  Output directory", default=default_dir)
             os.makedirs(output_dir, exist_ok=True)
 
             if has_release:
@@ -6217,9 +6368,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
     """
     Configure species-specific release and settlement grids for connectivity modelling.
 
-    This is a central function that orchestrates grid creation, species assignment,
-    and polygon filtering to produce ready-to-use release and settlement locations
-    for each species in the connectivity simulation.
+    This is a central function that orchestrates grid creation, species assignment, and polygon filtering to produce ready-to-use release and settlement locations for each species in the connectivity simulation.
 
     Parameters
     ----------
@@ -6334,10 +6483,8 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
     # Build site_name lookup if user provided named sites
     # Maps grid_id → site_name by snapping each user site to its nearest grid cell
     if spp_params.get('has_site_names') and len(clean_spp) > 0 and 'site_name' in clean_spp.columns:
-        from scipy.spatial import cKDTree
         grid_coords = grid_df_for_mapping[['latitude', 'longitude']].values
         tree = cKDTree(grid_coords)
-        from collections import defaultdict
         name_acc = defaultdict(list)
         for _, row in clean_spp.drop_duplicates(subset=['site_name']).iterrows():
             if pd.notna(row.get('latitude')) and pd.notna(row.get('longitude')):
@@ -6372,7 +6519,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
         total_unique_cells = len(temp_meshgrid)
         release_lines.extend([
             "",
-            "Option 2: All sites in your occurrence data (not species-specific)",
+            "Option 2: All sites in your occurrence data (pooled, not species-specific)",
             f"  - Release from every site in {data_source_text}, combined across all species",
             "   - Best when you want to release using habitat suitability data",
             f"  - Total release sites: {total_unique_cells}",
@@ -6410,7 +6557,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
             break
 
         elif release_choice == '2' and len(clean_spp) > 0:
-            # Pooled: every site in the occurrence data, combined across species (not species-specific)
+            # Pooled: every site in the occurrence data, combined across species (pooled, not species-specific)
             meshgrid, _per_species = map_spp_to_grid(grid_df_for_mapping, clean_spp)
             pooled_df = pd.concat(_per_species.values(), ignore_index=True)[
                 ['grid_id', 'longitude', 'latitude']].drop_duplicates(subset=['grid_id']).reset_index(drop=True)
@@ -6459,7 +6606,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
         total_unique_cells = len(temp_meshgrid)
         settlement_lines.extend([
             "",
-            "Option 2: All sites in your occurrence data (not species-specific)",
+            "Option 2: All sites in your occurrence data (pooled, not species-specific)",
             f"  - Settle at every site in {data_source_text}, combined across all species",
             "  - Best when you want to settle using habitat suitability data",
             f"  - Total settlement sites: {total_unique_cells}",
@@ -6542,7 +6689,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
 
                     species_names = clean_spp['species'].unique() if len(clean_spp) > 0 else ['all_species']
                     print("\nHow should this dataset be used?")
-                    print("  1. All sites in your dataset (not species-specific)")
+                    print("  1. All sites in your dataset (pooled, not species-specific)")
                     print("  2. Species-specific habitat in your study area (uses your occurrence data)")
                     sub = input("Choose (1/2) [default: 2]: ").strip() or '2'
                     if sub == '1':
@@ -6775,10 +6922,13 @@ def create_fieldset(hydro_data, landmask, grid_ids):
 # (nested functions can cause "Cannot convert 'pset' to C-code" errors)
 from parcels import StatusCode
 
+## OceanParcels kernel: delete particles that move out of bounds
 def _DeleteErrorParticle(particle, fieldset, time):
+    """Delete particles whose state is ErrorOutOfBounds to prevent simulation crashes."""
     if particle.state == StatusCode.ErrorOutOfBounds:
         particle.delete()
 
+## OceanParcels kernel: accumulate total distance travelled
 def _TotalDistance(particle, fieldset, time):
     """Calculate the distance travelled by the particle."""
     lat_dist = (particle.lat - particle.prev_lat) * 1.11e2
@@ -6791,14 +6941,17 @@ def _TotalDistance(particle, fieldset, time):
     particle.prev_lon = particle.lon
     particle.prev_lat = particle.lat
 
+## OceanParcels kernel: flag whether a particle is currently on land
 def _Sample_land(particle, fieldset, time):
     """Sample if the particle is on land."""
     particle.on_land = fieldset.landmask[time, particle.depth, particle.lat, particle.lon]
 
+## OceanParcels kernel: record the grid cell ID at the particle's current location
 def _Grid_id(particle, fieldset, time):
     """Sample the grid ID at the particle location."""
     particle.grid_id = fieldset.grid_ids[time, particle.depth, particle.lat, particle.lon]
 
+## OceanParcels kernel: nudge land-stranded particles back into the ocean
 def _Reflect(particle, fieldset, time):
     """Update particle position if it is on land."""
     if particle.on_land == 1:
@@ -6809,6 +6962,7 @@ def _Reflect(particle, fieldset, time):
         particle.on_land = 0
 
 
+## Combine all OceanParcels kernels into a single execution kernel
 def create_custom_kernels(pset):
     """
     Create combined kernel for particle advection and tracking.
@@ -7056,15 +7210,20 @@ class MemoryMonitor:
     if memory usage exceeds 85%.
     """
 
+    ## Store the operation name label used in printed output
     def __init__(self, operation_name):
+        """Initialise the monitor with a human-readable operation name."""
         self.operation_name = operation_name
 
+    ## Record baseline memory usage and announce the operation
     def __enter__(self):
+        """Collect garbage, record starting memory usage, and print the operation name."""
         gc.collect()
         self.start_memory = psutil.virtual_memory().percent
         print(f"{self.operation_name}...")
         return self
 
+    ## Collect garbage and warn if memory is critically high after the operation
     def __exit__(self, exc_type, exc_val, exc_tb):
         gc.collect()
         end_memory = psutil.virtual_memory().percent
@@ -7360,11 +7519,12 @@ def process_sim_results(zarr_path, chunk_size=None, runtime_days=None):
 
     return chunks_dir
 
+## Load all parquet trajectory chunks into one combined DataFrame
 def load_traj_from_chunks(chunks_dir):
     """
     Load all parquet chunks into a single DataFrame.
 
-    Use this only when the full trajectory DataFrame is needed in  (e.g. for dispersal animation).
+    Use this only when the full trajectory DataFrame is needed (e.g. for dispersal animation).
     For normal processing, use per-chunk functions instead.
 
     Parameters
@@ -7390,6 +7550,7 @@ def load_traj_from_chunks(chunks_dir):
     print(f"Loaded {len(traj_df):,} rows.")
     return traj_df
 
+## Load only obs=0 (release) rows from chunks for memory-efficient mortality calculation
 def load_traj_starts_from_chunks(chunks_dir):
     """
     Load only obs=0 rows from all chunks which is the release timestamps.
@@ -7513,11 +7674,11 @@ def execute_simulation(pset, kernels, adjusted_runtime, interval):
         - Species assignments
         - Custom particle variables
     kernels : parcels.Kernel or list of parcels.Kernel
-        Compiled kernel(s) defining particle behavior:
+        Compiled kernel(s) defining particle behaviour:
         - Advection (AdvectionRK4)
         - Diffusion
         - Boundary conditions
-        - Settlement behavior
+        - Settlement behaviour
         - Mortality
         Can be single kernel or combined kernel list
     adjusted_runtime : float
@@ -7582,10 +7743,7 @@ def execute_simulation(pset, kernels, adjusted_runtime, interval):
         else:
             default_sim_path = os.path.join(get_default_dir('simulation'), "simulation_output.zarr")
 
-        output_path = input(
-            f"\nEnter the output path and file name for the simulation output\n"
-            f"  [default: {default_sim_path}]: "
-        ).strip() or default_sim_path
+        output_path = get_save_path("Output path and file name for the simulation output", default=default_sim_path, extensions=['.zarr']) or default_sim_path
         if not output_path.endswith(".zarr"):
             output_path += ".zarr"
 
@@ -7858,8 +8016,9 @@ def pld_filter(spawning_dfs, traits, settlement_grids, grid_ids, buffer):
     """
     pld_dfs = {}
 
-    # Helper function to get adjacent grids with buffer
+    ## Return all grid IDs within buffer cells of a given grid ID
     def get_adjacent_grids(grid_id, grid_matrix, buffer):
+        """Return a list of grid IDs within *buffer* cells of the given grid ID in the 2D grid matrix."""
         position = np.where(grid_matrix == grid_id)
         if len(position[0]) == 0:
             return []
@@ -8855,7 +9014,7 @@ def network_analysis(final_processed, release_grids, settlement_grids,
     potential_sites = 0
     n_species = len([s for s in final_processed.values() if isinstance(s, pd.DataFrame) and not s.empty])
 
-    # Helper function to get adjacent grids with buffer (matching pld_filter)
+    ## Return grid IDs within buffer cells of a given grid ID for potential connectivity counting
     def get_adjacent_grids_for_potential(grid_id, grid_matrix, buffer=1):
         """Get grid_ids within buffer distance of a given grid_id."""
         position = np.where(grid_matrix == grid_id)
@@ -8872,7 +9031,7 @@ def network_analysis(final_processed, release_grids, settlement_grids,
 
     if settlement_grids and release_grids:
         # Get union of all species' release AND settlement site grid_ids
-        # Include buffered settlement sites to match post-processing behavior
+        # Include buffered settlement sites to match post-processing behaviour
         all_species_sites = set()
         for species_name in settlement_grids:
             # Add settlement sites WITH BUFFER
@@ -9136,6 +9295,7 @@ def network_analysis(final_processed, release_grids, settlement_grids,
         'distance_threshold': null_scale
     }
 
+## Add a user-defined composite metric to network analysis results
 def add_custom_composite(network_results, metrics, name='custom_composite', top_n=10, verbose=True):
     """
     Add a user-defined custom composite of connectivity metrics for use in network_analysis().
@@ -9422,7 +9582,7 @@ def create_connectivity_matrix_plot(connectivity_matrix, title="Connectivity Mat
     """
     Create a connectivity matrix heatmap visualisation (like Melia et al. 2016).
 
-    Shows source sites (rows) vs destination sites (columns) with color
+    Shows source sites (rows) vs destination sites (columns) with colour
     intensity representing connection strength.
 
     Parameters
@@ -9661,7 +9821,7 @@ def create_matrix_with_map(connectivity_matrix, site_metrics,
 
     return fig
 
-# Create a network map (showing which sites are actually connected in space)
+## Create a geographic directed network map with arrows showing site-to-site connectivity
 def create_directed_network_map(network_results, title="Directed Connectivity Network",
                                 output_path=None, output_format='png', dpi=300,
                                 show_figure=None, edge_scale=0.05, min_edge_width=0.3):
@@ -9796,7 +9956,7 @@ def create_directed_network_map(network_results, title="Directed Connectivity Ne
 
     return fig
 
-# Create a map displaying louvain community detection groupings
+## Create a map of Louvain community detection groupings for connectivity
 def create_community_map(network_results, title="Connectivity Communities (Louvain)",
                          output_path=None, output_format='png', dpi=300,
                          show_figure=None, edge_scale=0.05):
@@ -9963,7 +10123,7 @@ def create_community_map(network_results, title="Connectivity Communities (Louva
 
     return fig, partition
 
-# Compute network-level stats after network_analysis
+## Compute and store density, modularity, and community count in the results dict
 def _compute_network_stats(network_results):
     """
     Compute density, modularity, and community count from a `network_graph`
@@ -9992,7 +10152,7 @@ def _compute_network_stats(network_results):
     except Exception:
         pass
 
-# Viewer dropdown builders
+## Build level and scale option lists for viewer dropdown widgets
 def _get_viewer_options(all_network_results):
     """
     Build level and scale options from the nested results dict.
@@ -10192,7 +10352,9 @@ def trait_matrix_viewer(all_network_results):
     level_dd, scale_dd = _make_viewer_dropdowns(levels, scales)
     output = widgets.Output()
 
+    ## Redraw the connectivity matrix when level or scale dropdown changes
     def update(*_):
+        """Re-render the connectivity matrix for the currently selected level and scale."""
         nr = _lookup_results(all_network_results, level_lookup,
                              level_dd.value, scale_dd.value)
         with output:
@@ -10235,7 +10397,9 @@ def trait_community_viewer(all_network_results):
     level_dd, scale_dd = _make_viewer_dropdowns(levels, scales)
     output = widgets.Output()
 
+    ## Redraw the community map when level or scale dropdown changes
     def update(*_):
+        """Re-render the Louvain community map for the currently selected level and scale."""
         nr = _lookup_results(all_network_results, level_lookup,
                              level_dd.value, scale_dd.value)
         with output:
@@ -10299,7 +10463,9 @@ def trait_heatmap_viewer(all_network_results):
     level_dd, scale_dd = _make_viewer_dropdowns(levels, scales)
     output = widgets.Output()
 
+    ## Redraw the site×metric heatmap when level or scale dropdown changes
     def update(*_):
+        """Re-render the site × metric heatmap for the currently selected level and scale."""
         nr = _lookup_results(all_network_results, level_lookup,
                              level_dd.value, scale_dd.value)
         with output:
@@ -10363,7 +10529,9 @@ def trait_metric_viewer(all_network_results):
     }
 
     # Offer the custom composite as a selectable metric only if one was built for this run.
+    ## Iterate over every network result dict in all scales and levels
     def _iter_nr(anr):
+        """Yield every individual network result dict from the nested all_network_results structure."""
         for scale_results in anr.values():
             if 'community' in scale_results:
                 yield scale_results['community']
@@ -10381,7 +10549,9 @@ def trait_metric_viewer(all_network_results):
     )
     output = widgets.Output()
 
+    ## Redraw the network map when any dropdown changes
     def update(*_):
+        """Re-render the network metric map for the currently selected level, scale, and metric."""
         nr = _lookup_results(all_network_results, level_lookup,
                              level_dd.value, scale_dd.value)
         metric_name = metric_dd.value
@@ -10477,6 +10647,7 @@ def trait_metric_viewer(all_network_results):
     display(level_dd, scale_dd, metric_dd, output)
     update()
 
+## Interactive dropdown viewer for Type 1 connectivity metrics
 def trait_metrics_viewer(type1_results):
     """
     Interactive dropdown viewer for Type 1 connectivity metrics in the trait pathway.
@@ -10528,12 +10699,15 @@ def trait_metrics_viewer(type1_results):
     )
     output = widgets.Output()
 
+    ## Build a formatted display table from a metrics dict for the Type 1 viewer
     def _format_metrics(metrics_dict):
         """Build a clean display table from metrics dict."""
         if not isinstance(metrics_dict, dict):
             return pd.DataFrame([['No data available', '']], columns=['Metric', 'Value'])
 
+        ## Format a single metric value as a percentage, integer, or float with optional units
         def _fmt(v, units=''):
+            """Format a metric value as a percentage string, integer, or float with optional units suffix."""
             if v is None:
                 return '-'
             if isinstance(v, float):
@@ -10578,7 +10752,9 @@ def trait_metrics_viewer(type1_results):
 
         return pd.DataFrame(rows, columns=['Metric', 'Value']) if rows else pd.DataFrame()
 
+    ## Redisplay the metrics table when the dropdown selection changes
     def update(*_):
+        """Re-render the metrics table for the currently selected view."""
         selected = dropdown.value
         with output:
             clear_output(wait=True)
@@ -10600,6 +10776,7 @@ def trait_metrics_viewer(type1_results):
         if not df.empty:
             display(df)
 
+## Interactive viewer for Type 2 network results: summary stats and per-site metrics table
 def network_metrics_viewer(all_network_results):
     """Interactive viewer for Type 2 network results (summary + per-site metrics).
 
@@ -10613,7 +10790,9 @@ def network_metrics_viewer(all_network_results):
     level_dd, scale_dd = _make_viewer_dropdowns(levels, scales)
     output = widgets.Output()
 
+    ## Redisplay summary stats and per-site metrics when dropdowns change
     def update(*_):
+        """Re-render the network summary and per-site metrics table for the selected level and scale."""
         nr = _lookup_results(all_network_results, level_lookup,
                              level_dd.value, scale_dd.value)
         with output:
@@ -10733,8 +10912,9 @@ def dispersal_animation(traj, output_path=None, fps=5, dpi=150, show_in_notebook
     # Tighten layout to remove excess whitespace above the title
     fig.subplots_adjust(top=0.96, bottom=0.06, left=0.06, right=0.96)
 
-    # Animation function
+    ## Matplotlib FuncAnimation callback: update particle positions for each frame
     def animate(frame_idx):
+        """Update the scatter plot positions and day counter for the given animation frame index."""
         obs_val = obs_values[frame_idx]
         frame_data = traj_sorted[traj_sorted['obs'] == obs_val]
 
@@ -10837,7 +11017,9 @@ def create_interactive_metric_viewer(network_results, composite_name="Overall"):
         layout=widgets.Layout(width='350px')
     )
 
+    ## Redraw the network map when the metric dropdown selection changes
     def update_map(change):
+        """Re-render the network map for the newly selected metric."""
         metric_name = change['new']
         col, top10 = metric_options[metric_name]
 
@@ -11294,6 +11476,7 @@ def compare_models(baseline_results, modified_results):
 
     return comparison
 
+## Display side-by-side metrics table comparing original and modified trait model outputs
 def display_sensitivity_comparison(original_metrics, modified_metrics, comparison=None,
                                    title="Original vs Modified Trait Comparison"):
     """
@@ -11846,7 +12029,9 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
     # =====================================================================
     # Sheet 2: flatten the run configuration dict into Parameter | Value rows
     # =====================================================================
+    ## Recursively flatten a nested config dict into (key, value) pairs for the export sheet
     def _flatten(d, prefix=''):
+        """Recursively convert a nested dict to a flat list of (dotted.key, value) tuples."""
         out = []
         for k, v in d.items():
             key = f"{prefix}.{k}" if prefix else str(k)
@@ -11981,6 +12166,7 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
 
     return output_path
 
+## Build the run-configuration dict for the trait-defined pathway metadata export
 def trait_metadata(spp_params, traits, hydro_params, runtime, adjusted_runtime,
                    interval, release_grids, settlement_grids):
     """
@@ -12050,6 +12236,7 @@ def trait_metadata(spp_params, traits, hydro_params, runtime, adjusted_runtime,
 
     return metadata
 
+## Main analysis wrapper: interactive selection and dispatch for all analysis types
 def post_analysis(final_processed):
     """
     Main analysis wrapper with interactive selection of analysis types.
@@ -12228,7 +12415,7 @@ def post_analysis(final_processed):
             # Ask about saving
             if get_yes_no("\nSave Type 1 results to CSV?", default='yes'):
                 default_dir = get_default_dir('results')
-                output_dir = input(f"Output directory [default: {default_dir}]: ").strip() or default_dir
+                output_dir = get_valid_dir("Output directory", default=default_dir)
                 os.makedirs(output_dir, exist_ok=True)
 
                 for key, result_data in type1_results.items():
@@ -12265,7 +12452,7 @@ def post_analysis(final_processed):
                     if save_anim:
                         default_dir = get_default_dir('figures')
                         anim_path = os.path.join(default_dir, 'dispersal_animation.mp4')
-                        anim_path = input(f"Output path [default: {anim_path}]: ").strip() or anim_path
+                        anim_path = get_save_path("Output path", default=anim_path, extensions=['.mp4']) or anim_path
                         os.makedirs(os.path.dirname(anim_path), exist_ok=True)
                         dispersal_animation(anim_traj, output_path=anim_path)
                     else:
@@ -12418,7 +12605,7 @@ def post_analysis(final_processed):
             output_dir = None
             if save_figs:
                 default_dir = get_default_dir('figures')
-                output_dir = input(f"Output directory [default: {default_dir}]: ").strip() or default_dir
+                output_dir = get_valid_dir("Output directory", default=default_dir)
                 os.makedirs(output_dir, exist_ok=True)
 
                 subsection_header("Saving figures")
@@ -12642,8 +12829,8 @@ def post_analysis(final_processed):
             if mod_choice == '1':
                 # PLD modification
                 print("\nPLD Modification (in days):")
-                print("  - You can modify min_PLD and max_PLD separately.")
-                print("  - Enter positive to increase, negative to decrease.")
+                print("  - You can modify min_PLD and max_PLD separately")
+                print("  - Enter a positive value to increase, or a negative value to decrease")
                 print("  - Example: +5 adds 5 days, -3 removes 3 days")
 
                 print("\nOptions:")
@@ -12799,6 +12986,7 @@ def post_analysis(final_processed):
 # endregion
 
 # region Complete Interactive Workflow
+## Run a single numbered step of the interactive trait-defined pathway workflow
 def workflow_step(step_number):
     """
     Main function to guide the user through the interactive workflow.
@@ -12923,13 +13111,13 @@ def workflow_step(step_number):
             "Choose how to load your hydrodynamic data:",
             "",
             "  1. Download from Copernicus Marine Service (requires internet)",
-            "     - ComCon streams the data directly and there is no large download needed.",
-            "     - You can optionally save a local copy for future offline use.",
+            "     - ComCon streams the data directly and there is no large download needed",
+            "     - You can optionally save a local copy for future offline use",
             "",
             "  2. Load from a local file (no internet required)",
-            "     - Use a previously saved NetCDF (.nc) or Zarr (.zarr) file.",
-            "     - The file must contain 'uo' and 'vo' velocity variables with time, latitude and longitude dimensions.",
-            "     - See 'Part 7: Hydrodynamic Data File Format' in the User Guide.",
+            "     - Use a previously saved NetCDF (.nc) or Zarr (.zarr) file",
+            "     - The file must contain 'uo' and 'vo' velocity variables with time, latitude and longitude dimensions",
+            "     - See 'Part 7: Hydrodynamic Data File Format' in the User Guide",
         ])
 
         # Use the saved data-source choice as the default if this project already has parameters, so the user is not re-asked from scratch when continuing.
@@ -12961,7 +13149,7 @@ def workflow_step(step_number):
                     break
                 except (FileNotFoundError, ValueError) as e:
                     print(f"\n  Error: {e}")
-                    retry = input("  Try again? (yes/no): ").strip().lower()
+                    retry = input("  Try again? (yes/no) [default: yes]: ").strip().lower() or 'yes'
                     if retry not in ['yes', 'y']:
                         print("Aborting Step 1.")
                         return

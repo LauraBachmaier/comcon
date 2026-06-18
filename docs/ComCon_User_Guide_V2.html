@@ -570,7 +570,7 @@
                 </tr>
                 <tr>
                     <td><strong>Grid Scaling</strong></td>
-                    <td>A ComCon feature that recommends a coarser grid resolution for release and settlement sites when the study domain is large, to reduce computational cost. Particle advection always runs on the full native-resolution hydrodynamic grid. If grid-scaling is applied, only the release and settlement sites are affected. A coarser release/settlement grid means fewer sites, fewer particles and faster simulations, but less spatial detail in the connectivity results. You can choose the recommended, native or a custom resolution. For site-based analyses you can usually choose the native (finest) resolution rather than the coarser default, because only your study sites release particles, so far fewer are simulated. The native hydrodynamic resolution is the finest available, so two sites can be resolved separately only if they are further apart than one native cell. See <a href="#site-based">Site=-Based Analyses</a> for details.</td>
+                    <td>A ComCon feature that recommends a coarser grid resolution for release and settlement sites when the study domain is large, to reduce computational cost. Particle advection always runs on the full native-resolution hydrodynamic grid. If grid-scaling is applied, only the release and settlement sites are affected. A coarser release/settlement grid means fewer sites, fewer particles and faster simulations, but less spatial detail in the connectivity results. You can choose the recommended, native or a custom resolution. For site-based analyses you can usually choose the native (finest) resolution rather than the coarser default, because only your study sites release particles, so far fewer are simulated. The native hydrodynamic resolution is the finest available, so two sites can be resolved separately only if they are further apart than one native cell. See <a href="#site-based">Working with your own study sites</a> for details.</td>
                 </tr>
                 <tr>
                     <td><strong>Hydrodynamic Data</strong></td>
@@ -1745,8 +1745,8 @@ cc.create_network_map(network['site_metrics'], network['site_metrics'].head(10),
         <div class="info-box">
             <strong>Workflow Overview:</strong>
             <ol>
-                <li>Hydrodynamic Data Setup - Load ocean current data</li>
-                <li>Species Occurrence Data - Define where species are found</li>
+                <li>Hydrodynamic and Trait Data Setup - Load ocean current data</li>
+                <li>Species Occurrence Data Setup - Define where species are found</li>
                 <li>Release/Settlement Setup - Configure particle release and settlement</li>
                 <li>Particle Simulation - Run the dispersal model</li>
                 <li>Post-Processing - Apply species-specific filters</li>
@@ -1916,11 +1916,11 @@ workflow_step(2)</code></pre>
         <p>This step configures how particles are released into the simulation and where they can settle. The grid resolution for release and settlement was already selected in Step 1. If the domain was binned, the coarser grid is used for release/settlement while the native resolution is used for particle advection.</p>
         
         <h3>Release Strategy</h3>
-        <p>Choose how particles are released:</p>
+        <p>ComCon runs one connectivity analysis; the release strategy only changes which sites particles are released from. Your occurrence data from Step 2 always has a <code>species</code> column, and if it also includes a <code>site_name</code> column those names carry through to all outputs. Choose how particles are released:</p>
         <ul>
-            <li><strong>All coastal cells:</strong> Release from every coastal grid cell in your study area</li>
-            <li><strong>Species occurrence locations:</strong> Release only from cells where species have been recorded</li>
-            <li><strong>Site-based (CSV upload):</strong> Release from named sites with latitude/longitude coordinates provided in a CSV file. Useful for monitoring-site-based analyses.</li>
+            <li><strong>Whole study area:</strong> release from every cell in your study grid, regardless of where species occur. Does not use the occurrence data. Best for maximum-dispersal or data-poor scenarios.</li>
+            <li><strong>Pooled across species:</strong> release from every occupied site in your occurrence data, combined across all species, so every species is released from all of those sites. Best when you want to release from your sampled sites without splitting by species.</li>
+            <li><strong>Species-specific:</strong> release each species only from its own occurrence sites. Best for trait-based analyses.</li>
         </ul>
         
         <h3>Settlement Strategy</h3>
@@ -2297,9 +2297,9 @@ Semibalanus balanoides,106210,01/02,30/04,21,60</code></pre>
         <div class="warning-box">
             <strong>Important:</strong> Species names in the occurrence file must exactly match those in your traits file. Use underscores instead of spaces (e.g., <code>Patella_vulgata</code> not <code>Patella vulgata</code>).
         </div>
-        <h2 id="site-based">Site-Based Analyses</h2>
+        <h2 id="site-based">Working with your own study sites</h2>
 
-        <p>A site-based analysis uses your own monitoring or field sites — uploaded as a CSV with <code>latitude</code>, <code>longitude</code> and an optional <code>site_name</code> column — as the release and/or settlement locations, instead of all coastal cells or species occurrence records. Site names are carried through to every output, so your figures and CSVs are labelled with your site names rather than grid IDs.</p>
+        <p>If you include site names during your occurrence data upload (a CSV with <code>species</code>, <code>latitude</code>, <code>longitude</code> and <code>site_name</code>) to use as the release and/or settlement locations, instead of all coastal cells or species occurrence records, the site names are carried through to every output. Your figures and CSVs will be labelled with your site names rather than grid IDs. To release or settle from your sites without splitting by species, choose the <strong>pooled</strong> option in Step 3. To include species-specific habitat preferences, choose <strong>species-specific</strong>.</p>
 
         <p><strong>What switches it on:</strong> including a <code>site_name</code> column in the occurrence data you upload in Step 2. When ComCon detects that column it treats your sites as the labelled units of the analysis and reports every result by site name. No separate mode needs to be selected — the column is the trigger.</p>
 
@@ -2711,7 +2711,7 @@ metrics = calculate_connectivity_metrics(
             <li><strong>Spawning window:</strong> particles are released only during each species' spawning period, at a release frequency you set.</li>
             <li><strong>Competency (minimum PLD):</strong> a larva cannot settle until it has reached its minimum planktonic larval duration.</li>
             <li><strong>Mortality (maximum PLD):</strong> a larva that has not settled by its maximum PLD is assumed to have died. Mortality is therefore derived from the proportion of released particles that never settle.</li>
-            <li><strong>Settlement:</strong> a competent larva settles when it lands in a designated settlement cell (all coastal cells, species habitat, study sites, or custom, depending on your settlement strategy). Settlement is exact-cell: the larva must reach the settlement cell itself, with the settlement-cell resolution setting the spatial tolerance.</li>
+            <li><strong>Settlement:</strong> a competent larva settles when it is within a designated settlement cell (the whole study area, your occurrence data pooled or species-specific, or a different dataset, depending on your settlement strategy). A small cell buffer allows settlement in immediately adjacent cells to account for grid discretisation.</li>
         </ul>
 
         <h2>Passive pathway</h2>
@@ -2730,7 +2730,7 @@ metrics = calculate_connectivity_metrics(
         <h2>Spatial resolution and sites</h2>
         <ul>
             <li><strong>Resolution:</strong> connectivity is resolved at the hydrodynamic grid-cell scale. Two locations within the same cell cannot be distinguished by dispersal; choose a finer grid if you need to separate nearby sites.</li>
-            <li><strong>Site snapping:</strong> uploaded study sites are snapped to the nearest grid cell of your selected habitat type (coastal or ocean) using KD-tree nearest-neighbour search; occurrence records are snapped the same way, so uploading the same points as occurrence data or as study sites gives the same connectivity. Site names attach to grid cells: a named cell shows its name everywhere in the outputs, an unnamed cell shows its grid_id (<code>site_&lt;grid_id&gt;</code>), and you can name some, all, or none of your sites. If two named sites fall in the same cell, both names are reported together for that cell.</li>
+            <li><strong>Site snapping:</strong> occurrence records are snapped to the nearest grid cell of your selected habitat type (coastal or ocean) using KD-tree nearest-neighbour search. Site names attach to grid cells: a named cell shows its name everywhere in the outputs, an unnamed cell shows its grid_id (<code>site_&lt;grid_id&gt;</code>), and you can name some, all, or none of your sites. If two named sites fall in the same cell, both names are reported together for that cell.</li>
             <li><strong>Distances:</strong> inter-site distances and distance-threshold filtering use a spherical approximation of 1° ≈ 111 km.</li>
         </ul>
         <p>Every metric's exact definition and formula is also written into the <code>comcon_outputs.xlsx</code> file produced with each run (Metric Definitions sheet), so the calculations travel with your results.</p>

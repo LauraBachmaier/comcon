@@ -90,6 +90,7 @@ warnings.filterwarnings('ignore')
 # endregion
 
 # region Domain and Grid Binning
+## Validate user-supplied lat/lon bounds and warn if the domain is very large
 def validate_domain(lat_min, lat_max, lon_min, lon_max):
     """
     Validate user-supplied latitude/longitude bounds for a passive dispersal run.
@@ -389,6 +390,7 @@ def snap_to_binned_grid(particle_lons, particle_lats, binned_lonarray, binned_la
     n_lat = len(lat_centroids_1d)
     n_lon = len(lon_centroids_1d)
 
+    ## Vectorised nearest-neighbour index lookup used for snapping particles to the binned grid
     def nearest_id(values, centroids_1d):
         """Vectorised nearest-neighbour index lookup on a sorted 1D array."""
         idx = np.searchsorted(centroids_1d, values)
@@ -449,6 +451,7 @@ def snap_to_binned_grid(particle_lons, particle_lats, binned_lonarray, binned_la
 # endregion
 
 # region Particle Set Creation
+## Create the OceanParcels ParticleSet for a single passive dispersal release event
 def create_passive_pset(fieldset, release_grid, release_time, n_particles_per_cell=100, kh=1):
     """
     Create a non-interactive ParticleSet for the passive dispersal pathway.
@@ -474,9 +477,7 @@ def create_passive_pset(fieldset, release_grid, release_time, n_particles_per_ce
     Returns
     -------
     parcels.ParticleSet
-        Configured particle set with all particles released at
-        ``release_time``. Unlike the trait pathway, there is no ``repeatdt``
-        (single release event).
+        Configured particle set with all particles released at ``release_time``. Unlike the trait pathway, there is no ``repeatdt`` (single release event).
 
     Notes
     -----
@@ -535,6 +536,7 @@ def create_passive_pset(fieldset, release_grid, release_time, n_particles_per_ce
 
 
 # region Simulation Execution
+## Execute a non-interactive 28-day passive dispersal simulation and return trajectory data
 def execute_passive_simulation(pset, kernels, runtime_days, output_path, dt_minutes=60, output_dt_hours=24):
     """
     Execute a non-interactive passive dispersal simulation.
@@ -653,7 +655,7 @@ def execute_passive_simulation(pset, kernels, runtime_days, output_path, dt_minu
         print("\nError: Out of memory during simulation.")
         print("Suggestions:")
         print("  - Reduce the domain size and re-run passive_dispersal_pathway().")
-        print("  - Close other applications to free RAM.")
+        print("  - Close other applications to free RAM")
         return None, None
 
     except Exception as e:
@@ -667,14 +669,14 @@ def execute_passive_simulation(pset, kernels, runtime_days, output_path, dt_minu
 # endregion
 
 # region Fixed-Timepoint Extraction
+## Extract particle positions at fixed timepoints (7, 14, 21, 28 days) and snap them to the binned grid
 def extract_fixed_timepoints(traj, binned_ocean_grid_df, binned_lonarray, binned_latarray,
                               timepoints=(7, 14, 21, 28), season_label=''):
     """
     Extract particle positions at fixed timepoints and snap to the binned grid.
 
     For each specified day (7, 14, 21, 28 by default) this function finds every particle's position at that day of the simulation and snaps it to a binned grid cell.
-    It then builds a DataFrame in the format expected by `network_analysis()`:
-    Two rows per particle, `obs=0` holding the binned grid_id of the release cell and `obs=1` holding the binned grid_id of the cell containing the particle at the timepoint.
+    It then builds a DataFrame in the format expected by `network_analysis()`, with two rows per particle: `obs=0` holds the binned grid_id of the release cell and `obs=1` holds the binned grid_id of the cell containing the particle at the timepoint.
 
     Parameters
     ----------
@@ -1120,7 +1122,9 @@ def matrix_viewer(network_results_by_dataset):
     dataset_dropdown = make_dataset_dropdown(network_results_by_dataset.keys(), default_key)
     output = widgets.Output()
 
+    ## Render the connectivity matrix for the currently selected dataset
     def update(*_):
+        """Re-render the connectivity matrix when the dropdown selection changes."""
         dataset_label = dataset_dropdown.value
         network_results = network_results_by_dataset[dataset_label]
         with output:
@@ -1170,7 +1174,9 @@ def community_viewer(network_results_by_dataset):
     dataset_dropdown = make_dataset_dropdown(network_results_by_dataset.keys(), default_key)
     output = widgets.Output()
 
+    ## Render the Louvain community map for the currently selected dataset
     def update(*_):
+        """Re-render the community map and network stats when the dropdown selection changes."""
         dataset_label = dataset_dropdown.value
         network_results = network_results_by_dataset[dataset_label]
         with output:
@@ -1347,14 +1353,12 @@ def build_heatmap_figure(network_results, title=None):
     return fig
 
 
+## Interactive viewer for the site-by-metric heatmap with a dataset dropdown
 def heatmap_viewer(network_results_by_dataset):
     """
-    Display a site-by-metric heatmap for the currently selected dataset, with
-    a reference map below matching the heatmap's sites.
+    Display a site-by-metric heatmap for the currently selected dataset, with a reference map below matching the heatmap's sites.
 
-    Rows are metrics (source, sink, self-recruitment, betweenness, closeness,
-    degree), columns are sites (top 100 by overall composite rank). Cells are
-    coloured by rank using viridis_r (rank 1 = best = yellow).
+    Rows are metrics (source, sink, self-recruitment, betweenness, closeness, degree); columns are sites (top 100 by overall composite rank). Cells are coloured by rank using viridis_r (rank 1 = best = yellow).
 
     Parameters
     ----------
@@ -1368,7 +1372,9 @@ def heatmap_viewer(network_results_by_dataset):
     dataset_dropdown = make_dataset_dropdown(network_results_by_dataset.keys(), default_key)
     output = widgets.Output()
 
+    ## Render the heatmap for the currently selected dataset
     def update(*_):
+        """Re-render the heatmap figure when the dropdown selection changes."""
         dataset_label = dataset_dropdown.value
         network_results = network_results_by_dataset[dataset_label]
         with output:
@@ -1441,7 +1447,9 @@ def metric_viewer(network_results_by_dataset):
     )
     output = widgets.Output()
 
+    ## Render the hotspot map for the selected dataset and metric
     def update(*_):
+        """Re-render the metric hotspot map when either dropdown selection changes."""
         dataset_label = dataset_dropdown.value
         metric_name = metric_dropdown.value
         col = metric_options[metric_name]
@@ -1568,7 +1576,9 @@ def animation_viewer(trajectory_paths_by_season):
     )
     output = widgets.Output()
 
+    ## Load trajectory data and render the dispersal animation for the selected season
     def update(*_):
+        """Reload trajectory data and re-render the animation when the season dropdown changes."""
         season_label = season_dropdown.value
         parquet_path = trajectory_paths_by_season[season_label]
         with output:
@@ -1615,23 +1625,24 @@ def summary_table_viewer(metrics_by_dataset):
     dataset_dropdown = make_dataset_dropdown(valid_keys, default_key)
     output = widgets.Output()
 
+    ## Build display rows from a metrics dict, hiding Path A artefacts
     def _flatten(metrics):
-        """Build clean, user-facing (label, value) rows from the metrics dict.
-
-        Path A specific: settlement rate is always 100% (no settlement logic)
-        and realised PLD equals the extraction timepoint, so both are hidden.
-        Only the rows that carry genuine information about Path A output are
-        retained.
-        """
+        """Build clean, user-facing (label, value) rows from the metrics dict. Settlement rate and realised PLD are hidden because they are artefacts of Path A (always 100% / equals the extraction timepoint)."""
         community = metrics.get('community', {}) if isinstance(metrics.get('community'), dict) else {}
 
+        ## Format an integer value with thousands separator
         def _fmt_int(v):
+            """Format an integer with thousands separator, or return '-' if None."""
             return f"{int(v):,}" if v is not None else '-'
 
+        ## Format a proportion as a percentage string
         def _fmt_pct(v):
+            """Format a float proportion as a percentage string, or return '-' if None."""
             return f"{v * 100:.1f}%" if v is not None else '-'
 
+        ## Format a numeric value with optional unit suffix
         def _fmt_num(v, units=''):
+            """Format a numeric value with an optional unit suffix, or return '-' if None."""
             return f"{v:.2f} {units}".strip() if v is not None else '-'
 
         rows = [
@@ -1643,7 +1654,9 @@ def summary_table_viewer(metrics_by_dataset):
         ]
         return rows
 
+    ## Display the Type 1 metric summary table for the selected dataset
     def update(*_):
+        """Re-render the connectivity metric summary when the dropdown selection changes."""
         dataset_label = dataset_dropdown.value
         metrics = metrics_by_dataset.get(dataset_label)
         with output:
@@ -1706,6 +1719,7 @@ def pool_final_processed(list_of_final_processed):
 # endregion
 
 # region Main Wrapper Function
+## Main entry point for the passive dispersal pathway — runs both seasonal simulations end-to-end
 def passive_dispersal_pathway(simulation_year=None):
     """
     Runs the complete passive dispersal pathway end-to-end.
@@ -1777,8 +1791,8 @@ def passive_dispersal_pathway(simulation_year=None):
     ])
     while True:
         try:
-            min_lat = parse_coordinate(input("Enter the minimum latitude: "))
-            max_lat = parse_coordinate(input("Enter the maximum latitude: "))
+            min_lat = parse_coordinate(input("Minimum latitude (e.g. 49.0): "))
+            max_lat = parse_coordinate(input("Maximum latitude (e.g. 52.0): "))
             if min_lat >= max_lat:
                 print("Error: Minimum latitude must be less than maximum latitude.")
                 continue
@@ -1791,8 +1805,8 @@ def passive_dispersal_pathway(simulation_year=None):
     print()
     while True:
         try:
-            min_lon = parse_coordinate(input("Enter the minimum longitude: "))
-            max_lon = parse_coordinate(input("Enter the maximum longitude: "))
+            min_lon = parse_coordinate(input("Minimum longitude (e.g. -6.0): "))
+            max_lon = parse_coordinate(input("Maximum longitude (e.g. 2.0): "))
             if min_lon >= max_lon:
                 print("Error: Minimum longitude must be less than maximum longitude.")
                 continue
@@ -2320,7 +2334,7 @@ def passive_dispersal_pathway(simulation_year=None):
     ])
     if metrics_by_dataset:
         print()
-        subsection_header("Summary statistics")
+        subsection_header("Summary Statistics")
         try:
             summary_table_viewer(metrics_by_dataset)
         except Exception as e:
@@ -2330,7 +2344,7 @@ def passive_dispersal_pathway(simulation_year=None):
 
     if all_trajectory_paths:
         print()
-        subsection_header("Dispersal animation")
+        subsection_header("Dispersal Animation")
         try:
             animation_viewer(all_trajectory_paths)
         except Exception as e:
@@ -2373,28 +2387,28 @@ def passive_dispersal_pathway(simulation_year=None):
 
     if network_results_by_dataset:
         print()
-        subsection_header("Connectivity matrix")
+        subsection_header("Connectivity Matrix")
         try:
             matrix_viewer(network_results_by_dataset)
         except Exception as e:
             print(f"  Note: matrix viewer could not be displayed: {e}")
 
         print()
-        subsection_header("Directed connectivity network with hotspots")
+        subsection_header("Directed Connectivity Network with Hotspots")
         try:
             metric_viewer(network_results_by_dataset)
         except Exception as e:
             print(f"  Note: metric viewer could not be displayed: {e}")
 
         print()
-        subsection_header("Site × metric heatmap")
+        subsection_header("Site × Metric Heatmap")
         try:
             heatmap_viewer(network_results_by_dataset)
         except Exception as e:
             print(f"  Note: heatmap viewer could not be displayed: {e}")
 
         print()
-        subsection_header("Louvain communities")
+        subsection_header("Louvain Communities")
         try:
             community_viewer(network_results_by_dataset)
         except Exception as e:

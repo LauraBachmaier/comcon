@@ -44,6 +44,8 @@ import getpass
 import copy
 import pickle
 import itertools
+import webbrowser
+from collections import defaultdict
 from datetime import timedelta, datetime
 from operator import attrgetter
 import numpy as np
@@ -81,7 +83,7 @@ from comcon.interactive import (
     display_line, section_header, subsection_header,
     info_box, data_box, status_message, code_box,
     centered_text, completion_message, setup_project_directory,
-    load_builtin_traits, get_valid_path, create_map,
+    load_builtin_traits, get_valid_path, get_valid_dir, get_save_path, create_map,
     plot_spp_occ, plot_masks, create_custom_kernels,
 )
 
@@ -106,14 +108,20 @@ def display_species_name(name):
 class MemoryMonitor:
     """Context manager for monitoring memory usage during operations."""
 
+    ## Initialise with the name of the operation being monitored
     def __init__(self, operation_name):
+        """Store the operation name."""
         self.operation_name = operation_name
 
+    ## Record memory usage at the start of the monitored block
     def __enter__(self):
+        """Record starting memory and return self."""
         self.start_mem = psutil.Process().memory_info().rss / 1024 ** 3
         return self
 
+    ## Silent exit — automatic mode suppresses memory reports
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit without printing memory delta (automatic mode suppresses output)."""
         # Silent in automatic mode
         return False
 
@@ -175,6 +183,7 @@ def get_yes_no(prompt, default='no'):
         print("  Invalid input. Please enter 'yes' or 'no'.")
 
 # region Main Entry Point
+## Entry point for automatic mode — guides parameter collection then runs the workflow end-to-end
 def start_automatic_mode():
     """
     Start the automatic workflow mode.
@@ -223,7 +232,7 @@ def start_automatic_mode():
 
             config = collect_all_parameters(project_dirs=project_dirs)
 
-            subsection_header("Parameter Collection Complete.")
+            subsection_header("Parameter Collection Complete")
 
             print("\nOptions:")
             print("  1. Run workflow now")
@@ -319,9 +328,7 @@ def start_automatic_mode():
                         # Save the edited config
                         save_edited = get_yes_no("\nSave edited configuration to file?", default='yes')
                         if save_edited:
-                            print(f"\nDefault save path: {config_path}")
-                            print("Press Enter to use default or enter a new path:")
-                            save_path = input("New path: ").strip() or config_path
+                            save_path = get_save_path(f"Save path", default=config_path, extensions=['.json'])
                             if not save_path.endswith('.json'):
                                 save_path += '.json'
                             with open(save_path, 'w') as f:
@@ -351,6 +358,7 @@ def start_automatic_mode():
 # endregion
 
 # region Configuration Collection Functions
+## Collect all workflow parameters interactively before the run begins
 def collect_all_parameters(project_dirs=None):
     """
     Collect ALL workflow parameters upfront via interactive prompts.
@@ -450,7 +458,6 @@ def collect_all_parameters(project_dirs=None):
                 print(f"\n  Selected: {custom_id}")
                 break
             elif choice == '6':
-                import webbrowser
                 webbrowser.open("https://data.marine.copernicus.eu/products")
                 print("  Opening Copernicus Marine Data Store in your browser...")
                 print("  Find your dataset, then select option 5 to enter its ID.\n")
@@ -508,7 +515,7 @@ def collect_all_parameters(project_dirs=None):
             file_ext = '.zarr' if config['copernicus']['export_format'] == 'zarr' else '.nc'
 
             default_hydro_path = os.path.join(config['project']['data'], f'hydro_data{file_ext}')
-            hydro_path = input(f"  Output path [default: {default_hydro_path}]: ").strip()
+            hydro_path = get_save_path("  Output path", default=default_hydro_path, extensions=[file_ext])
             config['copernicus']['output_path'] = hydro_path if hydro_path else default_hydro_path
             # Ensure correct extension
             if config['copernicus']['export_format'] == 'zarr' and not config['copernicus']['output_path'].endswith(
@@ -522,16 +529,19 @@ def collect_all_parameters(project_dirs=None):
             config['copernicus']['output_path'] = None
 
         # Grid Resolution
-        print("\nGrid Resolution for Release and Settlement")
-        print("\nThe grid resolution only controls the resolution of the analysis (release and settlement sites).")
-        print("Particle advection always runs on the full native-resolution hydrodynamic grid.")
-        print("A coarser grid means fewer sites, fewer particles and faster simulations, but less spatial detail in the connectivity results.")
-        print("\nOptions:")
-        print("  1. Recommended (auto-calculated from your domain size)")
-        print("  2. Native (the hydrodynamic grid's own resolution).")
-        print("     On large domains this can produce many thousands of sites and may require significant working memory and computation time.")
-        print("     On very large domains it can exhaust available RAM.")
-        print("  3. Custom (specify your own resolution in km)")
+        subsection_header("Grid Resolution for Release and Settlement")
+        info_box([
+            "The grid resolution controls the resolution of the analysis (release and settlement sites).",
+            "Particle advection always runs on the full native-resolution hydrodynamic grid.",
+            "A coarser grid means fewer sites, fewer particles and faster simulations, but less spatial detail in the connectivity results.",
+            "",
+            "Options:",
+            "  1. Recommended (auto-calculated from your domain size)",
+            "  2. Native (the hydrodynamic grid's own resolution)",
+            "     On large domains this can produce many thousands of sites and may require significant working memory and computation time.",
+            "     On very large domains it can exhaust available RAM.",
+            "  3. Custom (specify your own resolution in km)",
+        ])
 
         while True:
             res_choice = input("\nSelect option (1/2/3) [default: 1]: ").strip() or '1'
@@ -556,7 +566,7 @@ def collect_all_parameters(project_dirs=None):
                     print("  Please enter a whole number.")
 
         # Section 2: Species Trait Data
-        subsection_header("[Section 3/9] Species Traits Data")
+        subsection_header("[Section 3/9] Species Trait Data")
 
         config['traits'] = {}
         print("\nTrait data source:")
@@ -674,8 +684,7 @@ def collect_all_parameters(project_dirs=None):
         config['traits']['save_csv'] = save_traits not in ['no', 'n']
         if config['traits']['save_csv']:
             default_trait_dir = config['project']['data']
-            config['traits']['output_dir'] = input(
-                f"  Output directory [default: {default_trait_dir}]: ").strip() or default_trait_dir
+            config['traits']['output_dir'] = get_valid_dir("  Output directory", default=default_trait_dir)
             config['traits']['filename'] = input("  Filename [default: selected_traits]: ").strip() or "selected_traits"
         else:
             config['traits']['output_dir'] = config['project']['data']
@@ -747,8 +756,7 @@ def collect_all_parameters(project_dirs=None):
         config['occurrence']['save_csv'] = save_occ in ['yes', 'y']
         if config['occurrence']['save_csv']:
             default_occ_path = os.path.join(config['project']['occurrence'], 'cleaned_occurrences.csv')
-            config['occurrence']['csv_path'] = input(
-                f"  Output path [default: {default_occ_path}]: ").strip() or default_occ_path
+            config['occurrence']['csv_path'] = get_save_path("  Output path", default=default_occ_path, extensions=['.csv']) or default_occ_path
             if not config['occurrence']['csv_path'].endswith('.csv'):
                 config['occurrence']['csv_path'] += '.csv'
         else:
@@ -785,11 +793,11 @@ def collect_all_parameters(project_dirs=None):
         config['grids']['settlement_strategy'] = settle_map.get(settle_choice, 'species_habitat')
 
         if config['grids']['settlement_strategy'] == 'custom_habitat':
-            config['grids']['custom_settlement_path'] = input("  Path to custom settlement CSV: ").strip()
+            config['grids']['custom_settlement_path'] = get_valid_path("  Path to custom settlement CSV", must_exist=True, extensions=['.csv'])
             if not config['grids']['custom_settlement_path'].endswith('.csv'):
                 config['grids']['custom_settlement_path'] += '.csv'
             print("\nHow should this dataset be used?")
-            print("  1. All sites in your dataset (not species-specific)")
+            print("  1. All sites in your dataset (pooled, not species-specific)")
             print("  2. Species-specific habitat in your study area (uses your occurrence data)")
             _csm = input("\nSelect option (1/2) [default: 2]: ").strip() or '2'
             config['grids']['custom_settlement_mode'] = 'pooled' if _csm == '1' else 'species_specific'
@@ -801,8 +809,7 @@ def collect_all_parameters(project_dirs=None):
         config['grids']['save_grids'] = save_grids in ['yes', 'y']
         if config['grids']['save_grids']:
             default_grid_dir = config['project']['grids']
-            config['grids']['output_dir'] = input(
-                f"  Output directory [default: {default_grid_dir}]: ").strip() or default_grid_dir
+            config['grids']['output_dir'] = get_valid_dir("  Output directory", default=default_grid_dir)
         else:
             config['grids']['output_dir'] = config['project']['grids']
 
@@ -828,7 +835,7 @@ def collect_all_parameters(project_dirs=None):
         )
 
         default_sim_path = os.path.join(config['project']['simulation'], 'simulation.zarr')
-        sim_path = input(f"\nSimulation output path [default: {default_sim_path}]: ").strip()
+        sim_path = get_save_path("\nSimulation output path", default=default_sim_path, extensions=['.zarr'])
         config['simulation']['output_path'] = sim_path if sim_path else default_sim_path
         if not config['simulation']['output_path'].endswith('.zarr'):
             config['simulation']['output_path'] += '.zarr'
@@ -1090,8 +1097,7 @@ def collect_all_parameters(project_dirs=None):
         config['output'] = {}
 
         default_output_dir = config['project']['root']
-        config['output']['directory'] = input(
-            f"\nOutput directory for all files [default: {default_output_dir}]: ").strip() or default_output_dir
+        config['output']['directory'] = get_valid_dir("\nOutput directory for all files", default=default_output_dir)
         config['output']['figures_dir'] = config['project']['figures']
         config['output']['results_dir'] = config['project']['results']
 
@@ -1115,10 +1121,7 @@ def collect_all_parameters(project_dirs=None):
         save_config = input("\nSave setup to file for future re-runs? (yes/no) [default: yes]: ").strip().lower()
         if save_config not in ['no', 'n']:
             default_config_path = os.path.join(config['project']['config'], 'comcon_setup.json')
-            print(f"\nDefault setup path: {default_config_path}")
-            print("Press Enter to use the default or enter a new output path and file name:")
-            config_path = input("  Setup file path: ").strip()
-            config_path = config_path if config_path else default_config_path
+            config_path = get_save_path("  Setup file path", default=default_config_path, extensions=['.json'])
             if not config_path.endswith('.json'):
                 config_path += '.json'
 
@@ -1143,6 +1146,7 @@ def collect_all_parameters(project_dirs=None):
 def review_and_edit_config(config):
     """Allow user to review and edit specific parameters."""
 
+    ## Build the flat ordered list of parameters shown in the review table
     def build_param_list(cfg):
         """Build a flat list of all editable parameters."""
         params = []
@@ -1330,7 +1334,7 @@ def review_and_edit_config(config):
 
     return config
 
-## Reload old setup parameters
+## Load a previously saved JSON configuration file and prompt for missing password
 def load_config(config_path):
     """
     Load configuration from JSON file.
@@ -1357,6 +1361,7 @@ def load_config(config_path):
 
 
 # region Internal Helper Functions for Workflow
+## Calculate the overall dispersal period from trait data (non-interactive)
 def _calculate_overall_dispersal_period(traits, buffer_before=0, buffer_after=0):
     """
     Calculate the overall dispersal period across all species.
@@ -1386,6 +1391,7 @@ def _calculate_overall_dispersal_period(traits, buffer_before=0, buffer_after=0)
     return overall_start, overall_end, base_start, base_end
 
 
+## Load species traits from the config dict (non-interactive, no prompts)
 def _load_traits_from_config(config):
     """
     Load species traits based on configuration.
@@ -1459,6 +1465,7 @@ def _load_traits_from_config(config):
 
 
 # region Main Workflow Function
+## Execute the complete workflow automatically using a validated config dictionary
 def run_workflow(config):
     """
     Execute the complete ComCon workflow automatically.
@@ -1478,6 +1485,7 @@ def run_workflow(config):
         Results dictionary containing analysis outputs
     """
     # Auto-respond to all input prompts from interactive functions
+    ## Intercept all input() calls and return sensible defaults automatically
     def _auto_input(prompt=""):
         """Auto-respond to prompts in automatic mode."""
         prompt_lower = str(prompt).lower()
@@ -1720,7 +1728,7 @@ def run_workflow(config):
         print("\n  ✓ Step 2 completed: Species occurrence data ready.\n")
 
         # Step 3: Setup the Simulation
-        subsection_header("Step 3: Simulation Setup")
+        subsection_header("Step 3: Release and Settlement Setup")
 
         # Create coastal grid
         print("\nCreating release and settlement grids...")
@@ -1790,8 +1798,6 @@ def run_workflow(config):
 
             # Build grid_id -> site_name lookup so names appear in outputs (any data may carry site_name)
             if 'site_name' in clean_spp.columns:
-                from collections import defaultdict
-                from scipy.spatial import cKDTree
                 name_acc = defaultdict(list)
                 grid_tree = cKDTree(coastal_grid_df[['latitude', 'longitude']].values)
                 for _, row in clean_spp.drop_duplicates(subset=['site_name']).iterrows():
@@ -1973,7 +1979,7 @@ def run_workflow(config):
         print("\n  ✓ Step 5 completed: Post-processing finished.\n")
 
         # Step 6: Connectivity Analyses
-        subsection_header("Step 6: Connectivity Analysis")
+        subsection_header("Step 6: Connectivity Analyses")
 
         # Type 1: Connectivity Metrics
         if config['analysis'].get('run_type1', True):
