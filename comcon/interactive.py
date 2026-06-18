@@ -31,7 +31,7 @@ How It Works:
 Workflow Steps:
 ---------------
 Step 1: Load species traits, set dispersal period, download hydrodynamic data
-Step 2: Define study area, download/load species occurrences, filter by habitat
+Step 2: Define study extent, download/load species occurrences, filter by habitat
 Step 3: Create release/settlement grids, build OceanParcels fieldset
 Step 4: Configure particles, execute Lagrangian simulation
 Step 5: Apply spawning, PLD, and habitat filters to trajectories
@@ -486,7 +486,7 @@ def auto_convert_coordinates(df, lat_col='latitude', lon_col='longitude'):
         if pd.api.types.is_numeric_dtype(df[col]):
             continue
 
-        # Try converting — if any value is non-numeric string, attempt DMS parsing
+        # Try converting , if any value is non-numeric string, attempt DMS parsing
         try:
             original_col = f'{col}_original'
             df[original_col] = df[col].copy()
@@ -717,7 +717,7 @@ def get_valid_dir(prompt, default=None):
                 return chosen
         except Exception:
             pass
-        return typed  # empty string — caller should handle
+        return typed  # empty string , caller should handle
 
 
 ## Get a save file path from the user, opening a save dialog if they press Enter
@@ -794,7 +794,7 @@ def get_save_path(prompt, default=None, extensions=None):
                 return chosen
         except Exception:
             pass
-        return typed  # empty string — caller should handle
+        return typed  # empty string , caller should handle
 
 
 ## Auto scales the grid resolution used for release and settlement (not the hydro grid resolution used for the simulation)
@@ -990,7 +990,7 @@ def create_native_grid_ids_from_binned(native_lonarray, native_latarray, native_
 
 
 ## Prompt the user to select a grid resolution for release/settlement sites
-def choose_grid_resolution(lonarray, latarray, landmask):
+def choose_grid_resolution(lonarray, latarray):
     """
     Present grid resolution options to the user for the trait-defined pathway.
 
@@ -1001,8 +1001,6 @@ def choose_grid_resolution(lonarray, latarray, landmask):
     ----------
     lonarray, latarray : numpy.ndarray
         2D meshgrids from the hydrodynamic data.
-    landmask : numpy.ndarray
-        2D binary land mask.
 
     Returns
     -------
@@ -1037,7 +1035,7 @@ def choose_grid_resolution(lonarray, latarray, landmask):
     ])
 
     if recommended_km <= native_km * 1.1:
-        # Small domain: native IS the recommended resolution — show 2 options
+        # Small domain: native IS the recommended resolution , show 2 options
         print(f"\n  Options:")
         print(f"    1. Native resolution (~{native_km} km)  [recommended for your domain size]")
         print(f"    2. Choose your own resolution")
@@ -1061,7 +1059,7 @@ def choose_grid_resolution(lonarray, latarray, landmask):
             return int(native_km), False
 
     else:
-        # Large domain: native and recommended differ — show all 3
+        # Large domain: native and recommended differ , show all 3
         print(f"\n  Options:")
         print(f"    1. Native resolution (~{native_km} km)")
         print(f"    2. Recommended resolution ({recommended_km} km)  [default]")
@@ -1177,17 +1175,16 @@ def save_session(filepath=None):
             except Exception as e:
                 print(f"  Warning: Could not save '{var_name}': {e}")
 
-        # Save hydro_data: strip the unpicklable Copernicus/S3 backend by converting
-        # to a plain in-memory dataset. Cache the clean copy so subsequent saves are instant.
+        # Save hydro_data: strip the unpicklable Copernicus/S3 backend by converting to a plain in-memory dataset.
+        # Cache the clean copy so subsequent saves are instant
         # Once the simulation has produced trajectory chunks, the velocity fields are no longer needed
         if 'chunks_dir' in globals() and globals().get('chunks_dir') and os.path.isdir(str(globals()['chunks_dir'])):
-            print(
-                "\n  Simulation already complete, so the hydrodynamic velocities are not needed to resume and won't be saved (this keeps the checkpoint fast).")
+            print("\n  Simulation already complete, so the hydrodynamic velocities are not needed to resume and won't be saved (this keeps the checkpoint fast).")
         elif 'hydro_data' in globals() and globals()['hydro_data'] is not None:
             try:
                 _hd = globals()['hydro_data']
                 if _hd.attrs.get('_comcon_cleaned'):
-                    # Already cleaned on a previous save — reuse directly
+                    # Already cleaned on a previous save , reuse directly
                     session_data['hydro_data'] = _hd
                 else:
                     print("  Preparing hydrodynamic data for session save. This may take a moment...")
@@ -1264,11 +1261,11 @@ def save_session(filepath=None):
 
     next_step = min(last_step + 1, 6)
 
-    print(f"\n  Session saved after Step {last_step}.")
-    print(f"\n  To resume later, run in a new notebook or after restarting the kernel:")
-    print(f"    from comcon.interactive import *")
-    print(f"    load_session('{filepath}')")
-    print(f"    workflow_step({next_step})")
+    print(f"\nSession saved after Step {last_step}.")
+    print(f"\nTo resume later, after restarting the kernel or in a new notebook, run in a new cell:")
+    print(f"from comcon.interactive import *")
+    print(f"load_session('{filepath}')")
+    print(f"workflow_step({next_step})")
 
 ## Load a previously saved workflow session and restore all variables to the module namespace
 def load_session(filepath='comcon_session.pkl'):
@@ -1345,9 +1342,9 @@ def load_session(filepath='comcon_session.pkl'):
             caller_globals[var_name] = globals()[var_name]
 
     display_line("─")
-    print(f"  Session restored from: {filepath}")
-    print(f"  Originally saved at: {saved_at}")
-    print(f"  Variables restored: {len(restored)}")
+    print(f"Session restored from: {filepath}")
+    print(f"Originally saved at: {saved_at}")
+    print(f"Variables restored: {len(restored)}")
     display_line("─")
 
     can_resume = []
@@ -1891,35 +1888,25 @@ def load_spp_traits():
     if source_choice == '2':
         subsection_header("Custom Traits CSV")
         info_box([
-            "Your CSV must include either 'species_name' or 'aphia_id' for each species:",
-            "  - Leave the unused column blank (empty cell)",
-            "  - If both are provided, AphiaID will be used",
-            "  - AphiaID is recommended for marine species (handles name changes/synonyms)",
-            "  - Find AphiaIDs at: https://www.marinespecies.org/",
+            "Your CSV needs one row per species, with these columns.",
             "",
-            "Required columns: species_name OR aphia_id, spawning_start, spawning_end, min_PLD, max_PLD",
-            "Date format: DD/MM/YYYY or DD/MM (you'll be prompted for year)"
-        ])
-
-        # Get file path
-        info_box([
-            "Your CSV file must contain the following columns:",
+            "  Required:",
+            "    species_name OR aphia_id: at least one species identifier (see below)",
+            "    spawning_start:            start of spawning window (DD/MM or DD/MM/YYYY, e.g. 01/10)",
+            "    spawning_end:              end of spawning window (DD/MM or DD/MM/YYYY, e.g. 31/01)",
+            "    min_PLD:                   minimum pelagic larval duration in whole days",
+            "    max_PLD:                   maximum pelagic larval duration in whole days",
             "",
-            "  Required columns:",
-            "    species_name    — Species name (e.g., Patella vulgata)",
-            "    min_PLD         — Minimum pelagic larval duration in days (integer)",
-            "    max_PLD         — Maximum pelagic larval duration in days (integer)",
-            "    spawning_start  — Start of spawning window (format: DD/MM, e.g., 01/10)",
-            "    spawning_end    — End of spawning window (format: DD/MM, e.g., 31/01)",
-            "",
-            "  Optional columns:",
-            "    aphia_id        — WoRMS AphiaID (recommended for marine species)",
+            "  Species identifier:",
+            "    You must provide a species_name, aphia_id or both. If both are given, aphia_id is used."
+            "    AphiaID is recommended for marine species because it tracks name changes and synonyms.",
+            "    Find AphiaIDs at https://www.marinespecies.org/",
             "",
             "  Notes:",
-            "    - Column order does not matter",
-            "    - The aphia_id column does not need to be present if not used",
-            "    - Additional columns are permitted and will be ignored by ComCon",
-            "    - Species occurrence/distribution data will be uploaded separately in Step 2"
+            "    Column order does not matter and any extra columns are ignored.",
+            "    If a date has no year you will be asked which dispersal year to use. If DD/MM/YYYY is provided, this year is used.",
+            "    PLD values should be given as integers.",
+            "    Species occurrence/distribution data is uploaded separately in Step 2.",
         ])
         species_traits_path = get_valid_path("Enter the path to your species traits CSV", must_exist=True,
                                              extensions=['.csv'])
@@ -2266,7 +2253,7 @@ def collect_hydro_params():
     """
     subsection_header("Setting up the Hydrodynamic Extent")
     info_box([
-        "Important: The hydrodynamic domain needs to be larger than your study area."
+        "Important: The hydrodynamic domain needs to be larger than your study extent."
     ])
 
     # Check if credentials are already saved
@@ -2292,23 +2279,24 @@ def collect_hydro_params():
     subsection_header("Copernicus Marine Dataset Selection")
     info_box([
         "Select a hydrodynamic dataset. The most commonly used datasets are listed below.",
+        "Start dates are updated as new data is published, so data coverage is checked automatically before any download.",
         "You can also enter a custom dataset ID if your region is not covered.",
         "",
-        "  1. Global Ocean (~9km resolution, 2022–present)",
+        "  1. Global Ocean (~9 km resolution)",
         "     cmems_mod_glo_phy_anfc_0.083deg_PT1H-m",
         "",
-        "  2. NW European Shelf (~1.5km resolution, 2024–present)",
+        "  2. NW European Shelf (~1.5 km resolution)",
         "     cmems_mod_nws_phy-cur_anfc_1.5km-2D_PT1H-i",
         "",
-        "  3. Atlantic–Iberian–Mediterranean (~3km resolution, 2022–present)",
+        "  3. Atlantic-Iberian-Mediterranean (~3 km resolution)",
         "     cmems_mod_ibi_phy_anfc_0.027deg-2D_PT1H-m",
         "",
-        "  4. Mediterranean Sea (~4km resolution, 2022–present)",
+        "  4. Mediterranean Sea (~4 km resolution)",
         "     cmems_mod_med_phy-cur_anfc_4.2km-2D_PT1H-m",
         "",
         "  5. Enter a custom dataset ID",
         "",
-        "  6. Browse the Copernicus Marine Data Store"
+        "  6. Browse the Copernicus Marine Data Store",
     ])
 
     dataset_options = {
@@ -2349,7 +2337,7 @@ def collect_hydro_params():
     # Longitude range with validation
     subsection_header("Spatial Extent")
     info_box([
-        "Define your hydrodynamic domain. This should be larger than your study area to allow particles to disperse beyond the boundaries.",
+        "Define your hydrodynamic domain. This should be larger than your study extent to allow particles to disperse beyond the boundaries.",
     ])
     while True:
         try:
@@ -2576,7 +2564,7 @@ def edit_hydro_params(hydro_params):
                 trait_choice = input("\nSelect option (1/2) [default: 1]: ").strip() or '1'
 
                 if trait_choice == '1':
-                    # Use built-in database — re-run species selection
+                    # Use built-in database , re-run species selection
                     traits_df = load_builtin_traits()
                     if traits_df is not None:
                         selected_traits, species_indices = select_species_from_database(traits_df)
@@ -2746,8 +2734,7 @@ def edit_hydro_params(hydro_params):
                             print(f"\nError found in {new_path}:")
                             for error in validation_errors:
                                 print(f"  • {error}")
-                            print(
-                                f"\nLoaded {len(new_traits)} valid species (skipped {len(validation_errors)} rows with errors).")
+                            print(f"\nLoaded {len(new_traits)} valid species (skipped {len(validation_errors)} rows with errors).")
 
                             if len(new_traits) == 0:
                                 print("No valid species found.")
@@ -3046,7 +3033,7 @@ def edit_hydro_params(hydro_params):
                             print("Error: Please enter 'yes' or 'no'.")
 
                 elif key == 'runtime':
-                    # Runtime cannot be manually set — it is derived from species traits + buffer
+                    # Runtime cannot be manually set , it is derived from species traits + buffer
                     print(f"\nRuntime ({value} days) is automatically calculated from species traits.")
                     print("To change runtime, edit the species traits file or temporal buffer instead.")
                     continue
@@ -3250,8 +3237,7 @@ def params():
                     hydro_params['runtime'] = runtime
                     hydro_params['traits'] = traits
                     hydro_params['time_range'] = [new_start, new_end]
-                    print(
-                        f"Runtime: {runtime} days (from {new_start.strftime('%Y-%m-%d')} to {new_end.strftime('%Y-%m-%d')})")
+                    print(f"Runtime: {runtime} days (from {new_start.strftime('%Y-%m-%d')} to {new_end.strftime('%Y-%m-%d')})")
                 else:
                     print("Warning: Could not read traits file. Keeping saved runtime.")
                     traits = hydro_params.get("traits", None)
@@ -3379,7 +3365,7 @@ def download_hydrodynamic_data(**kwargs):
     ------
     - Requires active internet connection to Copernicus Marine Service
     - By default (export=False), data is streamed directly from Copernicus
-      using lazy loading — no large file download is needed
+      using lazy loading , no large file download is needed
     - Set export=True only if you want a local copy for future offline use
     - When export=True, data is compressed with level 9 compression (NetCDF)
       or default compression (Zarr)
@@ -3478,6 +3464,44 @@ def download_hydrodynamic_data(**kwargs):
         hydro_data = standardise_dims(data)
 
     return hydro_data
+
+## Checks the start and end dates of the copernicus data before download
+def check_dataset_coverage(dataset_id, time_range, username=None, password=None,
+                           longitude_range=None, latitude_range=None):
+    """
+    Check, before downloading, whether a Copernicus dataset covers the requested dispersal period.
+
+    Opens the dataset lazily (metadata only) and reads its published time coordinate to report the true available start and end.
+    This catches the common case where an analysis-forecast product begins a few days or weeks after the date you asked for.
+
+    Returns
+    -------
+    ok : bool
+        True if the dataset fully covers the requested period.
+    avail_start, avail_end : pandas.Timestamp
+        The dataset's actual published start and end.
+    """
+    req_start = pd.Timestamp(time_range[0])
+    req_end = pd.Timestamp(time_range[1])
+
+    open_kwargs = dict(dataset_id=dataset_id)
+    if longitude_range is not None:
+        open_kwargs["minimum_longitude"] = longitude_range[0]
+        open_kwargs["maximum_longitude"] = longitude_range[1]
+    if latitude_range is not None:
+        open_kwargs["minimum_latitude"] = latitude_range[0]
+        open_kwargs["maximum_latitude"] = latitude_range[1]
+    if username and password:
+        open_kwargs["username"] = username
+        open_kwargs["password"] = password
+
+    probe = cm.open_dataset(**open_kwargs)
+    times = pd.to_datetime(probe["time"].values)
+    avail_start = pd.Timestamp(times.min())
+    avail_end = pd.Timestamp(times.max())
+
+    ok = (avail_start <= req_start) and (avail_end >= req_end)
+    return ok, avail_start, avail_end
 
 ## Standardise Copernicus dataset dimension names to time/lat/lon
 def standardise_dims(hydro_data):
@@ -3617,13 +3641,13 @@ def setup_project_directory(project_name=None, custom_path=None, subfolders=None
         subfolder_names = list(subfolders)
 
     _all_descriptions = {
-        'config': "config/           — Saved parameter files (.json)",
-        'hydro_data': "hydro_data/       — Exported hydrodynamic data",
-        'occurrence_data': "occurrence_data/  — Cleaned species occurrence data",
-        'grids': "grids/            — Release and settlement grids",
-        'simulation': "simulation/       — Simulation output (.zarr)",
-        'figures': "figures/          — All saved figures",
-        'results': "results/          — Connectivity metrics and network results",
+        'config': "config/:           Saved parameter files (.json)",
+        'hydro_data': "hydro_data/:       Exported hydrodynamic data",
+        'occurrence_data': "occurrence_data/:  Cleaned species occurrence data",
+        'grids': "grids/:            Release and settlement grids",
+        'simulation': "simulation/:       Simulation output (.zarr)",
+        'figures': "figures/:          All saved figures",
+        'results': "results/:          Connectivity metrics and network results",
     }
     subfolder_descriptions = [_all_descriptions[n] for n in subfolder_names if n in _all_descriptions]
     if custom_path is None:
@@ -3663,23 +3687,11 @@ def setup_project_directory(project_name=None, custom_path=None, subfolders=None
             existing_files = [f for f in os.listdir(selected_dir) if not f.startswith('.')]
             if existing_files:
                 print(f"  Found {len(existing_files)} existing items")
-                print(
-                    "  Note: continuing a project reuses this folder for new outputs. It does not restore your previous workflow state but does provide saved parameter settings. Note: New results will overwrite previous outputs in this folder if the same name is assigned.")
-            # Point the user at load_session if a saved checkpoint exists, so they can resume instead
-            # of re-running Step 1 from scratch.
+                print("  Note: Continuing a project reuses this folder. New results will overwrite previous outputs if the same name is assigned.")
             _session_pkl = os.path.join(subdirs.get('config', selected_dir), 'comcon_session.pkl')
             if os.path.exists(_session_pkl):
-                print("\n  A saved session checkpoint was found in this project.")
-                print(
-                    f"  To resume where you left off instead of re-entering Step 1, run: load_session(r'{_session_pkl}')")
-            display_line("─")
-            return subdirs
-
-            print(f"\n  Continuing project: {selected_dir}")
-            existing_files = [f for f in os.listdir(selected_dir) if not f.startswith('.')]
-            if existing_files:
-                print(f"  Found {len(existing_files)} existing items")
-                print("  Note: New results will overwrite previous outputs in this folder if the same name is assigned.")
+                print("\nA saved session checkpoint was found in this project.")
+                print(f"  To resume where you left off instead of re-entering Step 1, run: load_session(r'{_session_pkl}')")
             display_line("─")
             return subdirs
         else:
@@ -3687,7 +3699,7 @@ def setup_project_directory(project_name=None, custom_path=None, subfolders=None
             choice = '1'
 
     if choice == '2':
-        # Custom directory — open a folder browser (same pattern as choice 3)
+        # Custom directory , open a folder browser (same pattern as choice 3)
         if custom_path is None:
             try:
                 import tkinter as tk
@@ -3759,7 +3771,7 @@ def setup_project_directory(project_name=None, custom_path=None, subfolders=None
 
     # Build the folder-structure box dynamically so Path A doesn't show entries
     # for folders that don't exist (e.g. occurrence, data).
-    # Printed ONCE after all directories are created (was inside the loop — printed 5x).
+    # Printed ONCE after all directories are created (was inside the loop , printed 5x).
     display_lines = [
         f"Project directory created: {root}",
         "",
@@ -3817,9 +3829,9 @@ def edit_spp_params(spp_params):
             # Collect new input for other parameter types
             elif key == 'geojson_file_path':
                 # Special handling for geojson - offer redraw option
-                print("\nOptions for updating study area:")
+                print("\nOptions for updating study extent:")
                 print("  1. Enter path to existing GeoJSON file")
-                print("  2. Draw new study area on map")
+                print("  2. Draw new study extent on map")
                 while True:
                     geojson_choice = input("Choose option (1/2): ").strip()
                     if geojson_choice == '1':
@@ -3897,9 +3909,9 @@ def collect_spp_occ_params(species_traits_path):
         - 'geojson_file_path' : str or None
             Path to GeoJSON polygon file (created later in workflow)
     """
-    subsection_header("Select your study area")
+    subsection_header("Select your study extent")
     info_box([
-        "Your study area defines the region where particles will be released and where connectivity will be analysed. ",
+        "Your study extent defines the region where particles will be released and where connectivity will be analysed. ",
         "This should be smaller than your hydrodynamic domain.",
         "",
         "You can either upload an existing GeoJSON polygon file or draw one on an interactive map.",
@@ -3922,7 +3934,7 @@ def collect_spp_occ_params(species_traits_path):
 ### Create Map
 def create_map():
     """
-    Creates an interactive map for defining the study area polygon.
+    Creates an interactive map for defining the study extent polygon.
 
     Launches an interactive map in Jupyter allowing users to draw
     a polygon defining their study area. The polygon is captured directly
@@ -3935,7 +3947,7 @@ def create_map():
 
     Notes
     -----
-    - Uses ipyleaflet if available (captures polygon directly — no manual export needed)
+    - Uses ipyleaflet if available (captures polygon directly , no manual export needed)
     - Falls back to folium if ipyleaflet is not installed (requires manual export)
     - Must be run in a Jupyter environment
     """
@@ -3948,11 +3960,11 @@ def create_map():
     os.makedirs(save_dir, exist_ok=True)
     save_path = os.path.join(save_dir, "study_area.geojson")
 
-    # Try ipyleaflet first (better UX — captures polygon directly)
+    # Try ipyleaflet first (better UX , captures polygon directly)
     try:
         from ipyleaflet import Map, DrawControl, basemaps
 
-        print("\nDraw a polygon around your study area on the map below.")
+        print("\nDraw a polygon around your study extent on the map below.")
         print("  1. Click the polygon tool (pentagon icon) on the left side of the map")
         print("  2. Click on the map to place vertices of your polygon")
         print("  3. Click the first vertex again to close the polygon")
@@ -3962,7 +3974,7 @@ def create_map():
         m = Map(basemap=basemaps.OpenStreetMap.Mapnik, center=(45, 0), zoom=4,
                 layout=widgets.Layout(width='100%', height='500px'))
 
-        # Add draw control — polygon only
+        # Add draw control , polygon only
         draw_control = DrawControl(
             polygon={'shapeOptions': {'color': '#FF4500', 'weight': 3, 'fillOpacity': 0.1}},
             polyline={}, rectangle={}, circle={}, circlemarker={}, marker={}
@@ -4050,7 +4062,7 @@ def create_map():
         # Fall back to folium
         print("\n  Note: Install 'ipyleaflet' for a better experience (pip install ipyleaflet)")
         print("  Using folium. You will need to manually export and enter the file path.\n")
-        print("Follow these steps to define your study area:")
+        print("Follow these steps to define your study extent:")
         print("  1. Use the drawing tool on the map to draw a polygon around your area of interest")
         print("  2. After drawing, click the 'Export' button on the map to save the polygon as a GeoJSON file")
         print("  3. Once you have saved the file, return here and enter the full path to your saved GeoJSON file below")
@@ -4074,7 +4086,7 @@ def create_map():
 ### Read GeoJSON File
 def read_geojson(geojson_file_path):
     """
-        Reads and validates GeoJSON file containing the study area polygon.
+        Reads and validates GeoJSON file containing the study extent polygon.
 
         Loads a GeoJSON file, extracts the polygon geometry, and validates that it
         contains the expected structure for use in spatial filtering operations.
@@ -4267,7 +4279,7 @@ def get_spp_occ(species_name, aphia_id, geometry, limit=300):
                 if len(results.get('results', [])) < limit:
                     break
                 time.sleep(0.5)
-            break  # Success — exit retry loop
+            break  # Success , exit retry loop
 
         except Exception as e:
             if attempt < max_retries:
@@ -4282,7 +4294,7 @@ def get_spp_occ(species_name, aphia_id, geometry, limit=300):
                 print(f"      - GBIF server may be temporarily unavailable")
                 print(f"      - Study area polygon may have an issue")
                 print(f"      - Network/firewall may be blocking the request")
-                print(f"    Try: redraw your study area polygon or try again later.")
+                print(f"    Try: redraw your study extent polygon or try again later.")
 
     return all_records
 
@@ -4324,7 +4336,7 @@ def get_all_spp_occ(geometry, limit=300):
     all_records = []
     offset = 0
 
-    print("\nQuerying GBIF for all species in study area...")
+    print("\nQuerying GBIF for all species in study extent...")
     print("Note: This may take some time for large areas\n")
 
     while True:
@@ -4488,7 +4500,7 @@ def plot_masks(landmask, coastalmask, lonarray, latarray, geojson_file_path=None
                         transform=ccrs.PlateCarree(), zorder=6,
                         linestyle='-', alpha=0.9)
         except Exception as e:
-            print(f"Note: Could not display study area outline: {e}")
+            print(f"Note: Could not display study extent outline: {e}")
 
     # Calculate grid info
     grid_spacing_lon = np.abs(np.diff(lonarray[0, :]).mean())
@@ -4552,7 +4564,7 @@ def plot_masks(landmask, coastalmask, lonarray, latarray, geojson_file_path=None
     )
     if geojson_file_path:
         legend_elements.append(
-            Line2D([0], [0], color=COLORS['border'], linewidth=2.5, label='Study Area')
+            Line2D([0], [0], color=COLORS['border'], linewidth=2.5, label='Study Extent')
         )
     box3_ax.legend(handles=legend_elements, loc='center',
                    fontsize=12, frameon=True, edgecolor='#CCCCCC',
@@ -4722,8 +4734,13 @@ def create_masks(hydro_data, geojson_file_path=None, show_map=True):
 
     # Visualise masks for immediate validation (Path B default; Path A suppresses and shows its own native+binned view)
     if show_map:
-        subsection_header("Visualising the Hydrodynamic Extent")
-        plot_masks(landmask, coastalmask, lonarray, latarray, geojson_file_path)
+        if geojson_file_path:
+            subsection_header("Visualising the Study Extent")
+            plot_masks(landmask, coastalmask, lonarray, latarray, geojson_file_path,
+                       title='Hydrodynamic Extent with Study Extent Outline')
+        else:
+            subsection_header("Visualising the Hydrodynamic Extent")
+            plot_masks(landmask, coastalmask, lonarray, latarray, geojson_file_path)
         display_line("─")
 
     return landmask, coastalmask, lonarray, latarray
@@ -4877,22 +4894,23 @@ def clean_spp_occ(distributions, landmask, coastalmask, lonarray, latarray, buff
     # Apply the mask
     clean_spp = distributions[keep_mask].copy()
 
-    # Print filtering results
+    # Print filtering results (skip for option 3 , no filtering was applied)
     n_original = len(distributions)
     n_after = len(clean_spp)
     n_removed = n_original - n_after
     pct_removed = 100 * n_removed / n_original if n_original > 0 else 0
 
-    data_box("Filtering Results", [
-        f"Original occurrences: {n_original}",
-        f"After filtering: {n_after}",
-        f"Removed: {n_removed} ({pct_removed:.1f}%)"
-    ])
+    if habitat_type != 'none':
+        data_box("Filtering Results", [
+            f"Original occurrences: {n_original}",
+            f"After filtering: {n_after}",
+            f"Removed: {n_removed} ({pct_removed:.1f}%)"
+        ])
 
     if n_after == 0:
         print("\nWarning: No occurrences remain after filtering!")
         print("Consider:")
-        print("  - Expanding your study area")
+        print("  - Expanding your study extent")
         print("  - Checking if data matches study region")
         print("  - Checking if species is genuinely rare in this region")
 
@@ -4938,7 +4956,7 @@ def validate_spp_occ(clean_spp, traits_df, min_records=10):
     ---------------
     - <80% adequate: Review species list before proceeding
     - Missing species: Check WoRMS for name updates, verify region
-    - Low sample: Consider expanding study area or accepting uncertainty
+    - Low sample: Consider expanding study extent or accepting uncertainty
     """
 
     subsection_header("Species Occurrence Data: Sample Size Validation")
@@ -5002,7 +5020,7 @@ def validate_spp_occ(clean_spp, traits_df, min_records=10):
         print("\nPossible causes:")
         print("  - Taxonomic name changed (check WoRMS for current accepted name)")
         print("  - Spelling variation (check GBIF for alternative names or use Aphia ID)")
-        print("  - Species range doesn't overlap with study area")
+        print("  - Species range doesn't overlap with study extent")
 
     if validation_report['low_sample_species']:
         print(f"\n Species with low sample size:")
@@ -5010,7 +5028,7 @@ def validate_spp_occ(clean_spp, traits_df, min_records=10):
             count = validation_report['total_records'][species]
             print(f"   - {species}: {count} records (minimum recommended: {min_records})")
         print("\n Consider:")
-        print("  - Expanding your study area")
+        print("  - Expanding your study extent")
         print("  - Checking if data matches study region")
         print("  - Checking if species is genuinely rare in this region")
 
@@ -5091,7 +5109,7 @@ def plot_spp_occ(distributions, clean_spp, geojson_file_path, habitat_type, lona
             return f"$\\mathit{{{parts[0]}}}$ $\\mathit{{{parts[1]}}}$"
         return f"$\\mathit{{{formatted}}}$"
 
-    # Styling — match plot_masks
+    # Styling , match plot_masks
     plt.rcParams['figure.dpi'] = 300
     plt.rcParams['font.family'] = 'Arial'
     plt.rcParams['font.size'] = 12
@@ -5217,14 +5235,14 @@ def plot_spp_occ(distributions, clean_spp, geojson_file_path, habitat_type, lona
     # Create two separate figures
     fig1 = _make_panel(
         distributions,
-        f'Species Occurrence Data: {filter_label} Filtering — Before',
+        f'Species Occurrence Data: {filter_label} Filtering (Before)',
         f'Before: {n_species_before} {group_label}, {len(distributions):,} records'
     )
     plt.show()
 
     fig2 = _make_panel(
         clean_spp,
-        f'Species Occurrence Data: {filter_label} Filtering — After',
+        f'Species Occurrence Data: {filter_label} Filtering (After)',
         f'After: {n_species_after} {group_label}, {len(clean_spp):,} records'
     )
 
@@ -5252,13 +5270,13 @@ def plot_spp_occ(distributions, clean_spp, geojson_file_path, habitat_type, lona
 ### Add validation for uploaded data against selected study area
 def validate_uploaded_data(distributions, shapely_polygon):
     """
-    Validate uploaded species data falls within study area polygon.
+    Validate uploaded species data falls within study extent polygon.
 
     When users upload their own species occurrence data, this function ensures
     the data falls within the defined study area. Points outside the study area
     cannot be used for release site definition and will lead to incorrect mapping.
 
-    The study area polygon defines where particles will be released and where
+    The study extent polygon defines where particles will be released and where
     settlement will be evaluated, not the full hydrodynamic extent (which is the
     larger hydrodynamic extent).
 
@@ -5291,49 +5309,48 @@ def validate_uploaded_data(distributions, shapely_polygon):
             outside_bounds.append(idx)
 
     # Report results
-    print("Checking the geographic coverage...\n")
-
+    subsection_header("Geographic Coverage Check")
     print(f"Total records: {len(distributions):,}")
-    print(f"Within study area: {len(within_bounds):,}")
-    print(f"Outside study area: {len(outside_bounds):,}")
+    print(f"Within study extent: {len(within_bounds):,}")
+    print(f"Outside study extent: {len(outside_bounds):,}")
 
     if len(outside_bounds) > 0:
         pct_outside = 100 * len(outside_bounds) / len(distributions)
         print(f"Percentage outside: {pct_outside:.1f}%")
 
         # Interactive: Ask user what to do
-        print("\nWarning: Some data points are outside your selected study area.")
-        print("\nPoints outside the study area will not be included for connectivity modelling and analysis.")
+        print("\nWarning: Some data points are outside your selected study extent.")
+        print("\nPoints outside the study extent will not be included for connectivity modelling and analysis.")
         print("\nWhat would you like to do?")
-        print("  1. Automatically filter out points outside study area")
+        print("  1. Automatically filter out points outside study extent")
         print("  2. Keep all data (may cause incorrect results)")
-        print("  3. Abort, redraw your study area polygon or fix the data manually")
+        print("  3. Abort, redraw your study extent polygon or fix the data manually")
 
         while True:
             choice = input("\nEnter your choice (1/2/3) [default: 1]: ").strip() or '1'
 
             if choice == '1':
-                print("\nFiltering data to study area...")
+                print("\nFiltering data to study extent...")
                 filtered_data = distributions.iloc[within_bounds].copy()
                 print(f"Filtered to {len(filtered_data):,} records")
                 return filtered_data
 
             elif choice == '2':
-                print("\nWarning: Keeping all data. Results may be incorrect for points outside study area.")
+                print("\nWarning: Keeping all data. Results may be incorrect for points outside study extent.")
                 return distributions
 
             elif choice == '3':
                 print("\nAborted. Please fix your data and try again.")
                 print("Options to fix:")
-                print("  - Expand your study area (GeoJSON polygon)")
-                print("  - Filter your CSV to only include points within study area")
-                raise ValueError("User aborted due to data outside study area")
+                print("  - Expand your study extent (GeoJSON polygon)")
+                print("  - Filter your CSV to only include points within study extent")
+                raise ValueError("User aborted due to data outside study extent")
 
             else:
                 print("Invalid choice. Enter 1, 2, or 3.")
 
     else:
-        print(f"All records are within the study area")
+        print(f"All records are within the study extent")
         return distributions
 
 # endregion
@@ -5396,7 +5413,7 @@ def spp_occ(hydro_data, species_traits_path):
         --------------
         1. Check for existing parameters (spp_occ_params.json)
         2. Collect or reuse parameters
-        3. Create or load study area polygon (GeoJSON)
+        3. Create or load study extent polygon (GeoJSON)
         4. Download from GBIF or load uploaded file
         5. Generate land and coastal masks
         6. Apply habitat filtering
@@ -5411,7 +5428,7 @@ def spp_occ(hydro_data, species_traits_path):
         - Remove records without coordinates
         - Remove records on land (using hydrodynamic landmask)
         - Apply coastal buffer filtering (if specified)
-        - Clip to study area polygon
+        - Clip to study extent polygon
         - Remove duplicate records
 
         Parameter Persistence
@@ -5458,25 +5475,25 @@ def spp_occ(hydro_data, species_traits_path):
     # Check: Only create a new map if the geojson file path is missing, None, or invalid
     if not geojson_file_path or not os.path.exists(geojson_file_path):
         # Before creating map:
-        subsection_header("Defining your study area")
+        subsection_header("Defining your study extent")
 
         info_box([
-            "You will be prompted to draw a polygon defining your study area.",
+            "You will be prompted to draw a polygon defining your study extent.",
             "",
-            "Why do you need a study area?",
+            "Why do you need a study extent?",
             "  Your hydrodynamic domain covers a large area where ocean currents are simulated.",
-            "  The study area defines the smaller region where your analysis will focus.",
+            "  The study extent defines the smaller region where your analysis will focus.",
             "",
             "Hydrodynamic domain (set in Step 1):",
             "  - The large area where ocean currents are simulated",
             "  - Particles can disperse throughout this entire region",
             "",
-            "Study area (this step):",
+            "Study extent (this step):",
             "  - Your focused region of interest within the domain",
             "  - Determines where particles can be released from and can settle to",
-            "  - Network analysis results will focus on sites within this area",
+            "  - Network analysis results will focus on sites within this extent",
             "  - Should fit within the hydrodynamic domain with some margin",
-            "  - Example: if your hydro domain covers the Mediterranean, your study area might focus on the Adriatic Sea",
+            "  - Example: if your hydro domain covers the Mediterranean, your study extent might focus on the Adriatic Sea",
         ])
 
         geojson_file_path = create_map()  # Trigger map creation if needed
@@ -5501,12 +5518,12 @@ def spp_occ(hydro_data, species_traits_path):
             "Option 1: GBIF (Global Biodiversity Information Facility)",
             "   - Automatically download species data from GBIF",
             "   - Uses species names or Aphia ID from your traits CSV",
-            "   - Data will be filtered to your study area",
+            "   - Data will be filtered to your study extent",
             "",
             "Option 2: Your own data",
             "   - Upload your own pre-collected species distribution data or habitat suitability data",
             "   - Must be in CSV format with columns: species, latitude, longitude",
-            "   - Data will be filtered to your study area",
+            "   - Data will be filtered to your study extent",
             "   - See 'Part 7: Occurrence Data CSV Format' in the User Guide for format details"
         ])
 
@@ -5538,7 +5555,7 @@ def spp_occ(hydro_data, species_traits_path):
         print("\nYou have two options for downloading GBIF species occurrence data:")
         print("\n1. Download occurrences for specific species from your trait database")
         print("  - Recommended for connectivity analysis")
-        print("\n2. Download all species in your study area")
+        print("\n2. Download all species in your study extent")
         print("  - For exploratory analysis only as trait data will be missing")
 
         if 'gbif_mode' in spp_params and spp_params['gbif_mode']:
@@ -5635,11 +5652,11 @@ def spp_occ(hydro_data, species_traits_path):
             if len(distributions) == 0:
                 print("\nWarning: No species occurrence data was retrieved from GBIF.")
                 print("\nPossible reasons:")
-                print("  1. No GBIF records exist for these species in your study area")
+                print("  1. No GBIF records exist for these species in your study extent")
                 print("  2. Temporary GBIF server connectivity issue")
                 print("  3. Species names/AphiaIDs may not match GBIF database")
                 print("\nSuggestions:")
-                print("  - Try a different/larger study area")
+                print("  - Try a different/larger study extent")
                 print("  - Check species names match GBIF taxonomy")
                 print("  - Use your own occurrence data (Option 2 at data source selection)")
                 raise ValueError("Cannot proceed without species occurrence data.")
@@ -5647,7 +5664,7 @@ def spp_occ(hydro_data, species_traits_path):
         else:
 
             # Mode 2: Download all species in study area (exploratory)
-            print(f"\nDownloading species occurrence data from GBIF for all species in your study area.")
+            print(f"\nDownloading species occurrence data from GBIF for all species in your study extent.")
             print("Warning: This may download many species and take significant time.")
 
             all_data = get_all_spp_occ(geometry)  # Call once, not in a loop
@@ -5658,7 +5675,7 @@ def spp_occ(hydro_data, species_traits_path):
                 print("Warning: No species data retrieved")
                 print("\nThis could be due to:")
                 print("  1. Temporary GBIF server issue. Try again in 5 minutes")
-                print("  2. No species records in your study area")
+                print("  2. No species records in your study extent")
                 print("\nOptions:")
                 print("  - Wait a few minutes and try again")
                 print("  - Use Mode 1 (species-specific download) instead")
@@ -5669,7 +5686,7 @@ def spp_occ(hydro_data, species_traits_path):
 
             unique_species = distributions['species'].nunique()
 
-            print(f"Found {unique_species} unique species in study area.")
+            print(f"Found {unique_species} unique species in study extent.")
 
             # Show species not in trait database
             trait_species = set(species_list)
@@ -5679,8 +5696,7 @@ def spp_occ(hydro_data, species_traits_path):
             if extra_species:
                 print(f"\nNote: {len(extra_species)} species found that are not in your trait database.")
 
-                print(
-                    "These species will be included in occurrence data but cannot be used in connectivity modelling without trait information.")
+                print("These species will be included in occurrence data but cannot be used in connectivity modelling without trait information.")
 
     else:  # user data
         print("\nUpload your species occurrence data in the required format: CSV with columns 'species', 'latitude', 'longitude")
@@ -5728,8 +5744,7 @@ def spp_occ(hydro_data, species_traits_path):
                     continue
 
                 # Success
-                print(
-                    f"\nLoaded {len(distributions)}: occurrence records from {len(distributions['species'].unique())} species")
+                print(f"\nLoaded {len(distributions)} occurrence records from {len(distributions['species'].unique())} species")
 
                 # Auto-convert DMS coordinates if detected
                 distributions = auto_convert_coordinates(distributions)
@@ -5786,10 +5801,8 @@ def spp_occ(hydro_data, species_traits_path):
                     file_path += ".csv"
                 spp_params['user_data_file_path'] = file_path
 
-    # Step 6: Create landmask and clean up species data
-    landmask, coastalmask, lonarray, latarray = create_masks(hydro_data, geojson_file_path=geojson_file_path)
-
-    # Load traits_df if not already loaded (for user-uploaded data)
+    # Load traits_df and match species names BEFORE showing the domain map, so this
+    # appears as part of the data-validation section rather than after the plot.
     if 'traits_df' not in locals():
         if species_traits_path == 'builtin_database_selection':
             traits_df = load_builtin_traits()
@@ -5800,7 +5813,8 @@ def spp_occ(hydro_data, species_traits_path):
 
         # For user-uploaded data: resolve AphiaIDs to match species names in uploaded data
         if data_source == 'user':
-            print("\nMatching uploaded species names with trait database...")
+            subsection_header("Species Name Matching")
+            print("Matching uploaded species names with trait database...")
             for i, row in traits_df.iterrows():
                 aphia_id = int(row['aphia_id']) if pd.notna(row['aphia_id']) else None
                 species_name = row['species_name'] if pd.notna(row['species_name']) else None
@@ -5809,7 +5823,6 @@ def spp_occ(hydro_data, species_traits_path):
                 if aphia_id and (species_name is None or pd.isna(species_name) or
                                  str(species_name).strip() == ''):
                     try:
-                        # For user-uploaded data: resolve AphiaIDs to match species names in uploaded data
                         for i, row in traits_df.iterrows():
                             aphia_id = int(row['aphia_id']) if pd.notna(row['aphia_id']) else None
                             species_name = row['species_name'] if pd.notna(row['species_name']) else None
@@ -5822,7 +5835,6 @@ def spp_occ(hydro_data, species_traits_path):
                                     traits_df.at[i, 'species_name'] = resolved_name_formatted
                                     print(f"  AphiaID {aphia_id} → {resolved_name_formatted}")
 
-                                    # Update the global traits list as well
                                     for trait_dict in traits:
                                         if trait_dict.get('aphia_id') == aphia_id and trait_dict.get(
                                                 'species_name') is None:
@@ -5832,10 +5844,9 @@ def spp_occ(hydro_data, species_traits_path):
                                     print(f"  Warning: Could not resolve AphiaID {aphia_id}: {e}")
                     except Exception as e:
                         print(f"  Warning: Could not resolve AphiaID {aphia_id}: {e}")
+            display_line("─")
 
-    # Load traits_df if not already loaded (for user-uploaded data)
-    # When users upload their own data, traits_df was never created
-    # This ensures it exists for validation regardless of data source
+    # Ensure traits_df exists for all paths
     if 'traits_df' not in locals():
         if species_traits_path == 'builtin_database_selection':
             traits_df = load_builtin_traits()
@@ -5844,6 +5855,9 @@ def spp_occ(hydro_data, species_traits_path):
         # Add aphia_id column if it doesn't exist
         if 'aphia_id' not in traits_df.columns:
             traits_df['aphia_id'] = None
+
+    # Step 6: Create landmask and show domain map (after data validation and name matching)
+    landmask, coastalmask, lonarray, latarray = create_masks(hydro_data, geojson_file_path=geojson_file_path)
 
     # Step 7: Interactive data cleaning
     # Check if habitat filtering is already set in saved parameters
@@ -5864,8 +5878,7 @@ def spp_occ(hydro_data, species_traits_path):
             "  - This option is appropriate for littoral and infralittoral settings",
             "",
             "Option 2: Ocean",
-            "  - This filters data to all ocean occurrences (coastal and offshore)",
-            "    and removes occurrences on land",
+            "  - This filters data to all ocean occurrences (coastal and offshore) and removes occurrences on land",
             "  - This option is appropriate for offshore and mixed (coastal & offshore) settings",
             "",
             "Option 3: None",
@@ -5905,17 +5918,14 @@ def spp_occ(hydro_data, species_traits_path):
             print(f"{len(unmatched)} species in your occurrence data have no matching entry in your traits file:")
             for name in unmatched:
                 print(f"   - {display_species_name(name)}")
-            print(
-                "\nThese species can still be released, but Step 5 only post-processes species that have traits, so they will not be included in the final results.")
-            print(
-                "Names are matched after standardising spaces to underscores, so if a species is unexpectedly missing check the spelling across both the traits and occurrence data files.")
+            print("\nThese species can still be released, but Step 5 only post-processes species that have traits, so they will not be included in the final results.")
+            print("Names are matched after standardising spaces to underscores, so if a species is unexpectedly missing check the spelling across both the traits and occurrence data files.")
             if get_yes_no("\nDo you want to drop these species from the occurrence data before building the release grids?",
                           default='yes'):
                 clean_spp = clean_spp[
                     clean_spp['species'].apply(lambda s: standardise_species_name(s) in trait_names)].reset_index(
                     drop=True)
-                print(
-                    f"Dropped {len(unmatched)} species. Remaining: {clean_spp['species'].nunique()} species across {len(clean_spp):,} records.")
+                print(f"Dropped {len(unmatched)} species. Remaining: {clean_spp['species'].nunique()} species across {len(clean_spp):,} records.")
             else:
                 print("Keeping all species. The unmatched species will be released but not post-processed.")
 
@@ -5945,11 +5955,11 @@ def spp_occ(hydro_data, species_traits_path):
         # Auto-detect site_name column if present
         if 'site_name' in clean_spp.columns:
             n_sites = clean_spp['site_name'].nunique()
-            print(f"  Site names detected: {n_sites} unique sites.")
-            print(
-                "  You are now running a site-based analysis: your sites become the labelled units and every figure and output table is reported by site name rather than by grid cell.")
-            print(
-                "  See 'Site-Based Analyses' in the User Guide for what this means and how to pick a suitable grid resolution.")
+            print(f"\n  Site names detected: {n_sites} unique sites.")
+            print()
+            print("  You are now running a site-based analysis: your sites become the labelled units and every figure and output table is reported by site name rather than by grid cell.")
+            print()
+            print("  See 'Site-Based Analyses' in the User Guide for what this means and how to pick a suitable grid resolution.")
             spp_params['has_site_names'] = True
         else:
             spp_params['has_site_names'] = False
@@ -5996,26 +6006,10 @@ def spp_occ(hydro_data, species_traits_path):
         if get_yes_no("Save the cleaned occurrence data to CSV?", default='no'):
             spp_params['saved_files']['cleaned'] = _save_occ_csv(clean_spp, 'cleaned occurrence',
                                                                  'cleaned_species.csv')
-    else:
-        print(
-            "\nNo filtering was applied to your uploaded data, so there is nothing new to save; you already have the original file.")
 
     # Record what was saved so the params file documents the run.
     with open(params_file, 'w') as file:
         json.dump(spp_params, file, indent=4)
-    # Step 8: Offer to save filtered data (for ALL users)
-    save_choice = 'yes' if get_yes_no("Save filtered species data to CSV?", default='no') else 'no'
-    if save_choice in ['yes', 'y']:
-        csv_path = get_save_path("Output path and filename", default="filtered_species.csv", extensions=['.csv'])
-        if not csv_path:
-            csv_path = "filtered_species.csv"
-        if not csv_path.endswith(".csv"):
-            csv_path += ".csv"
-
-        clean_spp.to_csv(csv_path, index=False)
-        print(f"\nFiltered data saved to: {csv_path}")
-        print(f"Records: {len(clean_spp):,}")
-        print(f"Species: {len(clean_spp['species'].unique())}")
 
     # Step 9: Create a before/after map of the filtered data.
     # Skip when no filtering was applied (Option 3): the two panels would be identical.
@@ -6303,7 +6297,7 @@ def save_grids(release_grids=None, settlement_grids=None, full_grid=None, grid_d
             print(f"       Useful for understanding the broader model domain or custom spatial analysis.")
         if grid_df_for_mapping is not None:
             print(f"    2. Study extent grid: {len(grid_df_for_mapping)} cells")
-            print(f"       The cells within your study area polygon focused on your habitat (not including land cells).")
+            print(f"       The cells within your study extent polygon focused on your habitat (not including land cells).")
             print(f"       This is the grid used for all analyses.")
 
         if get_yes_no("\nExport these grids to CSV?", default='no'):
@@ -6322,7 +6316,7 @@ def save_grids(release_grids=None, settlement_grids=None, full_grid=None, grid_d
                 grid_df_for_mapping.to_csv(file_path, index=False)
                 print(f"  Saved: {file_path}")
                 print(f"    Columns: grid_id, longitude, latitude")
-                print(f"    Rows: {len(grid_df_for_mapping)} cells (filtered to your study area polygon)")
+                print(f"    Rows: {len(grid_df_for_mapping)} cells (filtered to your study extent polygon)")
 
     # Prompt 2: Per-species grids
     has_release = release_grids and len(release_grids) > 0
@@ -6384,7 +6378,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
     spp_params : dict
         Species parameters including:
         - 'geojson_file_path' : str
-            Path to study area polygon
+            Path to study extent polygon
         - 'habitat_filtering' : str
             Type of filtering applied
         - Other metadata
@@ -6407,7 +6401,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
     full_grid_df : pandas.DataFrame
         Complete coastal grid with all cells and species assignments
     coastal_grid_df : pandas.DataFrame
-        Filtered grid within study area polygon
+        Filtered grid within study extent polygon
     study_polygon : shapely.geometry.Polygon
         Study area boundary polygon
 
@@ -6415,7 +6409,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
     --------
     1. Create full coastal grid from coastalmask
     2. Map species occurrences to nearest grid cells
-    3. Load and read study area polygon
+    3. Load and read study extent polygon
     4. Filter grid to polygon extent
     5. For each species:
        a. Extract cells where species is present
@@ -6493,11 +6487,11 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
                 name_acc[grid_id].append(str(row['site_name']))
         site_lookup = {gid: ' / '.join(names) for gid, names in name_acc.items()}
         spp_params['site_name_lookup'] = site_lookup
-        print(f"\n  Built site name lookup: {len(site_lookup)} grid cells labelled")
+        print(f"\nSite names: {len(site_lookup)} grid cells labelled")
         for gid, names in name_acc.items():
             if len(names) > 1:
                 joined = "' and '".join(names)
-                print(f"  Note: sites '{joined}' fall in the same grid cell. Your outputs will report their results together.")
+                print(f"   \nNote: sites '{joined}' fall in the same grid cell. Your outputs will report their results together.")
 
     # Step 4: Ask user to choose particle release strategy
     subsection_header("Propagule Release Strategy")
@@ -6507,8 +6501,8 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
     release_lines = [
         "Choose where particles are released from.",
         "",
-        "Option 1: Everywhere in your study area",
-        f"  - Release from all {all_sites_description} in your study area",
+        "Option 1: Everywhere in your study extent",
+        f"  - Release from all {all_sites_description} in your study extent",
         "  - Does not use species occurrence data",
         "  - Best for maximum-dispersal or data-poor scenarios",
         f"  - Total release sites: {len(all_sites_grid)}",
@@ -6524,7 +6518,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
             "   - Best when you want to release using habitat suitability data",
             f"  - Total release sites: {total_unique_cells}",
             "",
-            "Option 3: Species-specific habitat in your study area (uses the occurrence data selected in Step 2)",
+            "Option 3: Species-specific habitat in your study extent (uses the occurrence data selected in Step 2)",
             "  - Release each species only from its own suitable habitat",
             "  - Best for trait-based analyses",
             f"  - Species distributions from {data_source_text}",
@@ -6532,7 +6526,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
         ])
         if spp_params.get('has_site_names'):
             release_lines.append(
-                "  - Your Step 2 data includes site names, so the names carry through to all outputs.")
+                "  - Your Step 2 data includes site names, so the names carry through to all outputs")
 
     info_box(release_lines)
 
@@ -6553,7 +6547,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
             species_names = clean_spp['species'].unique() if len(clean_spp) > 0 else ['all_species']
             study_area_df = study_area_df_filtered.copy()
             release_grids = {sp: study_area_df.copy() for sp in species_names}
-            print(f"  Release from all {len(study_area_df)} study area sites")
+            print(f"  Release from all {len(study_area_df)} study extent sites")
             break
 
         elif release_choice == '2' and len(clean_spp) > 0:
@@ -6563,8 +6557,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
                 ['grid_id', 'longitude', 'latitude']].drop_duplicates(subset=['grid_id']).reset_index(drop=True)
             species_names = clean_spp['species'].unique()
             release_grids = {sp: pooled_df.copy() for sp in species_names}
-            print(
-                f"  Pooled release from all {len(pooled_df):,} occurrence sites, applied to {len(species_names)} species")
+            print(f"  Pooled release from all {len(pooled_df):,} occurrence sites, applied to {len(species_names)} species")
             break
 
         elif release_choice == '3' and len(clean_spp) > 0:
@@ -6577,14 +6570,9 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
         else:
             print(f"  Invalid choice. Enter {release_valid}.")
 
-        # Save release choice
-        release_strategy_map = {'1': 'all_sites', '2': 'pooled_sites', '3': 'species_habitat'}
-        spp_params['release_strategy'] = release_strategy_map.get(release_choice)
-        # Runtime objects (DataFrames/arrays) are kept in memory but cannot be written to JSON, so exclude them.
-        _runtime_only_keys = ('uploaded_sites_data', 'uploaded_sites_meshgrid', 'uploaded_sites_release_grids')
-        spp_params_json = {k: v for k, v in spp_params.items() if k not in _runtime_only_keys}
-        with open(os.path.join(project_dirs['config'], 'spp_occ_params.json'), 'w') as file:
-            json.dump(spp_params_json, file, indent=4)
+    # Save release choice (the JSON config is written after the settlement step below)
+    release_strategy_map = {'1': 'all_sites', '2': 'pooled_sites', '3': 'species_habitat'}
+    spp_params['release_strategy'] = release_strategy_map.get(release_choice)
 
     # Step 5: Ask user to choose particle settlement strategy
     subsection_header("Propagule Settlement Strategy")
@@ -6594,8 +6582,8 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
     settlement_lines = [
         "Choose where particles can settle.",
         "",
-        "Option 1: Everywhere in your study area",
-        f"  - Settle at all {all_sites_description} in your study area",
+        "Option 1: Everywhere in your study extent",
+        f"  - Settle at all {all_sites_description} in your study extent",
         "  - Does not use species occurrence data",
         "  - Best for maximum-dispersal or data-poor scenarios",
         f"  - Total settlement sites: {len(all_sites_grid)}",
@@ -6611,7 +6599,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
             "  - Best when you want to settle using habitat suitability data",
             f"  - Total settlement sites: {total_unique_cells}",
             "",
-            "Option 3: Species-specific habitat in your study area (uses the occurrence data selected in Step 2)",
+            "Option 3: Species-specific habitat in your study extent (uses the occurrence data selected in Step 2)",
             "  - Each species can only settle in its own suitable habitat",
             "  - Best for trait-based analyses",
             f"  - Species distributions from {data_source_text}",
@@ -6642,7 +6630,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
             species_names = clean_spp['species'].unique() if len(clean_spp) > 0 else ['all_species']
             study_area_df = study_area_df_filtered.copy()
             settlement_grids = {sp: study_area_df.copy() for sp in species_names}
-            print(f"Settlement at all {len(study_area_df)} study area sites")
+            print(f"Settlement at all {len(study_area_df)} study extent sites")
             break
 
         elif settlement_choice == '2' and len(clean_spp) > 0:
@@ -6652,8 +6640,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
                 ['grid_id', 'longitude', 'latitude']].drop_duplicates(subset=['grid_id']).reset_index(drop=True)
             species_names = clean_spp['species'].unique()
             settlement_grids = {sp: pooled_df.copy() for sp in species_names}
-            print(
-                f"  Pooled settlement at all {len(pooled_df):,} occurrence sites, applied to {len(species_names)} species")
+            print(f"  Pooled settlement at all {len(pooled_df):,} occurrence sites, applied to {len(species_names)} species")
             break
 
         elif settlement_choice == '3' and len(clean_spp) > 0:
@@ -6690,7 +6677,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
                     species_names = clean_spp['species'].unique() if len(clean_spp) > 0 else ['all_species']
                     print("\nHow should this dataset be used?")
                     print("  1. All sites in your dataset (pooled, not species-specific)")
-                    print("  2. Species-specific habitat in your study area (uses your occurrence data)")
+                    print("  2. Species-specific habitat in your study extent (uses your occurrence data)")
                     sub = input("Choose (1/2) [default: 2]: ").strip() or '2'
                     if sub == '1':
                         _, _per = map_spp_to_grid(grid_df_for_mapping, custom_settlement_data)
@@ -6698,8 +6685,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
                             ['grid_id', 'longitude', 'latitude']].drop_duplicates(subset=['grid_id']).reset_index(
                             drop=True)
                         settlement_grids = {sp: pooled_df.copy() for sp in species_names}
-                        print(
-                            f"Pooled settlement at all {len(pooled_df):,} sites in this dataset, applied to {len(species_names)} species")
+                        print(f"Pooled settlement at all {len(pooled_df):,} sites in this dataset, applied to {len(species_names)} species")
                     else:
                         _, settlement_grids = map_spp_to_grid(grid_df_for_mapping, custom_settlement_data)
                         print(f"Created species-specific settlement grids for {len(settlement_grids)} species")
@@ -6716,9 +6702,9 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
         else:
             print(f"Invalid choice. Enter {settlement_valid}.")
 
-            # Save settlement choice
-        settlement_strategy_map = {'1': 'all_sites', '2': 'pooled_sites', '3': 'species_habitat', '4': 'custom_habitat'}
-        spp_params['settlement_strategy'] = settlement_strategy_map.get(settlement_choice)
+    # Save settlement choice
+    settlement_strategy_map = {'1': 'all_sites', '2': 'pooled_sites', '3': 'species_habitat', '4': 'custom_habitat'}
+    spp_params['settlement_strategy'] = settlement_strategy_map.get(settlement_choice)
 
     # Runtime objects (DataFrames/arrays) are kept in memory but cannot be written to JSON, so exclude them.
     _runtime_only_keys = ('uploaded_sites_data', 'uploaded_sites_meshgrid', 'uploaded_sites_release_grids')
@@ -7025,7 +7011,7 @@ def create_pset(fieldset, meshgrid, runtime):
     Returns:
     --------
     pset : parcels.ParticleSet
-        Configured particle set
+        Configured ParticleSet
     adjusted_runtime : int
         Actual runtime in days
     interval : int
@@ -7108,37 +7094,17 @@ def create_pset(fieldset, meshgrid, runtime):
     particles_per_location = npart * num_intervals
     total_particles = particles_per_location * num_locations
 
-    # Step 5: Summary of setup parameters
-    data_box("The Particle Setup", [
-        f"Release cohorts: {num_intervals}",
-        f"Interval: Every {interval.days} days",
-        f"Release locations: {num_locations}",
-        f"Particles per location per cohort: {npart}",
-        f"Total particles per location: {particles_per_location}",
-        f"Total particles: {total_particles}",
-        f"Adjusted runtime: {adjusted_runtime.days} days"
+    # Step 5: Horizontal diffusivity , collected before the summary so it appears in the box
+    subsection_header("Horizontal Diffusivity")
+    info_box([
+        "Horizontal diffusivity represents small-scale random motion caused by turbulence.",
+        "It applies evenly to all particles and adds a random-walk component to their trajectories.",
+        "A value of 1 m²/s is a common default for shelf-sea simulations.",
+        "Set to 0 to disable random-walk diffusion entirely."
     ])
-
-    confirm = get_yes_no("\nProceed with these settings?", default='yes')
-    if not confirm:
-        print("Cancelled. Please run workflow_step(3) again to reconfigure.")
-        return None, None, None, None
-
-    # Step 6: Setup particle arrays
-    # Set repeatdt
-    repeatdt = interval
-
-    # Adjust per-location particles using itertools
-    lat = list(itertools.chain.from_iterable(itertools.repeat(x, npart) for x in lats))
-    lon = list(itertools.chain.from_iterable(itertools.repeat(x, npart) for x in lons))
-
-    # Step 7: Random Walk via Horizontal Diffusivity
     default_kh = 1
     while True:
         try:
-            print("\nThis package allows you to add a horizontal diffusivity value.")
-            print("\nHorizontal diffusivity represents small-scale random motion caused by turbulence and applies evenly to all ")
-            print("particles in the simulation.")
             kh_input = input(f"\nEnter horizontal diffusivity (kh) in m²/s [default: {default_kh}]: ")
             kh = float(kh_input) if kh_input else default_kh
             if kh < 0:
@@ -7146,12 +7112,35 @@ def create_pset(fieldset, meshgrid, runtime):
                 continue
             if kh > 1000:
                 print("Warning: Very high diffusivity (>1000). Are you sure? (yes/no)")
-                confirm = input().strip().lower()
-                if confirm not in ['yes', 'y']:
+                _kh_confirm = input().strip().lower()
+                if _kh_confirm not in ['yes', 'y']:
                     continue
             break
         except ValueError:
             print("Error: Enter a valid number.")
+
+    # Step 6: Summary of all setup parameters (including kh)
+    data_box("The Particle Setup", [
+        f"Release cohorts: {num_intervals}",
+        f"Interval: Every {interval.days} days",
+        f"Release locations: {num_locations}",
+        f"Particles per location per cohort: {npart}",
+        f"Total particles per location: {particles_per_location}",
+        f"Total particles: {total_particles}",
+        f"Adjusted runtime: {adjusted_runtime.days} days",
+        f"Horizontal diffusivity (kh): {kh} m²/s"
+    ])
+
+    confirm = get_yes_no("\nProceed with these settings?", default='yes')
+    if not confirm:
+        print("Cancelled. Please run workflow_step(3) again to reconfigure.")
+        return None, None, None, None
+
+    # Step 7: Setup particle arrays
+    repeatdt = interval
+
+    lat = list(itertools.chain.from_iterable(itertools.repeat(x, npart) for x in lats))
+    lon = list(itertools.chain.from_iterable(itertools.repeat(x, npart) for x in lons))
 
     fieldset.add_constant_field("Kh_zonal", kh, mesh="spherical")
     fieldset.add_constant_field("Kh_meridional", kh, mesh="spherical")
@@ -7459,8 +7448,6 @@ def process_sim_results(zarr_path, chunk_size=None, runtime_days=None):
     - Slow loading: Check disk I/O speed, consider SSD
     - Missing data: Verify simulation completed successfully
     """
-    print("Loading simulation results...")
-
     # Open dataset with chunking
     with MemoryMonitor("Opening zarr dataset"):
         ds = xr.open_zarr(zarr_path)
@@ -7480,7 +7467,7 @@ def process_sim_results(zarr_path, chunk_size=None, runtime_days=None):
     chunks_dir = os.path.join(zarr_dir, '_temp_chunks')
     os.makedirs(chunks_dir, exist_ok=True)
 
-    # Process in chunks — write each to disk instead of keeping in memory
+    # Process in chunks , write each to disk instead of keeping in memory
     n_chunks = (n_trajectories + chunk_size - 1) // chunk_size
     chunk_files = []
 
@@ -7504,7 +7491,7 @@ def process_sim_results(zarr_path, chunk_size=None, runtime_days=None):
         chunk_df.to_parquet(chunk_path, index=False, engine='pyarrow')
         chunk_files.append(chunk_path)
 
-        # Clean up immediately — data is safely on disk
+        # Clean up immediately , data is safely on disk
         del chunk_ds, chunk_df
         gc.collect()
 
@@ -7595,7 +7582,7 @@ def assign_release_id(chunks_dir, interval):
     Returns:
     --------
     chunks_dir : str
-        Same directory path — chunk files are updated in-place with 'release_id' column.
+        Same directory path , chunk files are updated in-place with 'release_id' column.
 
     Notes:
     ------
@@ -7609,50 +7596,50 @@ def assign_release_id(chunks_dir, interval):
 
     n_chunks = len(chunk_files)
 
-    with MemoryMonitor("Release ID assignment"):
-        # Pass 1: Find global earliest release time across all chunks
-        global_earliest = None
-        for cf in chunk_files:
-            chunk = pd.read_parquet(cf, engine='pyarrow', columns=['trajectory', 'obs', 'time'])
-            obs0 = chunk[chunk['obs'] == 0]['time']
-            if not pd.api.types.is_datetime64_any_dtype(obs0):
-                obs0 = pd.to_datetime(obs0)
-            chunk_min = obs0.min()
-            if global_earliest is None or chunk_min < global_earliest:
-                global_earliest = chunk_min
-            del chunk, obs0
-            gc.collect()
+    # Pass 1: Find global earliest release time across all chunks
+    global_earliest = None
+    for cf in chunk_files:
+        chunk = pd.read_parquet(cf, engine='pyarrow', columns=['trajectory', 'obs', 'time'])
+        obs0 = chunk[chunk['obs'] == 0]['time']
+        if not pd.api.types.is_datetime64_any_dtype(obs0):
+            obs0 = pd.to_datetime(obs0)
+        chunk_min = obs0.min()
+        if global_earliest is None or chunk_min < global_earliest:
+            global_earliest = chunk_min
+        del chunk, obs0
+        gc.collect()
 
-        global_earliest = pd.Timestamp(global_earliest)
+    global_earliest = pd.Timestamp(global_earliest)
 
-        # Pass 2: Assign release_id per chunk and rewrite files
-        total_releases = set()
-        for i, cf in enumerate(chunk_files):
-            print(f"\r  Chunk {i + 1}/{n_chunks}...    ", end='', flush=True)
-            chunk = pd.read_parquet(cf, engine='pyarrow')
+    # Pass 2: Assign release_id per chunk and rewrite files
+    total_releases = set()
+    for i, cf in enumerate(chunk_files):
+        print(f"\r  Chunk {i + 1}/{n_chunks}...    ", end='', flush=True)
+        chunk = pd.read_parquet(cf, engine='pyarrow')
 
-            # Get obs=0 rows for this chunk
-            first_obs = chunk[chunk['obs'] == 0][['trajectory', 'time']].copy()
-            if not pd.api.types.is_datetime64_any_dtype(first_obs['time']):
-                first_obs['time'] = pd.to_datetime(first_obs['time'])
+        first_obs = chunk[chunk['obs'] == 0][['trajectory', 'time']].copy()
+        if not pd.api.types.is_datetime64_any_dtype(first_obs['time']):
+            first_obs['time'] = pd.to_datetime(first_obs['time'])
 
-            first_obs['days_since_start'] = (
-                first_obs['time'] - global_earliest
-            ).dt.total_seconds() / (24 * 3600)
-            first_obs['release_id'] = (first_obs['days_since_start'] / interval).round().astype(int) + 1
+        first_obs['days_since_start'] = (
+            first_obs['time'] - global_earliest
+        ).dt.total_seconds() / (24 * 3600)
+        first_obs['release_id'] = (first_obs['days_since_start'] / interval).round().astype(int) + 1
 
-            # Map release_id to all rows in this chunk
-            release_lookup = first_obs.set_index('trajectory')['release_id']
-            chunk['release_id'] = chunk['trajectory'].map(release_lookup)
+        release_lookup = first_obs.set_index('trajectory')['release_id']
+        chunk['release_id'] = chunk['trajectory'].map(release_lookup)
 
-            total_releases.update(first_obs['release_id'].unique())
+        total_releases.update(first_obs['release_id'].unique())
 
-            # Rewrite the chunk file with release_id added
-            chunk.to_parquet(cf, index=False, engine='pyarrow')
-            del chunk, first_obs, release_lookup
-            gc.collect()
+        chunk.to_parquet(cf, index=False, engine='pyarrow')
+        del chunk, first_obs, release_lookup
+        gc.collect()
 
-        print(f"\nAssigned {len(total_releases)} release cohorts across {n_chunks} chunks.")
+    print()  # newline after in-place progress
+    data_box("Release Cohort Assignment", [
+        f"Release cohorts assigned: {len(total_releases)}",
+        f"Chunks processed: {n_chunks}"
+    ])
 
     return chunks_dir
 
@@ -7668,7 +7655,7 @@ def execute_simulation(pset, kernels, adjusted_runtime, interval):
     Parameters
     ----------
     pset : parcels.ParticleSet
-        Configured particle set containing:
+        Configured ParticleSet containing:
         - Initial particle positions
         - Release timing information
         - Species assignments
@@ -7691,7 +7678,7 @@ def execute_simulation(pset, kernels, adjusted_runtime, interval):
     Returns
     -------
     tuple
-        (output_path, chunks_dir) — the path to the Zarr output file, and the path to the directory of parquet chunk files holding the processed trajectory data.
+        (output_path, chunks_dir) , the path to the Zarr output file, and the path to the directory of parquet chunk files holding the processed trajectory data.
 
     Notes
     -----
@@ -7845,21 +7832,21 @@ def execute_simulation(pset, kernels, adjusted_runtime, interval):
             )
 
         # Step 5: Load results with chunked approach
-        print("\nProcessing simulation results...")
-
-        # Check if we need chunked processing
+        subsection_header("Processing Simulation Results")
         file_size_gb = get_zarr_size(output_path)
-
-        # Always use chunked processing for memory safety
-        print(f"\nOutput file size: {file_size_gb:.2f} GB")
-        print(f"Using memory-safe chunked loading ({config['chunk_size']:,} trajectories per chunk)")
+        info_box([
+            f"Output file size: {file_size_gb:.2f} GB",
+            f"Trajectories will be loaded in chunks of {config['chunk_size']:,} for memory efficiency"
+        ])
         chunks_dir = process_sim_results(output_path, config['chunk_size'], adjusted_runtime)
 
-        # Assign release IDs per-chunk (files updated in-place on disk)
+        subsection_header("Assigning Release Cohorts")
         chunks_dir = assign_release_id(chunks_dir, interval)
 
-        print("\nSimulation complete!")
-        print(f"Trajectory chunks saved to: {chunks_dir}")
+        status_message("Simulation complete.", "success")
+        data_box("Simulation Output", [
+            f"Trajectory chunks: {chunks_dir}"
+        ])
 
         return output_path, chunks_dir
 
@@ -8188,7 +8175,7 @@ def habitat_filter(pld_dfs, release_grids):
 
         # Handle case where release_grids is None (all sites strategy)
         if release_grids is None:
-            # No release constraint - keep all trajectories
+            # No release constraint and keep all trajectories
             final_processed[species_name] = df
             n_traj = df['trajectory'].nunique()
             print(f"  {species_name}: {n_traj} trajectories (all sites release strategy)")
@@ -8360,7 +8347,7 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
     total_successful = 0
     n_species = len(traits_list)
 
-    # Count total unique trajectories in the raw input — used to report
+    # Count total unique trajectories in the raw input , used to report
     # how many were filtered out at each step (per species).
     if use_chunks:
         _input_traj_ids = set()
@@ -8412,12 +8399,9 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
             _out_spawning = max(0, n_input_traj - _n_spawning)
             _out_pld = max(0, _n_spawning - _n_pld)
             _out_habitat = max(0, _n_pld - _n_habitat)
-            print(
-                f"    Spawning filter: {_n_spawning:,} trajectories retained  ({_out_spawning:,} filtered out)")
-            print(
-                f"    PLD filter:      {_n_pld:,} retained trajectories ({_out_pld:,} filtered out)")
-            print(
-                f"    Habitat filter:  {_n_habitat:,} retained trajectories ({_out_habitat:,} filtered out)")
+            print(f"    Spawning filter: {_n_spawning:,} trajectories retained  ({_out_spawning:,} filtered out)")
+            print(f"    PLD filter:      {_n_pld:,} retained trajectories ({_out_pld:,} filtered out)")
+            print(f"    Habitat filter:  {_n_habitat:,} retained trajectories ({_out_habitat:,} filtered out)")
 
             if species_survivors:
                 combined = pd.concat(species_survivors, ignore_index=True)
@@ -8445,8 +8429,7 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
 
         _n_spawning = sp_spawning[species_name]['trajectory'].nunique()
         _out_spawning = max(0, n_input_traj - _n_spawning)
-        print(
-            f"    Spawning filter: {_n_spawning:,} retained  ({_out_spawning:,} filtered out — outside spawning window)")
+        print(f"    Spawning filter: {_n_spawning:,} retained  ({_out_spawning:,} filtered out, outside spawning window)")
 
         # PLD filter for this species only
         sp_pld = pld_filter(sp_spawning, [species_trait], settlement_grids, grid_ids, buffer)
@@ -8461,7 +8444,7 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
 
         _n_pld = sp_pld[species_name]['trajectory'].nunique()
         _out_pld = max(0, _n_spawning - _n_pld)
-        print(f"    PLD filter:      {_n_pld:,} retained  ({_out_pld:,} filtered out — no valid settlement within PLD)")
+        print(f"    PLD filter:      {_n_pld:,} retained  ({_out_pld:,} filtered out, no valid settlement within PLD)")
 
         # Habitat filter for this species only
         sp_final = habitat_filter({species_name: sp_pld[species_name]}, release_grids)
@@ -8479,8 +8462,7 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
             summary_lines.append(
                 f"{display_species_name(species_name)}: {n_traj} successful trajectories from {n_releases} release cohorts"
             )
-            print(
-                f"    Habitat filter:  {n_traj:,} retained  ({_out_habitat:,} filtered out — not released from valid habitat)")
+            print(f"    Habitat filter:  {n_traj:,} retained  ({_out_habitat:,} filtered out, not released from valid habitat)")
             print(f"    From {n_releases} release cohorts.")
         else:
             print(f"    No trajectories survived habitat filter.")
@@ -8788,8 +8770,7 @@ def calculate_connectivity_metrics(final_processed, release_grids, settlement_gr
             print(f"Settlement rate: {settlement_rate * 100:.1f}%")
             if mortality_calculable:
                 print(f"Mortality rate: {mortality_rate * 100:.1f}%")
-            print(
-                f"Self-recruitment rate: {recruitment_rate * 100:.1f}%, within {settlement_buffer}-cell buffer of release site ({recruitment_count} trajectories)")
+            print(f"Self-recruitment rate: {recruitment_rate * 100:.1f}%, within {settlement_buffer}-cell buffer of release site ({recruitment_count} trajectories)")
             print(f"Min net displacement: {min_distance:.1f} km")
             print(f"Mean net displacement: {mean_distance:.1f} km")
             print(f"Max net displacement: {max_distance:.1f} km")
@@ -9358,7 +9339,7 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
             Figure title.
         composite_col : str
             Column in site_metrics used for colouring (usually a `{metric}_rank`
-            or a `{type}_composite` column — both are rank-based).
+            or a `{type}_composite` column , both are rank-based).
         cmap : str
             Matplotlib colormap name. Default `viridis_r` so low rank = yellow = best.
         network_graph : networkx.DiGraph, optional
@@ -9381,7 +9362,7 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
     # Main map
     ax = fig.add_subplot(gs[0], projection=ccrs.PlateCarree())
 
-    # Reduced buffer — less wasted ocean space
+    # Reduced buffer , less wasted ocean space
     if zoom_extent:
         ax.set_extent(zoom_extent, crs=ccrs.PlateCarree())
     else:
@@ -9452,7 +9433,7 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
 
     # All sites as outlined circles, coloured by rank
     if network_only:
-        # No metric — all sites as small neutral dots. Prevents the 'Could not display metric map: None'
+        # No metric , all sites as small neutral dots. Prevents the 'Could not display metric map: None'
         # crash that happened when composite_col was None by never referencing it (Fix 10).
         scatter = ax.scatter(
             site_metrics['longitude'], site_metrics['latitude'],
@@ -9780,7 +9761,7 @@ def create_matrix_with_map(connectivity_matrix, site_metrics,
     ax_map.add_feature(cfeature.OCEAN, facecolor='lightblue', edgecolor='none')
     ax_map.add_feature(cfeature.COASTLINE, linewidth=0.5, color='#555555')
 
-    # Uniform fill colour. No latitude gradient — the colour isn't encoding anything meaningful.
+    # Uniform fill colour. No latitude gradient , the colour isn't encoding anything meaningful.
     ax_map.scatter(
         map_sites['longitude'], map_sites['latitude'],
         c='#7b9ec9', s=40,
@@ -10009,7 +9990,7 @@ def create_community_map(network_results, title="Connectivity Communities (Louva
                            subplot_kw={'projection': ccrs.PlateCarree()})
     plt.rcParams['font.family'] = 'Arial'
 
-    # Reduced buffer — less wasted ocean (Fix 16)
+    # Reduced buffer , less wasted ocean (Fix 16)
     buf = 0.08
     ax.set_extent([
         site_metrics['longitude'].min() - buf,
@@ -10362,13 +10343,13 @@ def trait_matrix_viewer(all_network_results):
             if nr is None:
                 print(f"  No results for {level_dd.value} at {scale_dd.value}.")
                 return
-            print(f"  Rendering {level_dd.value} – {scale_dd.value}: "
+            print(f"  Rendering {level_dd.value} , {scale_dd.value}: "
                   f"connectivity matrix... (~10-20 seconds)")
             try:
                 fig = create_matrix_with_map(
                     nr['connectivity_matrix'],
                     nr['site_metrics'],
-                    title=f"{level_dd.value} – {scale_dd.value}",
+                    title=f"{level_dd.value} , {scale_dd.value}",
                     show_figure=False,
                 )
                 clear_output(wait=True)
@@ -10407,12 +10388,12 @@ def trait_community_viewer(all_network_results):
             if nr is None:
                 print(f"  No results for {level_dd.value} at {scale_dd.value}.")
                 return
-            print(f"  Rendering {level_dd.value} – {scale_dd.value}: "
+            print(f"  Rendering {level_dd.value} , {scale_dd.value}: "
                   f"Louvain communities... (~10-20 seconds)")
             try:
                 result = create_community_map(
                     nr,
-                    title=f"{level_dd.value} – {scale_dd.value}",
+                    title=f"{level_dd.value} , {scale_dd.value}",
                     show_figure=False,
                 )
                 fig = result[0] if isinstance(result, tuple) else result
@@ -10473,12 +10454,12 @@ def trait_heatmap_viewer(all_network_results):
             if nr is None:
                 print(f"  No results for {level_dd.value} at {scale_dd.value}.")
                 return
-            print(f"  Rendering {level_dd.value} – {scale_dd.value}: "
+            print(f"  Rendering {level_dd.value} , {scale_dd.value}: "
                   f"site × metric heatmap...")
             try:
                 fig = build_heatmap_figure(
                     nr,
-                    title=f"{level_dd.value} – {scale_dd.value}",
+                    title=f"{level_dd.value} , {scale_dd.value}",
                 )
                 if fig is None:
                     clear_output(wait=True)
@@ -10583,13 +10564,13 @@ def trait_metric_viewer(all_network_results):
                 else:
                     top10 = nr.get('top10_overall')
 
-            print(f"  Rendering {level_dd.value} – {scale_dd.value}: "
+            print(f"  Rendering {level_dd.value} , {scale_dd.value}: "
                   f"{metric_name}... (~10-20 seconds)")
             try:
                 top_n = None if network_only else 200
                 fig = create_network_map(
                     site_metrics, top10,
-                    title=f"{level_dd.value} – {scale_dd.value}",
+                    title=f"{level_dd.value} , {scale_dd.value}",
                     composite_col=score_col,
                     cmap='viridis_r',
                     show_figure=False,
@@ -10780,7 +10761,7 @@ def trait_metrics_viewer(type1_results):
 def network_metrics_viewer(all_network_results):
     """Interactive viewer for Type 2 network results (summary + per-site metrics).
 
-    Two dropdowns — analysis level (Community or species) and spatial scale —
+    Two dropdowns , analysis level (Community or species) and spatial scale ,
     matching the other network viewers.
     """
     levels, scales, level_lookup = _get_viewer_options(all_network_results)
@@ -11364,7 +11345,7 @@ def mantel_test(matrix1, matrix2, n_permutations=999, random_state=None):
         print("This typically occurs when:")
         print("  - Very few connections exist in one or both models")
         print("  - All connection strengths are identical")
-        print("  - The study area is too small or simulation too short")
+        print("  - The study extent is too small or simulation too short")
         print("The Mantel test cannot compute a meaningful correlation in this case.")
         print("Consider: running with more particles, longer simulation, or larger area.\n")
         return np.nan, 1.0  # Return tuple, not dict
@@ -11546,27 +11527,21 @@ def display_sensitivity_comparison(original_metrics, modified_metrics, compariso
     # Rates
     settle_diff = (mod_settlement - orig_settlement) * 100
     mort_diff = (mod_mortality - orig_mortality) * 100
-    print(
-        f"{'Settlement rate':<35} {orig_settlement * 100:>14.1f}% {mod_settlement * 100:>14.1f}% {settle_diff:>+11.1f}%")
+    print(f"{'Settlement rate':<35} {orig_settlement * 100:>14.1f}% {mod_settlement * 100:>14.1f}% {settle_diff:>+11.1f}%")
     print(f"{'Mortality rate':<35} {orig_mortality * 100:>14.1f}% {mod_mortality * 100:>14.1f}% {mort_diff:>+11.1f}%")
 
     # Self-recruitment
     recruitment_diff = (mod_recruitment - orig_recruitment) * 100
-    print(
-        f"{'Self-recruitment rate':<35} {orig_recruitment * 100:>14.1f}% {mod_recruitment * 100:>14.1f}% {recruitment_diff:>+11.1f}%")
+    print(f"{'Self-recruitment rate':<35} {orig_recruitment * 100:>14.1f}% {mod_recruitment * 100:>14.1f}% {recruitment_diff:>+11.1f}%")
 
     # Dispersal distances
-    print(
-        f"{'Min dispersal distance (km)':<35} {orig_min_dist:>15.1f} {mod_min_dist:>15.1f} {mod_min_dist - orig_min_dist:>+12.1f}")
-    print(
-        f"{'Mean dispersal distance (km)':<35} {orig_mean_dist:>15.1f} {mod_mean_dist:>15.1f} {mod_mean_dist - orig_mean_dist:>+12.1f}")
-    print(
-        f"{'Max dispersal distance (km)':<35} {orig_max_dist:>15.1f} {mod_max_dist:>15.1f} {mod_max_dist - orig_max_dist:>+12.1f}")
+    print(f"{'Min dispersal distance (km)':<35} {orig_min_dist:>15.1f} {mod_min_dist:>15.1f} {mod_min_dist - orig_min_dist:>+12.1f}")
+    print(f"{'Mean dispersal distance (km)':<35} {orig_mean_dist:>15.1f} {mod_mean_dist:>15.1f} {mod_mean_dist - orig_mean_dist:>+12.1f}")
+    print(f"{'Max dispersal distance (km)':<35} {orig_max_dist:>15.1f} {mod_max_dist:>15.1f} {mod_max_dist - orig_max_dist:>+12.1f}")
 
     # PLD
     print(f"{'Min PLD (days)':<35} {orig_min_pld:>15.0f} {mod_min_pld:>15.0f} {mod_min_pld - orig_min_pld:>+12.0f}")
-    print(
-        f"{'Mean PLD (days)':<35} {orig_mean_pld:>15.1f} {mod_mean_pld:>15.1f} {mod_mean_pld - orig_mean_pld:>+12.1f}")
+    print(f"{'Mean PLD (days)':<35} {orig_mean_pld:>15.1f} {mod_mean_pld:>15.1f} {mod_mean_pld - orig_mean_pld:>+12.1f}")
     print(f"{'Max PLD (days)':<35} {orig_max_pld:>15.0f} {mod_max_pld:>15.0f} {mod_max_pld - orig_max_pld:>+12.0f}")
 
     print("-" * 80)
@@ -11622,8 +11597,7 @@ def display_sensitivity_comparison(original_metrics, modified_metrics, compariso
                 'moderate': 'Moderate agreement (4-6 shared) - Trait changes alter some hotspot locations',
                 'low': 'Low agreement (<4 shared) - Trait changes substantially change which sites are hotspots'
             }
-            print(
-                f"\nSpatial Agreement: {agreement_text.get(comparison['spatial_agreement'], comparison['spatial_agreement'])}")
+            print(f"\nSpatial Agreement: {agreement_text.get(comparison['spatial_agreement'], comparison['spatial_agreement'])}")
 
     return {
         'settlement_diff': settle_diff,
@@ -11802,7 +11776,7 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
         reference = [
             # config
             ('config', 'comcon_outputs.xlsx',
-             'This file — outputs reference catalogue (Sheet 1) and run configuration metadata (Sheet 2).'),
+             'This file, outputs reference catalogue (Sheet 1) and run configuration metadata (Sheet 2).'),
 
             # simulation
             ('simulation', 'passive_summer.zarr',
@@ -11824,7 +11798,7 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
             ('figures', '<dataset>/connectivity_matrix.*',
              'Site × site connectivity matrix figure for this dataset.'),
             ('figures', '<dataset>/communities.*',
-             'Louvain community detection map — sites coloured by community membership.'),
+             'Louvain community detection map, sites coloured by community membership.'),
             ('figures', '<dataset>/heatmap.*',
              'Site × metric heatmap: rows = network metrics, columns = top 100 sites by overall rank.'),
             ('figures', '<dataset>/network_only.*',
@@ -11860,7 +11834,7 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
         reference = [
             # config
             ('config', 'comcon_outputs.xlsx',
-             'This file — outputs reference catalogue (Sheet 1) and run configuration metadata (Sheet 2).'),
+             'This file, outputs reference catalogue (Sheet 1) and run configuration metadata (Sheet 2).'),
             ('config', 'spp_params.json',
              'Saved species parameters from Step 2 (data source, release/settlement strategy, habitat filtering, dispersal year).'),
             ('config', 'hydro_params.json',
@@ -11880,7 +11854,7 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
 
             # grids
             ('grids', 'grid_study_area.csv',
-             'Coastal grid within the user-defined study area polygon (used as release cells).'),
+             'Coastal grid within the user-defined study extent polygon (used as release cells).'),
             ('grids', 'grid_full_domain.csv',
              'Full coastal grid across the entire hydrodynamic domain (used as settlement cells).'),
             ('grids', '*_release_grid.csv',
@@ -11900,13 +11874,13 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
             ('figures', '*distribution*',
              'Species occurrence distribution map showing cleaned records on the hydro extent.'),
             ('figures', '*matrix*',
-             'Connectivity matrix figures (site × site particle exchange) — per species and/or community.'),
+             'Connectivity matrix figures (site x site particle exchange), per species and/or community.'),
             ('figures', '*network*',
              'Directed connectivity network maps with arrows showing pairwise particle exchange.'),
             ('figures', '*communities*',
-             'Louvain community detection maps — sites coloured by community membership.'),
+             'Louvain community detection maps, sites coloured by community membership.'),
             ('figures', '*heatmap*',
-             'Site × metric heatmaps — rows are network metrics, columns are top sites by overall rank.'),
+             'Site x metric heatmaps, rows are network metrics, columns are top sites by overall rank.'),
             ('figures', '*hotspot*',
              'Top 10 hotspot maps coloured by composite or single-metric rank.'),
 
@@ -11926,7 +11900,7 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
     # =====================================================================
     rows = []
     matched_paths = set()  # absolute paths already accounted for in the catalogue
-    # The metadata file itself doesn't exist on disk yet at walk time — special-case it.
+    # The metadata file itself doesn't exist on disk yet at walk time , special-case it.
     _self_filename = os.path.basename(output_path)
 
     for folder_role, pattern, description in reference:
@@ -11980,7 +11954,7 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
                 if fnmatch.fnmatch(f, pattern) and os.path.isfile(full_path):
                     found.append((None, f, full_path))
                 elif fnmatch.fnmatch(f, pattern) and os.path.isdir(full_path) and pattern.endswith('.zarr'):
-                    # .zarr is technically a directory — treat as a single match
+                    # .zarr is technically a directory , treat as a single match
                     found.append((None, f, full_path))
 
         if found:
@@ -12020,7 +11994,7 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
                 rows.append({
                     'Folder': display_folder,
                     'File / Subfolder': os.path.basename(rel),
-                    'Description': '(User-added file — not part of the standard ComCon output catalogue.)',
+                    'Description': '(User-added file, not part of the standard ComCon output catalogue.)',
                     'Saved': 'YES',
                 })
 
@@ -12056,7 +12030,7 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
     # =====================================================================
     # Write the workbook
     # =====================================================================
-    # Sheet 3: metric definitions — how every reported metric is calculated, so
+    # Sheet 3: metric definitions , how every reported metric is calculated, so
     # results can be interpreted and reproduced without reading the source code.
     metric_definitions = [
         ('Connectivity (matrix value)',
@@ -12094,7 +12068,7 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
          'NetworkX degree_centrality (normalised)',
          'proportion (0-1)'),
         ('Betweenness centrality',
-         'How often a site lies on shortest paths between other site pairs — identifies '
+         'How often a site lies on shortest paths between other site pairs, identifies '
          'stepping-stone sites.',
          'NetworkX betweenness_centrality (weighted, normalised)',
          'proportion (0-1)'),
@@ -12127,7 +12101,7 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
          'edges / (n_sites * (n_sites - 1))',
          'proportion (0-1)'),
         ('Modularity',
-         'Strength of the community structure found by Louvain — higher means communities are '
+         'Strength of the community structure found by Louvain, higher means communities are '
          'more clearly separated.',
          'Louvain modularity of the undirected, weighted graph',
          'score (-0.5 to 1)'),
@@ -12266,7 +12240,7 @@ def post_analysis(final_processed):
 
     # Resolve raw trajectory data for mortality calculation.
     # Uses full traj DataFrame if available, otherwise loads just obs=0 rows from chunks.
-    # This is fully automatic — users don't need to know about the chunked storage.
+    # This is fully automatic , users don't need to know about the chunked storage.
     _traj_raw = None
     if 'traj' in globals() and isinstance(traj, pd.DataFrame) and not traj.empty:
         _traj_raw = traj
@@ -12508,8 +12482,7 @@ def post_analysis(final_processed):
             seascape_km = get_positive_integer("Seascape scale threshold (km)", default=100, min_val=1, max_val=1000)
             scales = [None, local_km, regional_km, seascape_km]
             scale_names = ['full_domain', 'local', 'regional', 'seascape']
-            print(
-                f"\nUsing multi-scale: full domain, {local_km}km (local), {regional_km}km (regional), {seascape_km}km (seascape)")
+            print(f"\nUsing multi-scale: full domain, {local_km}km (local), {regional_km}km (regional), {seascape_km}km (seascape)")
 
         # Step 2b: Run Analysis
         exclude_lr = get_yes_no(
@@ -12597,8 +12570,7 @@ def post_analysis(final_processed):
                     if not ok:
                         break
                 if ok:
-                    print(
-                        f"  Custom composite created from: {', '.join(chosen)}. Select custom_composite in the network metric viewer dropdown to view it, or use the 'custom_composite' column in the exported CSVs.")
+                    print(f"  Custom composite created from: {', '.join(chosen)}. Select custom_composite in the network metric viewer dropdown to view it, or use the 'custom_composite' column in the exported CSVs.")
 
             # Step 2c: Save figures (optional)
             save_figs = get_yes_no("\nSave Type 2 figures to file?", default='yes')
@@ -12621,14 +12593,14 @@ def post_analysis(final_processed):
                     for level_label, nr in pairs:
                         fig_subdir = os.path.join(output_dir, f'{level_label}_{s_name}')
                         os.makedirs(fig_subdir, exist_ok=True)
-                        print(f"  Saving: {level_label} – {s_name}")
+                        print(f"  Saving: {level_label} , {s_name}")
                         with contextlib.redirect_stdout(io.StringIO()):
                             # Capture values in default args to avoid lambda late-binding bug
                             _sm = nr['site_metrics']
                             _cm = nr['connectivity_matrix']
                             _t10 = nr.get('top10_overall', _sm.head(10))
                             _ng = nr.get('network_graph')
-                            _title = f'{level_label} – {s_name}'
+                            _title = f'{level_label} , {s_name}'
 
                             save_list = [
                                 ('hotspot_overall', lambda sm=_sm, t10=_t10, ng=_ng, t=_title: create_network_map(
@@ -12967,7 +12939,7 @@ def post_analysis(final_processed):
             globals().get('interval', None),
             release_grids, settlement_grids,
         )
-        # Resolve project_dirs — set up by setup_project_directory(), may be a global
+        # Resolve project_dirs , set up by setup_project_directory(), may be a global
         _proj_dirs = globals().get('project_dirs', None)
         if _proj_dirs is None:
             # Fallback: build a minimal project_dirs from get_default_dir() for each known role
@@ -13080,7 +13052,7 @@ def workflow_step(step_number):
 
         subsection_header("Setting up the Hydrodynamic Extent")
         info_box([
-            "The hydrodynamic extent needs to be larger than your study area.",
+            "The hydrodynamic extent needs to be larger than your study extent.",
             "",
             "The hydrodynamic extent is the area in which particles will be dispersing during the simulation.",
             "",
@@ -13192,13 +13164,32 @@ def workflow_step(step_number):
                 "",
                 "Website: https://data.marine.copernicus.eu/products",
                 "",
-                "You will need a stable internet connection, your username and password, the dataset ID, and the longitude and latitude ranges of your study area.",
+                "You will need a stable internet connection, your username and password, the dataset ID, and the longitude and latitude ranges of your study extent.",
             ])
             hydro_params, species_traits_path, runtime, traits = params()
 
             # Extract buffer values to globals (needed for Type 3 analysis)
             buffer_before = hydro_params.get('buffer_before', 0)
             buffer_after = hydro_params.get('buffer_after', 0)
+
+            # Pre-download coverage check: confirm the dataset covers the dispersal period before streaming anything.
+            _cov_ok, _avail_start, _avail_end = check_dataset_coverage(
+                hydro_params['dataset_id'], hydro_params['time_range'],
+                username=hydro_params.get('username'), password=hydro_params.get('password'),
+                longitude_range=hydro_params.get('longitude_range'),
+                latitude_range=hydro_params.get('latitude_range'),
+            )
+            subsection_header("Dataset Coverage Check")
+            print(f"Dataset available:  {_avail_start.date()} to {_avail_end.date()}")
+            print(f"Dispersal period:  {pd.Timestamp(hydro_params['time_range'][0]).date()} to {pd.Timestamp(hydro_params['time_range'][1]).date()}")
+            if not _cov_ok:
+                print("This dataset does not fully cover your dispersal period.")
+                print("Pick a different year, choose another dataset or adjust your spawning window, then re-run Step 1.")
+                _go = input("Continue with this dataset anyway? (yes/no) [default: no]: ").strip().lower()
+                if _go not in ['yes', 'y']:
+                    return
+            else:
+                print("Dataset coverage is suitable.")
 
             # Download Hydrodynamic Data
             hydro_data = download_hydrodynamic_data(**hydro_params)
@@ -13231,8 +13222,7 @@ def workflow_step(step_number):
             print(f"Release interval adjustment may extend runtime beyond hydro data coverage")
             print(f"Consider re-downloading with extended end date")
         else:
-            print(
-                f"Hydrodynamic data coverage is suitable")
+            print(f"Hydrodynamic data coverage is suitable")
 
         # Grid resolution selection and domain visualisation runs regardless of the coverage
         # result above; a coverage warning must not skip the resolution choice or Step 1 completion.
@@ -13271,7 +13261,7 @@ def workflow_step(step_number):
                     f"Native ocean cells:   {_n_native_ocean:,}",
                     f"Native coastal cells: {_n_native_coastal:,}",
                 ])
-            # 3. Visualise — one map if native, two if binned (with coastal layer)
+            # 3. Visualise , one map if native, two if binned (with coastal layer)
             subsection_header("Visualising the Hydrodynamic Extent")
             _loading_out = widgets.Output()
             display(_loading_out)
@@ -13328,12 +13318,13 @@ def workflow_step(step_number):
     elif step_number == 2:
         step_box(2, "Species Occurrence Data")
 
+        print("\nIn this step, you will select your study extent and choose your data source.")
+
         print("\nThis package has the option to use species-specific occurrence data to determine appropriate release and settlement areas for each species.\n")
 
-        print("In this step, you will select your study area and choose your data source.\n")
         print("In step 3, you then have the option to:")
-        print("  - Release particles from all locations in your study area or known occurrences")
-        print("  - Settle particles from all locations in your study area or known occurrences\n")
+        print("  - Release particles from all locations in your study extent, specific site or known occurrences")
+        print("  - Settle particles from all locations in your study extent, specific sites or known occurrences")
 
         subsection_header("Data source options")
         info_box([
@@ -13342,6 +13333,8 @@ def workflow_step(step_number):
             "  - Uses the species identifiers (AphiaID or scientific name) from your trait dataset",
             "  - Same data will be used for both release and settlement",
             "  - Requires a stable internet connection",
+            "  - GBIF website: https://www.gbif.org/",
+            "  - For more information, see 'Part 5: Step 2 (Species Occurrence Data)' in the User Guide",
             "",
             "Option 2: Provide your own species occurrence data",
             "  - This can be species occurrence data or habitat suitability data",
@@ -13351,15 +13344,8 @@ def workflow_step(step_number):
             "  - See 'Part 7: Occurrence Data CSV Format' in the User Guide for format details"
         ])
 
-        print("Note: If you plan to release and settle everywhere in your study area, you still need to complete this step to set up the simulation.")
-
-        subsection_header("GBIF Website")
-        print("https://www.gbif.org/\n")
-
-        print("For more information, see 'Part 5: Step 2 (Species Occurrence Data)' in the User Guide.\n")
-
         # Call spp_occ to gather species occurrence data
-        section_header("Select your species occurrence data")
+        section_header("Select your Species Occurrence Data")
 
         # Re-load hydro_data if session was saved without it (backward compatibility)
         if 'hydro_data' not in globals() or hydro_data is None:
@@ -13380,7 +13366,7 @@ def workflow_step(step_number):
         )
 
         completion_message(2)
-        print("\nOutputs: Cleaned species occurrences, land/coastal masks, study area polygon")
+        print("\nOutputs: Cleaned species occurrences, land/coastal masks, study extent polygon")
         save_now = input("\nSave session checkpoint? (yes/no) [default: yes]: ").strip().lower()
         if save_now not in ['no', 'n']:
             save_session()
@@ -13394,7 +13380,7 @@ def workflow_step(step_number):
     elif step_number == 3:
         step_box(3, "Simulation Setup")
 
-        # Grid resolution selection — use Step 1 choice if available, otherwise ask now
+        # Grid resolution selection , use Step 1 choice if available, otherwise ask now
         if '_selected_resolution_km' in dir() or (
                 '_selected_resolution_km' in globals() and _selected_resolution_km is not None):
             resolution_km = _selected_resolution_km
@@ -13429,8 +13415,7 @@ def workflow_step(step_number):
         subsection_header("Release and Settlement Strategy")
         print("This package has several options for releasing and settling propagules.\n")
 
-        print(
-            "You have the option to release propagules from all sites in your study area or from known species-specific distributions.\n")
+        print("You have the option to release propagules from all sites in your study area or from known species-specific distributions.\n")
 
         print("For more information, see 'Part 5: Step 3 (Release and Settlement Setup)' in the User Guide.\n")
 
@@ -13456,7 +13441,7 @@ def workflow_step(step_number):
         print("Release and settlement grid setup complete.\n")
 
         subsection_header("ParticleSet Configuration")
-        print("The next step is to create a ParticleSet for your community.\n")
+        print("The next step is to create a ParticleSet for your species.\n")
 
         print("A ParticleSet is simply a collection of 'rules' or 'behaviours' applied to all particles within your simulation.\n")
 
@@ -13476,7 +13461,7 @@ def workflow_step(step_number):
         kernels = create_custom_kernels(pset)
 
         completion_message(3)
-        print("\nOutputs: Release/settlement grids, grid IDs, fieldset, particle set")
+        print("\nOutputs: Release/settlement grids, grid IDs, fieldset, ParticleSet")
         save_now = input("\nSave session checkpoint? (yes/no) [default: yes]: ").strip().lower()
         if save_now not in ['no', 'n']:
             save_session()
@@ -13489,12 +13474,12 @@ def workflow_step(step_number):
     elif step_number == 4:
         step_box(4, "Execute the Simulation")
 
-        # pset/kernels contain compiled C code — rebuild from saved config if missing
+        # pset/kernels contain compiled C code , rebuild from saved config if missing
         if 'pset' not in globals() or pset is None or 'kernels' not in globals() or kernels is None:
             config_path = os.path.join(project_dirs['config'],
                                        'pset_config.json') if 'project_dirs' in globals() and project_dirs else None
             if config_path and os.path.exists(config_path):
-                print("  Rebuilding particle set and kernels from saved configuration...")
+                print("Rebuilding ParticleSet and kernels from saved configuration...")
                 try:
                     # Re-load hydro_data if needed
                     if 'hydro_data' not in globals() or hydro_data is None:
@@ -13502,7 +13487,7 @@ def workflow_step(step_number):
                         if _hydro_path and os.path.exists(_hydro_path):
                             hydro_data = xr.open_dataset(_hydro_path)
                         else:
-                            print("  Error: Cannot find hydrodynamic data. Please re-run from Step 1.")
+                            print("Error: Cannot find hydrodynamic data. Please re-run from Step 1.")
                             return
 
                     # Rebuild fieldset
@@ -13550,21 +13535,21 @@ def workflow_step(step_number):
                     interval = _interval.days
 
                     kernels = create_custom_kernels(pset)
-                    print("  Rebuild complete.\n")
+                    print("\nRebuild complete.")
                 except Exception as e:
-                    print(f"  Error rebuilding: {e}")
-                    print("  Please re-run: workflow_step(3)")
+                    print(f"Error rebuilding: {e}")
+                    print("Please re-run: workflow_step(3)")
                     return
             else:
-                print("  The particle set and kernels from Step 3 are not available.")
-                print("  These contain compiled simulation code that cannot be saved between sessions.")
-                print("  Please re-run: workflow_step(3)")
+                print("The ParticleSet and kernels from Step 3 are not available.")
+                print("These contain compiled simulation code that cannot be saved between sessions.")
+                print("Please re-run: workflow_step(3)")
                 return
 
         subsection_header("Running the Particle Simulation")
         print("The simulation will now run using the parameters you have configured.\n")
 
-        print("For more information, see 'Part 5: Step 4 (Running the Simulation)' in the User Guide.\n")
+        print("For more information, see 'Part 5: Step 4 (Running the Simulation)' in the User Guide.")
 
         # Execute simulation
         output_path, chunks_dir = execute_simulation(pset, kernels, adjusted_runtime, interval)
@@ -13608,8 +13593,7 @@ def workflow_step(step_number):
             if 'output_path' in globals() and output_path and os.path.exists(str(output_path)):
                 print(f"  1. A .zarr file exists at: {output_path}")
                 print("     You can reload it by re-running Step 4, or manually with:")
-                print(
-                    f"     chunks_dir = process_sim_results('{output_path}', chunk_size=5000, runtime_days={adjusted_runtime if 'adjusted_runtime' in dir() else 'YOUR_RUNTIME'})")
+                print(f"     chunks_dir = process_sim_results('{output_path}', chunk_size=5000, runtime_days={adjusted_runtime if 'adjusted_runtime' in dir() else 'YOUR_RUNTIME'})")
                 print(f"     chunks_dir = assign_release_id(chunks_dir, interval)")
                 print("     workflow_step(5)")
             else:
@@ -13622,8 +13606,7 @@ def workflow_step(step_number):
                     print(f"  Found .zarr file(s) in your simulation folder: {zarr_found}")
                     zarr_path = os.path.join(project_dirs['simulation'], zarr_found[0])
                     print(f"  Reload with:")
-                    print(
-                        f"     chunks_dir = process_sim_results('{zarr_path}', chunk_size=5000, runtime_days=YOUR_RUNTIME)")
+                    print(f"     chunks_dir = process_sim_results('{zarr_path}', chunk_size=5000, runtime_days=YOUR_RUNTIME)")
                     print(f"     chunks_dir = assign_release_id(chunks_dir, interval)")
                     print("     workflow_step(5)")
                 else:

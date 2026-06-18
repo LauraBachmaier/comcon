@@ -119,7 +119,7 @@ class MemoryMonitor:
         self.start_mem = psutil.Process().memory_info().rss / 1024 ** 3
         return self
 
-    ## Silent exit — automatic mode suppresses memory reports
+    ## Silent exit , automatic mode suppresses memory reports
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Exit without printing memory delta (automatic mode suppresses output)."""
         # Silent in automatic mode
@@ -183,7 +183,7 @@ def get_yes_no(prompt, default='no'):
         print("  Invalid input. Please enter 'yes' or 'no'.")
 
 # region Main Entry Point
-## Entry point for automatic mode — guides parameter collection then runs the workflow end-to-end
+## Entry point for automatic mode , guides parameter collection then runs the workflow end-to-end
 def start_automatic_mode():
     """
     Start the automatic workflow mode.
@@ -206,11 +206,11 @@ def start_automatic_mode():
         "",
         "Automatic mode requires the following to be ready:",
         "  1. Copernicus Marine Service account (username + password)",
-        "  2. A study area polygon in GeoJSON format",
+        "  2. A study extent polygon in GeoJSON format",
         "",
         "If you don't have a GeoJSON polygon yet, interrupt the kernel and create one first using the following function:",
         "  create_map()",
-        "This opens an interactive map to draw and export your study area.",
+        "This opens an interactive map to draw and export your study extent.",
     ])
 
     # Step 1: Project folder (always required, regardless of which path below)
@@ -419,16 +419,16 @@ def collect_all_parameters(project_dirs=None):
             "Select a hydrodynamic dataset. The most commonly used datasets are listed below.",
             "You can also enter a custom dataset ID if your region is not covered.",
             "",
-            "  1. Global Ocean (~9km resolution, 2022–present)",
+            "  1. Global Ocean (~9km resolution, 2022 to present)",
             "     cmems_mod_glo_phy_anfc_0.083deg_PT1H-m",
             "",
-            "  2. NW European Shelf (~1.5km resolution, 2024–present)",
+            "  2. NW European Shelf (~1.5km resolution, 2024 to present)",
             "     cmems_mod_nws_phy-cur_anfc_1.5km-2D_PT1H-i",
             "",
-            "  3. Atlantic–Iberian–Mediterranean (~3km resolution, 2022–present)",
+            "  3. Atlantic-Iberian-Mediterranean (~3km resolution, 2022 to present)",
             "     cmems_mod_ibi_phy_anfc_0.027deg-2D_PT1H-m",
             "",
-            "  4. Mediterranean Sea (~4km resolution, 2022–present)",
+            "  4. Mediterranean Sea (~4km resolution, 2022 to present)",
             "     cmems_mod_med_phy-cur_anfc_4.2km-2D_PT1H-m",
             "",
             "  5. Enter a custom dataset ID",
@@ -466,7 +466,7 @@ def collect_all_parameters(project_dirs=None):
                 print("  Invalid choice. Enter 1-6.")
                 continue
 
-        print("\nHydrodynamic domain extent (must cover your study area + buffer):")
+        print("\nHydrodynamic domain extent (must cover your study extent + buffer):")
         while True:
             try:
                 config['copernicus']['min_lat'] = float(input("  Minimum latitude (e.g., 49.0): "))
@@ -577,12 +577,13 @@ def collect_all_parameters(project_dirs=None):
         config['traits']['source'] = 'builtin' if trait_source == '1' else 'custom'
 
         if config['traits']['source'] == 'custom':
-            print("\n  Your CSV file must contain the following columns:")
-            print("    Required: species_name, min_PLD, max_PLD, spawning_start, spawning_end")
-            print("    Optional: aphia_id, lat, lon, polygon_id")
-            print("  Date format for spawning: DD/MM (e.g., 01/10 for 1st October)")
-            print("  PLD values should be in days (integers)")
-            print("  Any additional columns are permitted and will be ignored.\n")
+            print("\n  Your trait CSV needs one row per species, with these columns:")
+            print("    Required: species_name OR aphia_id, spawning_start, spawning_end, min_PLD, max_PLD")
+            print("    You must provide species_name, aphia_id or both. If both are given, aphia_id is used.")
+            print("    AphiaID is recommended for marine species because it tracks name changes and synonyms.")
+            print("    Find AphiaIDs at https://www.marinespecies.org/")
+            print("    Dates use DD/MM or DD/MM/YYYY and PLD values should be given as integers.")
+            print("    Column order does not matter and any extra columns are ignored.\n")
             config['traits']['custom_path'] = get_valid_path(
                 "Path to your trait CSV file",
                 must_exist=True,
@@ -719,7 +720,7 @@ def collect_all_parameters(project_dirs=None):
             user_input = input("Path to GeoJSON file (or 'draw'): ").strip()
 
             if user_input.lower() == 'draw':
-                print("\n  Opening interactive map. Draw your study area polygon, then click Export.")
+                print("\n  Opening interactive map. Draw your study extent polygon, then click Export.")
                 print("  When the file is saved, return here and enter the file path it gave you.\n")
                 _ = create_map()
                 continue  # ask again for the path once user finishes drawing
@@ -774,18 +775,18 @@ def collect_all_parameters(project_dirs=None):
         print(f"\nBased on your habitat filtering selection: {habitat_label}")
 
         print("\nRelease strategy (where particles are released from):")
-        print(f"  1. Everywhere in your study area (all {habitat_label} sites)")
+        print(f"  1. Everywhere in your study extent (all {habitat_label} sites)")
         print(f"  2. All sites in your occurrence data (non-species-specific)")
-        print(f"  3. Species-specific habitat in your study area (uses your occurrence data)")
+        print(f"  3. Species-specific habitat in your study extent (uses your occurrence data)")
 
         release_choice = input("\nSelect option (1/2/3) [default: 3]: ").strip() or '3'
         release_map = {'1': 'all_sites', '2': 'pooled_sites', '3': 'species_habitat'}
         config['grids']['release_strategy'] = release_map.get(release_choice, 'species_habitat')
 
         print("\nSettlement strategy (where particles can settle):")
-        print(f"  1. Everywhere in your study area (all {habitat_label} sites)")
+        print(f"  1. Everywhere in your study extent (all {habitat_label} sites)")
         print(f"  2. All sites in your occurrence data (non-species-specific)")
-        print(f"  3. Species-specific habitat in your study area (uses your occurrence data)")
+        print(f"  3. Species-specific habitat in your study extent (uses your occurrence data)")
         print(f"  4. A different occurrence dataset (separate CSV)")
 
         settle_choice = input("\nSelect option (1/2/3/4) [default: 3]: ").strip() or '3'
@@ -798,7 +799,7 @@ def collect_all_parameters(project_dirs=None):
                 config['grids']['custom_settlement_path'] += '.csv'
             print("\nHow should this dataset be used?")
             print("  1. All sites in your dataset (pooled, not species-specific)")
-            print("  2. Species-specific habitat in your study area (uses your occurrence data)")
+            print("  2. Species-specific habitat in your study extent (uses your occurrence data)")
             _csm = input("\nSelect option (1/2) [default: 2]: ").strip() or '2'
             config['grids']['custom_settlement_mode'] = 'pooled' if _csm == '1' else 'species_specific'
         else:
@@ -1621,8 +1622,8 @@ def run_workflow(config):
         print("\nCreating land and coastal masks...")
         landmask, coastalmask, lonarray, latarray = create_masks(hydro_data)
 
-        # Read study area
-        print("Loading study area polygon...")
+        # Read study extent
+        print("Loading study extent polygon...")
         geometry, shapely_polygon = read_geojson(config['occurrence']['geojson_path'])
 
         # Get occurrence data
@@ -2146,13 +2147,13 @@ def run_workflow(config):
                     for level_label, nr in pairs:
                         fig_subdir = os.path.join(fig_root, f'{level_label}_{s_name}')
                         os.makedirs(fig_subdir, exist_ok=True)
-                        print(f"  Saving: {level_label} – {s_name}")
+                        print(f"  Saving: {level_label} , {s_name}")
                         with contextlib.redirect_stdout(io.StringIO()):
                             _sm = nr['site_metrics']
                             _cm = nr['connectivity_matrix']
                             _t10 = nr.get('top10_overall', _sm.head(10))
                             _ng = nr.get('network_graph')
-                            _title = f'{level_label} – {s_name}'
+                            _title = f'{level_label} , {s_name}'
 
                             save_list = [
                                 ('hotspot_overall',
@@ -2253,7 +2254,7 @@ def run_workflow(config):
                     )
 
                 # Re-run post-processing + network analysis with the modified traits.
-                # post_process returns (final_processed, buffer) — unpack the tuple.
+                # post_process returns (final_processed, buffer) , unpack the tuple.
                 print("  Re-running post-processing with modified traits...")
                 modified_processed, _ = post_process(
                     chunks_dir, modified_traits, release_grids, settlement_grids, grid_ids
@@ -2310,11 +2311,11 @@ def run_workflow(config):
             )
 
             if 'type1' in results:
-                subsection_header("Type 1: Connectivity Metrics — Interactive Viewer")
+                subsection_header("Type 1: Connectivity Metrics , Interactive Viewer")
                 trait_metrics_viewer(results['type1'])
 
             if 'type2' in results:
-                subsection_header("Type 2: Network Analysis — Interactive Viewers")
+                subsection_header("Type 2: Network Analysis , Interactive Viewers")
                 network_metrics_viewer(results['type2'])
                 trait_matrix_viewer(results['type2'])
                 trait_metric_viewer(results['type2'])

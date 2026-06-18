@@ -283,7 +283,7 @@ def create_binned_grid(binned_landmask, binned_lonarray, binned_latarray):
         - col_idx : int, column index in the binned grid
         - is_land : int, always 0 (ocean cells only)
         - is_coastal : int, always 1 (all ocean cells treated as coastal
-                       in Path A — network_analysis expects this column)
+                       in Path A , network_analysis expects this column)
 
     Raises
     ------
@@ -1134,7 +1134,7 @@ def matrix_viewer(network_results_by_dataset):
                 # Capture the return value directly. create_matrix_with_map calls
                 # plt.close(fig) internally when show_figure=False, so plt.gcf()
                 # afterwards returns a fresh empty figure, not the one we just
-                # built — that's why the matrix wasn't appearing in the viewer.
+                # built , that's why the matrix wasn't appearing in the viewer.
                 fig = create_matrix_with_map(
                     network_results['connectivity_matrix'],
                     network_results['site_metrics'],
@@ -1183,7 +1183,7 @@ def community_viewer(network_results_by_dataset):
             clear_output(wait=True)
             print(f"  Rendering {dataset_label}: Louvain communities... (~10-20 seconds)")
             try:
-                # create_community_map returns (fig, partition) — capture properly.
+                # create_community_map returns (fig, partition) , capture properly.
                 # Same reason as the matrix viewer: plt.gcf() after plt.close() is
                 # unreliable. Passing show_figure=False suppresses the internal
                 # plt.show() so we don't render twice inside the widget.
@@ -1272,7 +1272,7 @@ def build_heatmap_figure(network_results, title=None):
     fig = plt.figure(figsize=(12, 10))
     gs = GridSpec(2, 1, height_ratios=[1.2, 1.3], hspace=0.55)
 
-    # Top: heatmap — aspect='auto' stretches cells to fill, but the taller panel makes them less squished
+    # Top: heatmap , aspect='auto' stretches cells to fill, but the taller panel makes them less squished
     ax_hm = fig.add_subplot(gs[0])
     im = ax_hm.imshow(rank_matrix_t, cmap='viridis_r', aspect='auto')
 
@@ -1284,7 +1284,7 @@ def build_heatmap_figure(network_results, title=None):
     ax_hm.set_xticks(range(cap))
     ax_hm.set_xticklabels(site_labels, fontsize=7, rotation=90)
 
-    # Horizontal colorbar below the heatmap — full width to match the heatmap
+    # Horizontal colorbar below the heatmap , full width to match the heatmap
     cbar = plt.colorbar(im, ax=ax_hm, orientation='horizontal',
                         shrink=0.95, pad=0.25, aspect=50)
     cbar.set_label('Rank (1 = best)', fontsize=12)
@@ -1378,7 +1378,7 @@ def heatmap_viewer(network_results_by_dataset):
         dataset_label = dataset_dropdown.value
         network_results = network_results_by_dataset[dataset_label]
         with output:
-            # CRITICAL: every line below stays inside `with output:` (was the bug —
+            # CRITICAL: every line below stays inside `with output:` (was the bug ,
             # previously indentation broke here so display/clear_output targeted
             # the whole cell, wiping every other viewer when the animation rendered)
             clear_output(wait=True)
@@ -1719,7 +1719,7 @@ def pool_final_processed(list_of_final_processed):
 # endregion
 
 # region Main Wrapper Function
-## Main entry point for the passive dispersal pathway — runs both seasonal simulations end-to-end
+## Main entry point for the passive dispersal pathway , runs both seasonal simulations end-to-end
 def passive_dispersal_pathway(simulation_year=None):
     """
     Runs the complete passive dispersal pathway end-to-end.
@@ -1760,7 +1760,7 @@ def passive_dispersal_pathway(simulation_year=None):
     pathway_start_time = time.time()
 
     # Step 1: Project directory setup
-    subsection_header("Project Folder")
+    subsection_header("Project Setup")
     project_dirs = setup_project_directory(
         subfolders=['config', 'simulation', 'figures', 'results']
     )
@@ -1875,7 +1875,7 @@ def passive_dispersal_pathway(simulation_year=None):
     config['save_results'] = save_results
     # Self-recruitment is always excluded from source/sink/centrality metrics
     # in Path A. The dedicated self_recruitment metric is still reported,
-    # so no information is lost — we just avoid double-counting self-loops.
+    # so no information is lost , we just avoid double-counting self-loops.
     config['exclude_self_recruitment'] = True
     config['project_dirs'] = project_dirs
     config['_cmems_username'] = cmems_username
@@ -2244,7 +2244,7 @@ def passive_dispersal_pathway(simulation_year=None):
             dataset_results_dir = os.path.join(project_dirs['results'], dataset_label)
             os.makedirs(dataset_results_dir, exist_ok=True)
 
-            # Type 1: Connectivity metrics CSV (was a bug — never called before)
+            # Type 1: Connectivity metrics CSV (was a bug , never called before)
             t0 = time.time()
             if metrics_by_dataset.get(dataset_label) is not None:
                 try:
