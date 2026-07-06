@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -352,36 +352,37 @@
                 <li><a href="#choosing-mode" class="toc-h3">Choosing a Mode</a></li>
             </ul>
         </li>
-        <li><a href="#part3-passive" class="toc-h2">Part 3: Running Your First Model , Passive Pathway</a></li>
-        <li><a href="#part4-interactive" class="toc-h2">Part 4: Running a Trait-Defined Model (Interactive Mode)</a>
+        <li><a href="#part3-passive" class="toc-h2">Part 3: Running Your First Model using the Passive Pathway</a></li>
+        <li><a href="#part4-interactive" class="toc-h2">Part 4: Running a Trait-Defined Model using Interactive Mode</a>
             <ul>
                 <li><a href="#interactive-walkthrough" class="toc-h3">Starting Interactive Mode</a></li>
-                <li><a href="#vignettes" class="toc-h3">Vignettes: Worked Examples</a></li>
             </ul>
         </li>
         <li><a href="#part5-workflow" class="toc-h2">Part 5: The 6-Step Workflow</a>
             <ul>
-                <li><a href="#step1" class="toc-h3">Step 1: Hydrodynamic Data</a></li>
-                <li><a href="#step2" class="toc-h3">Step 2: Species Occurrences</a></li>
-                <li><a href="#step3" class="toc-h3">Step 3: Release/Settlement Setup</a></li>
-                <li><a href="#step4" class="toc-h3">Step 4: Running the Simulation</a></li>
+                <li><a href="#step1" class="toc-h3">Step 1: Hydrodynamic and Trait Data</a></li>
+                <li><a href="#step2" class="toc-h3">Step 2: Species Occurrence Data</a></li>
+                <li><a href="#step3" class="toc-h3">Step 3: Simulation Setup</a></li>
+                <li><a href="#step4" class="toc-h3">Step 4: Execute the Simulation</a></li>
                 <li><a href="#step5" class="toc-h3">Step 5: Post-Processing</a></li>
-                <li><a href="#step6" class="toc-h3">Step 6: Connectivity Analysis</a></li>
+                <li><a href="#step6" class="toc-h3">Step 6: Connectivity Analyses</a></li>
+                <li><a href="#manual-mode" class="toc-h3">Manual Mode: Running Functions Directly</a></li>
+                <li><a href="#vignettes" class="toc-h3">Vignettes: Worked Examples</a></li>
             </ul>
         </li>
         <li><a href="#part6-outputs" class="toc-h2">Part 6: Understanding Outputs</a></li>
+        <li><a href="#methods" class="toc-h3">Methods & Assumptions</a></li>
         <li><a href="#part7-data" class="toc-h2">Part 7: Preparing Your Own Data</a>
             <ul>
                 <li><a href="#hydro-format" class="toc-h3">Hydrodynamic Data Format</a></li>
                 <li><a href="#traits-csv" class="toc-h3">Species Traits CSV Format</a></li>
                 <li><a href="#occurrence-csv" class="toc-h3">Occurrence Data CSV Format</a></li>
-                <li><a href="#site-based" class="toc-h3">Site-Based Analyses</a></li>
+                <li><a href="#site-based" class="toc-h3">Working with your own study sites</a></li>
             </ul>
         </li>
         <li><a href="#saving-sessions" class="toc-h2">Saving and Resuming Your Work</a></li>
         <li><a href="#troubleshooting" class="toc-h2">Troubleshooting</a></li>
         <li><a href="#quick-reference" class="toc-h2">Quick Reference</a></li>
-        <li><a href="#methods" class="toc-h2">Methods & Assumptions</a></li>
         <li><a href="#references" class="toc-h2">References</a></li>
     </ul>
 </nav>
@@ -403,7 +404,7 @@
 
         <p>Marine connectivity modelling has become an essential tool in ecology and conservation biology, helping us understand how marine populations are connected through larval dispersal. These models simulate how larvae (the early life stages of marine organisms) are transported by ocean currents from where they are released to where they eventually settle.</p>
         
-        <p>This guide will take you through the step-by-step process of using the ComCon package to run multi-species connectivity models for your study region. You don't need any prior programming experience. This guide assumes you're starting from scratch.</p>
+        <p>This guide will take you through the step-by-step process of using the ComCon package to run passive, single and multi-species connectivity models for your study region. You don't need any prior programming experience. This guide assumes you're starting from scratch.</p>
         
         <p>By the end of this guide, you will be able to:</p>
         <ul>
@@ -418,23 +419,42 @@
         <ul>
             <li><strong>Part 1:</strong> Getting Started: Installation and Setup</li>
             <li><strong>Part 2:</strong> Introduction to the ComCon Workflow</li>
-            <li><strong>Part 3:</strong> Running Your First Model , Passive Pathway</li>
-            <li><strong>Part 4:</strong> Running a Trait-Defined Model (Interactive Mode)</li>
+            <li><strong>Part 3:</strong> Running Your First Model using the Passive Pathway</li>
+            <li><strong>Part 4:</strong> Running a Trait-Defined Model using Interactive Mode</li>
             <li><strong>Part 5:</strong> The 6-Step Workflow Explained (Trait-Defined Pathway)</li>
             <li><strong>Part 6:</strong> Understanding Your Outputs</li>
             <li><strong>Part 7:</strong> Preparing Your Own Data</li>
         </ul>
-        
-        <div class="info-box">
-            <strong>Estimated Time:</strong> Allow approximately 2-3 hours for the initial installation and configuration. The time it takes to run the simulation and post-processing varies widely from under an hour for a small single-species run on a laptop to overnight or longer for runs with many species or large spatial extents. The time it takes depends on the species count, particle numbers, domain size, runtime, grid resolution and your hardware.
-        </div>
-    </section>
-
     </section>
 
     <!-- Quick Tips Section -->
     <section id="quick-tips">
         <h2>Quick Tips Before You Start</h2>
+
+        <h3>At a Glance: Initial Setup vs. Every Session</h3>
+        <p>This table along with detailed step-by-step instructions for resuming a project can be found in <a href="#returning-to-project">Returning to a Started Project</a>. Use this quick reference to see what you do once versus every time you sit down to work.</p>
+        <table>
+            <thead>
+                <tr><th>Action</th><th>When</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Install Miniconda</td><td><strong>Once only.</strong> Already done if you followed Part 1.</td></tr>
+                <tr><td>Create the comcon environment (<code>conda create ...</code>)</td><td><strong>Once only.</strong> The environment remains on your computer.</td></tr>
+                <tr><td>Install packages (<code>pip install ...</code>)</td><td><strong>Once only.</strong> Packages stay installed inside the environment.</td></tr>
+                <tr><td>Install ComCon (<code>pip install -e .</code>)</td><td><strong>Once only</strong> (unless you receive an updated version).</td></tr>
+                <tr><td>Activate the environment (<code>conda activate comcon</code>)</td><td><strong>Every time</strong> you open a new terminal window.</td></tr>
+                <tr><td>Navigate to your folder (<code>cd path/to/comcon_distribution</code>)</td><td><strong>Every time</strong> you open a new terminal window.</td></tr>
+                <tr><td>Launch Jupyter Lab (<code>jupyter lab</code>)</td><td><strong>Every time</strong> you want to use ComCon.</td></tr>
+                <tr><td>Run <code>import comcon</code></td><td><strong>Every time</strong> you start a new notebook session or restart the kernel.</td></tr>
+            </tbody>
+        </table>
+        <div class="info-box">
+            <strong>Estimated Time:</strong> Allow approximately 2-3 hours for the initial installation and configuration. The overall time it takes to run the simulation and post-processing varies widely. This can range from under an hour for a small single-species analysis on a laptop to overnight or longer for analyses with many species or large spatial extents. The time it takes depends on the species count, particle numbers, domain size, runtime, grid resolution and your hardware.
+        </div>
+
+        <div class="warning-box">
+            <strong>The simulation is the slowest step</strong> When a simulation starts it can sit at <strong>0%</strong> for several minutes (longer for large domains or many species) before any progress appears, whilst the simulation initialises. This is normal and does not mean anything has frozen. Once the progress bar starts moving you can watch it advance. Only interrupt the kernel if you see an actual error message.
+        </div>
 
         <div class="info-box">
             <strong>Default Parameters:</strong> Throughout the ComCon workflow, you can press <strong>Enter</strong> without typing anything to accept the default value shown in square brackets. For example, if you see <code>[default: 7]</code>, pressing Enter will use 7. This makes it easy to quickly run through the workflow with sensible defaults.
@@ -518,7 +538,7 @@
                 </tr>
                 <tr>
                     <td><strong>Community Detection (Louvain)</strong></td>
-                    <td>A method for identifying groups of sites that exchange more larvae with each other than with the rest of the network. ComCon applies the Louvain algorithm to an undirected, weighted version of the connectivity graph, undirected because community membership reflects mutual exchange (a connection from site A to site B and from B to A are combined into a single connection strength) and weighted by the number of particles exchanged. Louvain works by maximising <em>modularity</em>: it iteratively assigns sites to communities so that connections within a community are as dense, and connections between communities as sparse, as possible relative to what would be expected by chance. The result is a set of functionally connected groups of populations, which can inform conservation planning by identifying clusters that operate as semi-independent units.</td>
+                    <td>A method for identifying groups of sites that exchange more larvae with each other than with the rest of the network. ComCon applies the Louvain algorithm to an undirected, weighted version of the connectivity graph. It is undirected because the algorithm reflects mutual exchange or particles between sites (a connection from site A to site B and from B to A are combined into a single connection strength). The graph is also weighted by the number of particles exchanged.</td>
                 </tr>
                 <tr>
                     <td><strong>Conda</strong></td>
@@ -530,7 +550,7 @@
                 </tr>
                 <tr>
                     <td><strong>Connectivity Matrix</strong></td>
-                    <td>A table showing the number or proportion of larvae that successfully disperse from each source (y-axis) location to each sink (x-axis) location.</td>
+                    <td>A table showing the number or proportion of propagules that successfully disperse from each source (y-axis) location to each sink (x-axis) location.</td>
                 </tr>
                 <tr>
                     <td><strong>Connectivity Strength</strong></td>
@@ -543,6 +563,10 @@
                 <tr>
                     <td><strong>Diffusivity</strong></td>
                     <td>A parameter that controls how much random "spreading" particles experience beyond the main current flow. Represents small-scale turbulence.</td>
+                </tr>
+                <tr>
+                    <td><strong>Directed Graph</strong></td>
+                    <td>Describes a network where each connection has a direction: a link from site A to site B is distinct from a link from B to A. ComCon's connectivity network is directed because propagules travel from a source site to a sink site, so source strength (out-going) and sink strength (in-coming) are tracked separately.</td>
                 </tr>
                 <tr>
                     <td><strong>Environment</strong></td>
@@ -578,7 +602,7 @@
                 </tr>
                 <tr>
                     <td><strong>Hydrodynamic Extent</strong></td>
-                    <td>The geographic area covering the entire marine area in which you want to allow your larvae to disperse. This should be much larger than your area of connectivity interest.</td>
+                    <td>The geographic area covering the entire marine area in which you want to allow your propagules to disperse. This should be much larger than your area of connectivity interest.</td>
                 </tr>
                 <tr>
                     <td><strong>Jupyter Lab</strong></td>
@@ -594,7 +618,7 @@
                 </tr>
                 <tr>
                     <td><strong>Lagrangian Particle Tracking</strong></td>
-                    <td>A method of simulating dispersal by tracking individual particles (representing larvae) as they move through the ocean. Each particle follows the ocean currents from its release point.</td>
+                    <td>A method of simulating dispersal by tracking individual particles (representing propagules) as they move through the ocean. Each particle follows the ocean currents from its release point.</td>
                 </tr>
                 <tr>
                     <td><strong>Lazy Loading</strong></td>
@@ -614,7 +638,7 @@
                 </tr>
                 <tr>
                     <td><strong>NetCDF</strong></td>
-                    <td>A file format commonly used for storing scientific data, particularly oceanographic and climate data. The hydrodynamic data from Copernicus can optionally be saved in NetCDF format (.nc files) or Zarr format (.zarr files, see below). Note: you do not need to download the data to run ComCon. It streams data directly from Copernicus by default (see <em>Lazy Loading</em>).</td>
+                    <td>A file format commonly used for storing scientific data, particularly oceanographic and climate data. The hydrodynamic data from Copernicus can optionally be saved in NetCDF format (.nc files) or Zarr format (.zarr files, see below). Note: You do not need to download the data to run ComCon. It streams data directly from Copernicus by default (see <em>Lazy Loading</em>).</td>
                 </tr>
                 <tr>
                     <td><strong>OceanParcels</strong></td>
@@ -622,11 +646,11 @@
                 </tr>
                 <tr>
                     <td><strong>Parquet</strong></td>
-                    <td>A file format ComCon uses behind the scenes to store large trajectory datasets efficiently on disk during a simulation. You do not need to interact with these files directly. ComCon reads from them automatically, which is what lets you re-analyse or animate results later without re-running the simulation.</td>
+                    <td>A file format ComCon uses behind the scenes to store large trajectory datasets efficiently on disk during a simulation. You do not need to interact with these files directly. ComCon reads from them automatically, which is what lets you re-analyse results later without re-running the simulation.</td>
                 </tr>
                 <tr>
                     <td><strong>Particle</strong></td>
-                    <td>A virtual point in the simulation that represents a larva or group of larvae. Particles are released at specified locations and tracked as they drift with ocean currents. The terms "particle" and "propagule" are often used interchangeably in dispersal modelling.</td>
+                    <td>A virtual point in the simulation representing a computational unit used to sample possible dispersal pathways. Particles are released at specified locations and tracked as they drift with ocean currents. The number of particles per site is a statistical sampling parameter, not a count of individual propagules. More particles give more robust connectivity estimates. See also: Propagule.</td>
                 </tr>
                 <tr>
                     <td><strong>ParticleSet (pset)</strong></td>
@@ -634,15 +658,15 @@
                 </tr>
                 <tr>
                     <td><strong>Planktonic Larval Duration (PLD)</strong></td>
-                    <td>The time a larva spends drifting in the water column before it becomes competent to settle. Different species have different PLDs, typically ranging from days to months.</td>
+                    <td>The time a larva, or propagule, spends drifting in the water column before it becomes competent to settle. Different species have different PLDs, typically ranging from days to months.</td>
                 </tr>
                 <tr>
                     <td><strong>Potential Connectivity Sites</strong></td>
-                    <td>The number of grid cells where connectivity could occur. If using species-specific release/settlement, this is the count of cells with at least one species' occurrence data. If using "all sites", this equals the total number of coastal cells in your study extent.</td>
+                    <td>The number of grid cells where connectivity could occur. If using species-specific release/settlement, this is the count of cells with at least one species' occurrence datapoint. If using "all sites", this equals the total number of coastal cells in your study extent.</td>
                 </tr>
                 <tr>
                     <td><strong>Propagule</strong></td>
-                    <td>Any dispersing life stage of an organism. In marine contexts, typically larvae, eggs or spores. In ComCon, each simulated particle represents one or more propagules.</td>
+                    <td>Any dispersing life stage of an organism. In marine contexts, typically larvae, eggs or spores. In ComCon, propagule refers to the biological entity being modelled, while a single particle may represent many propagules. See also: Particle.</td>
                 </tr>
                 <tr>
                     <td><strong>Python</strong></td>
@@ -650,15 +674,15 @@
                 </tr>
                 <tr>
                     <td><strong>Realised Connectivity Sites</strong></td>
-                    <td>The number of sites that actually contribute to overall network connectivity (i.e., at least one particle arrived at or departed from the site in the simulation results). This is always less than or equal to potential connectivity sites.</td>
+                    <td>The number of sites that actually contribute to overall network connectivity (i.e., at least one successfully settled particle arrived at or departed from the site in the simulation results). This is always less than or equal to potential connectivity sites.</td>
                 </tr>
                 <tr>
                     <td><strong>Self-Recruitment</strong></td>
-                    <td>When particles (larvae) settle back at or near their release site. High self-recruitment indicates a population that can sustain itself locally, and low self-recruitment indicates dependence on external larval supply. In network analysis, self-recruitment appears as self-loops on the diagonal of the connectivity matrix. Note that self-recruitment is only counted where a site is both a release and a settlement site, and if your release and settlement sets do not overlap it is zero by construction, so include the relevant sites in both if local retention matters for your question.</td>
+                    <td>When particles (propagules) settle at their own release site. A settlement buffer can be applied during post-processing, where each particle which settled at a nearby site is attributed to its nearest real site. In network analysis, self-recruitment appears as self-loops on the diagonal of the connectivity matrix. Note that self-recruitment is only counted where a site is both a release and a settlement site, and if your release and settlement sets do not overlap it is zero by construction, so include the relevant sites in both if local retention matters for your question.</td>
                 </tr>
                 <tr>
                     <td><strong>Self-Recruitment Rate</strong></td>
-                    <td>The proportion of settled particles that return to (or near) their release site. High self-recruitment indicates self-sustaining populations, while low values indicate dependence on external sources.</td>
+                    <td>The proportion of settled particles whose settlement site is their own release site. High self-recruitment indicates self-sustaining populations, while low values indicate dependence on external sources.</td>
                 </tr>
                 <tr>
                     <td><strong>Session / Working Environment</strong></td>
@@ -670,11 +694,11 @@
                 </tr>
                 <tr>
                     <td><strong>Settlement Rate</strong></td>
-                    <td>The proportion of released particles that successfully settle in suitable habitat. Calculated as: settled particles ÷ released particles × 100.</td>
+                    <td>The proportion of released particles that successfully settle in suitable habitat. Calculated as: settled particles ÷ released particles (a value between 0 and 1, as stored in the exported CSV).</td>
                 </tr>
                 <tr>
                     <td><strong>Sink Site</strong></td>
-                    <td>A location that receives larvae from other sites. Sink sites depend on immigration for population replenishment.</td>
+                    <td>A location that receives propagules from other sites. Sink sites depend on immigration for population replenishment.</td>
                 </tr>
                 <tr>
                     <td><strong>Sink Strength</strong></td>
@@ -682,7 +706,7 @@
                 </tr>
                 <tr>
                     <td><strong>Source Site</strong></td>
-                    <td>A location that exports larvae to other sites. Strong sources release many larvae that successfully settle elsewhere.</td>
+                    <td>A location that exports propagules to other sites. Strong sources release many propagules that successfully settle elsewhere.</td>
                 </tr>
                 <tr>
                     <td><strong>Source Strength</strong></td>
@@ -694,7 +718,7 @@
                 </tr>
                 <tr>
                     <td><strong>Study Extent</strong></td>
-                    <td>The geographic area covering your sites of interest in your study, defined by minimum and maximum latitude and longitude coordinates. Also called the "study extent" or "domain". The domain must be within the coverage of the hydrodynamic data.</td>
+                    <td>The geographic area covering your sites of interest in your study, defined by minimum and maximum latitude and longitude coordinates. The domain must be within the coverage of the hydrodynamic data.</td>
                 </tr>
                 <tr>
                     <td><strong>Terminal</strong></td>
@@ -707,6 +731,14 @@
                 <tr>
                     <td><strong>Trajectory</strong></td>
                     <td>The path a particle takes through the ocean during the simulation. Trajectories are recorded as a series of positions over time, showing where the particle was at each timestep. Trajectory data is stored in the simulation output file and used to calculate connectivity.</td>
+                </tr>
+                <tr>
+                    <td><strong>Undirected Graph</strong></td>
+                    <td>Describes a network where connections have no direction: a link between site A and site B is treated as a single mutual connection regardless of which way propagules travelled (A to B and B to A are combined into one connection strength). ComCon converts the connectivity network to an undirected, weighted graph for Louvain community detection.</td>
+                </tr>
+                <tr>
+                    <td><strong>Weighted</strong></td>
+                    <td>Describes a network where each connection carries a value (its weight). In ComCon the weight is the number of particles (propagules) exchanged between two sites, so stronger connections count for more in the network metrics and in community detection.</td>
                 </tr>
                 <tr>
             </tbody>
@@ -782,7 +814,7 @@
         <p>A terminal (also called a command prompt or command line) is a text-based way of talking to your computer. Instead of clicking buttons and icons, you type commands and press <kbd>Enter</kbd> to run them. It looks like a plain text window, usually with a dark or white background and a blinking cursor waiting for you to type something.</p>
 
         <div style="text-align: center; margin: 20px 0;">
-            <img src="screenshots/anaconda_prompt.png"
+            <img src="images/anaconda_prompt.png"
                  style="max-width: 100%; border: 1px solid #ddd; border-radius: 8px;">
             <p style="color: #666; font-size: 14px;">An Anaconda Prompt Terminal</p>
         </div>
@@ -975,6 +1007,9 @@ Executing transaction: done
             folder to a local directory (e.g., <code>C:\Users\YourName\Documents\</code> on Windows
             or <code>/Users/YourName/Documents/</code> on Mac).
         </div>
+        <div class="tip-box">
+            <strong>Check for a nested folder.</strong> After extracting, you should have <em>one</em> folder named <code>comcon_distribution</code> containing <code>pyproject.toml</code> and <code>environment.yml</code>. When downloading the folder, some extractors create a folder inside a folder of the same name (e.g. <code>comcon/comcon/</code>). If you see that, move the inner folder up one level or simply point your directory (<code>cd</code>) into the inner one, so that <code>pyproject.toml</code> sits directly in the folder you run <code>pip install -e .</code> from. <code>import comcon</code> will fail if you are one level too high or too low as it cannot find the install instructions.
+        </div>
         </ul>
 
         <p><strong>2. Navigate to the folder in your terminal</strong></p>
@@ -995,7 +1030,7 @@ cd ~/Documents/comcon_distribution</code></pre>
         </div>
 
         <div style="text-align: center; margin: 20px 0;">
-            <img src="screenshots/file_path.png"
+            <img src="images/file_path.png"
                  style="max-width: 100%; border: 1px solid #ddd; border-radius: 8px;">
             <p style="color: #666; font-size: 14px;">How to easily copy and paste file paths for the entire workflow</p>
         </div>
@@ -1054,7 +1089,9 @@ cd ~/Documents/comcon_distribution</code></pre>
         <p><strong>Step 4:</strong> Launch Jupyter Lab:</p>
         <pre><code>jupyter lab</code></pre>
 
-        <p>This will open Jupyter Lab in your web browser automatically. If it doesn't, copy the URL shown in the terminal (starts with http://localhost:8888) and paste it into your browser.</p>
+        <div class="info-box">
+            <strong>Note:</strong>This should open Jupyter Lab in your web browser automatically. If it doesn't, copy the URL shown in the terminal (starts with http://localhost:8888) and paste it into your browser.
+        </div>
 
         <h2 id="jupyter-guide">Jupyter Lab Guide</h2>
 
@@ -1235,6 +1272,7 @@ cd ~/Documents/comcon_distribution</code></pre>
             to reuse it. Say "yes" and you are back where you left off. The same
             applies to species occurrence parameters in Step 2.
         </div>
+        <p>A project folder is self-contained, so you can move it between machines (for example via OneDrive). On the new machine, run Step 1, choose <strong>option 3 (continue an existing project)</strong>, and point ComCon at the moved folder. ComCon rebuilds its file paths from wherever the folder now lives, so you do not need to keep it in the same location.</p>
 
         <div class="warning-box">
             <strong>After restarting the kernel:</strong> If you restart the kernel
@@ -1274,7 +1312,7 @@ cd ~/Documents/comcon_distribution</code></pre>
 
         <h4>Option 1: Create a ComCon Project Folder (Recommended)</h4>
 
-        <p>ComCon asks you for a <strong>project name</strong> and creates a structured folder inside <code>projects/</code> in your working directory. All outputs are automatically saved into the correct subfolder:</p>
+        <p>ComCon asks you for a <strong>project name</strong> and creates a structured folder inside <code>projects/</code> in your working directory. This folder will be given an automatic name with the mode, date and time included to create a unique folder name for each analysis. All outputs are automatically saved into the correct subfolder:</p>
 
         <pre><code>comcon_distribution/
 └── projects/
@@ -1379,7 +1417,7 @@ Create ComCon subfolders inside this directory? (yes/no) [default: yes]: yes
 
         <h4>Option 3: Continue an Existing ComCon Project</h4>
 
-        <p>If you have already run part of an analysis and saved it, choose this option to point ComCon back at an existing project folder. ComCon reads the saved parameter files in that folder's <code>config/</code> subfolder, so you do not have to re-enter settings you have already chosen. If the folder also contains a saved session checkpoint, ComCon tells you how to resume exactly where you left off (see <a href="#saving-sessions">Saving and Resuming Your Work</a>) rather than repeating Step 1.</p>
+        <p>If you have already run part of an analysis and saved it, choose this option to point ComCon back at an existing project folder. ComCon reads the saved parameter files in that folder's <code>config/</code> subfolder, so you do not have to re-enter settings you have already chosen. If the folder also contains a saved session checkpoint, ComCon tells you how to resume exactly where you left off (see <a href="#saving-sessions">Saving and Resuming Your Work</a>) rather than repeating the workflow steps.</p>
 
         <div class="tip-box">
             <strong>New project vs. continue:</strong> Option 1 starts a fresh project and will not reuse earlier settings. Option 3 reuses the saved parameters from an existing project, which is what you want when returning to an analysis or re-running it with small changes.
@@ -1390,7 +1428,7 @@ Create ComCon subfolders inside this directory? (yes/no) [default: yes]: yes
         <p>Project setup is the <strong>first thing</strong> that happens when you begin a new analysis:</p>
         <ul>
             <li><strong>Interactive Mode:</strong> At the start of Step 1, before you select your hydrodynamic data source</li>
-            <li><strong>Automatic Mode:</strong> Section 1 of the parameter collection (the very first prompt)</li>
+            <li><strong>Automatic Mode:</strong> the Project Setup section of the parameter collection (the very first prompt)</li>
             <li><strong>Manual Mode:</strong> Call <code>setup_project_directory()</code> whenever you want, or skip it entirely and provide your own paths to each function</li>
         </ul>
 
@@ -1400,7 +1438,7 @@ Create ComCon subfolders inside this directory? (yes/no) [default: yes]: yes
 
         <p>If you see errors like <code>FileNotFoundError</code> or <code>No such file or directory</code>, it almost always means one of these:</p>
         <ol>
-            <li><strong>Wrong working directory:</strong> You launched Jupyter Lab from the wrong folder. To verify your working directory run:</li>
+            <li><strong>Wrong working directory:</strong> You launched Jupyter Lab from the wrong folder. To verify your working directory, go to the Terminal and run:</li>
             <pre><code>import os
 print(os.getcwd())</code></pre>
 
@@ -1438,19 +1476,41 @@ print(os.getcwd())</code></pre>
             </figcaption>
         </figure>
 
+        <h2 id="choosing-mode">Choosing a Pathway and Mode</h2>
         <h3>The two pathways</h3>
         <ul>
-            <li><strong>Passive dispersal pathway.</strong> The simplest way in. You provide only a study extent, and ComCon runs 28-day summer (July) and winter (February) simulations releasing particles from all ocean cells, then extracts connectivity at 7, 14, 21 and 28 days. No species or trait data needed , ideal for a first look at dispersal in your region. Follows James et al. (2025). See <a href="#part3-passive">the Passive Dispersal Pathway section</a> for full detail.</li>
-            <li><strong>Trait-defined pathway.</strong> The full species-specific workflow. You supply species traits (pelagic larval duration, spawning window, habitat), and ComCon filters dispersal accordingly to produce community and per-species connectivity. This is the pathway used for the 6-step workflow in Part 5.</li>
+            <li><strong>Passive dispersal pathway:</strong> The simplest way in. You provide only a study extent and ComCon runs a 28-day summer (July) and winter (February) simulation releasing particles from all ocean cells, then extracts connectivity at 7, 14, 21 and 28 days. No species or trait data is required, ideal for a general first look at dispersal in your region. Follows James et al. (2025). See <a href="#part3-passive">the Passive Dispersal Pathway section</a> for full details.</li>
+            <li><strong>Trait-defined pathway:</strong> The complete species-specific workflow. You supply species traits (pelagic larval duration, spawning window, habitat) and ComCon filters dispersal accordingly to assess community and per-species connectivity patterns. This is the pathway used for the 6-step workflow in Part 5.</li>
         </ul>
 
         <h3>The three modes (trait-defined pathway)</h3>
-        <p>The trait-defined pathway can be run in whichever mode suits how hands-on you want to be, and all three produce the same results from the same settings:</p>
-        <ul>
-            <li><strong>Interactive mode.</strong> ComCon guides you through each of the six steps with prompts and on-screen output. Best for learning the workflow and for one-off analyses.</li>
-            <li><strong>Automatic mode.</strong> You answer all the questions up front, then ComCon runs the whole workflow unattended. Best when you know your settings and want to walk away while it runs.</li>
-            <li><strong>Manual mode.</strong> Direct access to every individual function, for scripting and advanced customisation. Best when you want to build your own pipeline or run only part of the workflow.</li>
-        </ul>
+        <p>The trait-defined pathway has three modes available which differ only in how hands-on you want to interact with ComCon. All three produce the same results from the same settings:</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Mode</th>
+                    <th>Best For</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Interactive Mode</strong></td>
+                    <td>First-time users, exploring data</td>
+                    <td>Guides you step-by-step with explanations and visualisations at each stage. You can pause, review and edit parameters between steps.</td>
+                </tr>
+                <tr>
+                    <td><strong>Automatic Mode</strong></td>
+                    <td>Repeat analyses, batch processing</td>
+                    <td>Collects all parameters upfront, then runs the entire workflow automatically. Great when you know what settings you want.</td>
+                </tr>
+                <tr>
+                    <td><strong>Manual Mode</strong></td>
+                    <td>Custom workflows, advanced users</td>
+                    <td>Access individual functions to build custom pipelines. Useful for re-running specific analyses or integrating into existing code.</td>
+                </tr>
+            </tbody>
+        </table>
         <h2 id="importing-comcon">Importing ComCon</h2>
         <p>With everything installed, we're ready to start using ComCon! In your Jupyter notebook, create a new cell and type:</p>
         
@@ -1472,76 +1532,19 @@ print(os.getcwd())</code></pre>
             </ul>
         </div>
         
-        <h2 id="choosing-mode">Choosing a Mode</h2>
-        <p>ComCon offers two pathways and three modes within the trait-defined pathway:</p>
-
-        <h3>Pathway Selection</h3>
-        <p>When you import ComCon, you first choose between two pathways:</p>
-        <table>
-            <thead>
-                <tr>
-                    <th>Pathway</th>
-                    <th>Best For</th>
-                    <th>Description</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><strong>Passive Dispersal</strong></td>
-                    <td>Quick exploration, no trait data needed</td>
-                    <td>Runs 28-day summer/winter simulations with minimal user input. The easiest way to run your first model. See <a href="#part3-passive">Part 3</a>.</td>
-                </tr>
-                <tr>
-                    <td><strong>Trait-Defined</strong></td>
-                    <td>Full species-specific analysis</td>
-                    <td>Uses species PLDs, spawning windows and habitat preferences for biologically-informed connectivity modelling. See <a href="#part4-interactive">Part 4</a>.</td>
-                </tr>
-            </tbody>
-        </table>
-
-        <h3>Trait-Defined Pathway Modes</h3>
-        <p>If you select the trait-defined pathway, you then choose one of three modes:</p>
-        
-        <table>
-            <thead>
-                <tr>
-                    <th>Mode</th>
-                    <th>Best For</th>
-                    <th>Description</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><strong>Interactive Mode</strong></td>
-                    <td>First-time users, exploring data</td>
-                    <td>Guides you step-by-step with explanations and visualisations at each stage. You can pause, review, and edit parameters between steps.</td>
-                </tr>
-                <tr>
-                    <td><strong>Automatic Mode</strong></td>
-                    <td>Repeat analyses, batch processing</td>
-                    <td>Collects all parameters upfront, then runs the entire workflow automatically. Great when you know what settings you want.</td>
-                </tr>
-                <tr>
-                    <td><strong>Manual Mode</strong></td>
-                    <td>Custom workflows, advanced users</td>
-                    <td>Access individual functions to build custom pipelines. Useful for re-running specific analyses or integrating into existing code.</td>
-                </tr>
-            </tbody>
-        </table>
-
-        <p><strong>For your very first run, try the passive dispersal pathway.</strong> It needs only a study extent (latitude/longitude) and gives a quick overview of dispersal in your region with no trait setup , the easiest way to see ComCon working end to end. When you're ready to model specific species, switch to the <strong>trait-defined pathway</strong> in <strong>Interactive Mode</strong>, which walks you through each step.</p>
+        <p><strong>For your very first run, try the passive dispersal pathway.</strong> It needs only a study extent (latitude/longitude) and gives a quick overview of dispersal in your region with no trait setup. When you're ready to model specific species, switch to the <strong>trait-defined pathway</strong> in <strong>Interactive Mode</strong>, which walks you through each step.</p>
         </section>
 
     <!-- Part 3: Running Your First Model , Passive Pathway -->
     <section id="part3-passive">
-        <h1>Part 3: Running Your First Model , Passive Pathway</h1>
+        <h1>Part 3: Running Your First Model using the Passive Pathway</h1>
 
         <p>The passive dispersal pathway (Pathway 1) provides a quick hydrodynamic overview of your study extent without requiring species-specific trait data. It follows the approach described in James et al. (2025).</p>
 
         <h2>When to Use the Passive Pathway</h2>
         <ul>
             <li>As an exploratory first step to understand general dispersal patterns before investing time in the full trait-defined workflow</li>
-            <li>When you want a quick comparison of summer vs winter dispersal</li>
+            <li>When you want a quick comparison of summer vs winter dispersal and a range of 4 possible PLDs</li>
             <li>When species trait data is unavailable or uncertain</li>
             <li>To identify connectivity barriers and corridors at a broad hydrodynamic level</li>
         </ul>
@@ -1573,14 +1576,20 @@ passive_dispersal_pathway()</code></pre>
         <h3>Outputs</h3>
         <ul>
             <li><strong>Land mask visualisation:</strong> Native and (if applicable) binned resolution maps showing ocean, coastal and land cells</li>
-            <li><strong>Connectivity matrices:</strong> Source × destination heatmaps at each timepoint (7, 14, 21, 28 days) and pooled across timepoints</li>
-            <li><strong>Network maps:</strong> Top 10 hotspot maps showing the most connected sites</li>
-            <li><strong>Community detection:</strong> Louvain community maps showing functionally connected groups of sites</li>
             <li><strong>Summary statistics:</strong> Settlement rates, dispersal distances and network metrics for each timepoint</li>
+            <li><strong>Connectivity matrices:</strong> Source × destination matrices at each timepoint (7, 14, 21, 28 days) and pooled across timepoints</li>
+            <li><strong>Network maps:</strong> Networks maps and top 10 hotspot maps showing a range of connectivity metrics</li>
+            <li><strong>Community detection:</strong> Louvain community maps showing functionally connected groups of sites</li>
         </ul>
 
         <h3>Datasets Produced</h3>
-        <p>The passive pathway produces 15 datasets in total: 8 raw datasets (4 timepoints × 2 seasons), 4 timepoint-pooled datasets (pooled across seasons for each timepoint), 2 season-pooled datasets (pooled across timepoints for each season), and 1 fully pooled dataset (all timepoints and seasons combined).</p>
+        <p>The passive pathway produces <strong>15 datasets in total</strong>:</p>
+        <ul>
+            <li><strong>8 raw datasets</strong> (4 timepoints × 2 seasons)</li>
+            <li><strong>4 timepoint-pooled datasets</strong> (pooled across seasons for each timepoint)</li>
+            <li><strong>2 season-pooled datasets</strong> (pooled across timepoints for each season)</li>
+            <li><strong>1 fully pooled dataset</strong> (all timepoints and seasons combined)</li>
+        </ul>
 
         <div class="info-box">
             <strong>Note:</strong> The passive pathway uses the same grid auto-scaling system as the trait-defined pathway. For small domains, the native hydrodynamic resolution is used. For large domains, the grid is automatically coarsened to keep computation time manageable. The resolution chosen is displayed in a grid summary before the maps are shown.
@@ -1588,7 +1597,7 @@ passive_dispersal_pathway()</code></pre>
     </section>
     <!-- Part 4: Running a Trait-Defined Model (Interactive Mode) -->
     <section id="part4-interactive">
-        <h1>Part 4: Running a Trait-Defined Model (Interactive Mode)</h1>
+        <h1>Part 4: Running a Trait-Defined Model using Interactive Mode</h1>
         <p>This walks through running a species-specific model in interactive mode, the guided, prompt-by-prompt way to use the trait-defined pathway. (For the simpler trait-free first run, see Part 3.)</p>
 
         <h2 id="interactive-walkthrough">Starting Interactive Mode</h2>
@@ -1611,8 +1620,325 @@ workflow_step(1)</code></pre>
             <li><strong>Choices:</strong> Often shown as numbered options (1, 2, 3...). Type the number and press <kbd>Enter</kbd></li>
             <li><strong>Yes/No questions:</strong> Type <code>yes</code> or <code>no</code> (or just <code>y</code> or <code>n</code>) and press <kbd>Enter</kbd></li>
         </ul>
+    </section>
+
+    <!-- Part 5: The 6-Step Workflow -->
+    <section id="part5-workflow">
+        <h1>Part 5: The 6-Step Workflow</h1>
+        
+        <p>The ComCon workflow consists of 6 main steps. Each step builds on the previous one, taking you from raw data to connectivity analysis outputs.</p>
+        
+        <div class="info-box">
+            <strong>Workflow Overview:</strong>
+            <ol>
+                <li>Hydrodynamic and Trait Data - Load ocean current data and species traits</li>
+                <li>Species Occurrence Data - Define where species are found</li>
+                <li>Simulation Setup - Configure release, settlement and particle parameters</li>
+                <li>Execute the Simulation - Run the dispersal model</li>
+                <li>Post-Processing - Apply species-specific filters</li>
+                <li>Connectivity Analyses - Calculate metrics and visualise results</li>
+            </ol>
+        </div>
+        
+        <h2 id="step1">Step 1: Hydrodynamic and Trait Data</h2>
+        
+        <p>In this step, you'll load the ocean current data needed to simulate larval dispersal. The currents drive the particle movement in the model.</p>
+        
+        <h3>What Happens in Step 1</h3>
+        <ol>
+            <li><strong>Load species traits:</strong> Select species from the built-in database or provide your own CSV file</li>
+            <li><strong>Calculate dispersal period:</strong> Determine the simulation timeframe based on spawning windows and PLDs</li>
+            <li><strong>Download hydrodynamic data:</strong> Get NEMO ocean current data from Copernicus Marine Service</li>
+            <li><strong>Grid resolution selection:</strong> Choose the resolution for release and settlement sites (see below)</li>
+            <li><strong>Visualise the hydrodynamic extent:</strong> View land/ocean/coastal masks with your chosen resolution</li>
+        </ol>
+        
+        <h3>Grid Resolution for Release and Settlement</h3>
+        <p>After the hydrodynamic data is downloaded, ComCon lets you choose the grid resolution used for release and settlement sites. Particle advection always runs on the full native-resolution hydrodynamic grid. Only the sites where particles are released and settle are affected by this choice.</p>
+        <p>A coarser grid means fewer release/settlement sites, fewer particles and faster simulations, but less spatial detail in the connectivity results. ComCon recommends a resolution based on your domain size and shows you a grid summary with native and (if applicable) binned ocean and coastal cell counts.</p>
+        <p>For small domains, the native resolution is typically recommended. For large domains (e.g., Mediterranean-wide studies), a coarser grid significantly reduces computation time while preserving meaningful connectivity patterns.</p>
+        
+        <h3>Species Trait Data</h3>
+        <p>Species traits tell the model when each species spawns and how long larvae remain in the plankton. You can:</p>
+        <ul>
+            <li><strong>Option 1:</strong> Select species from the built-in database (covers common intertidal species)</li>
+            <li><strong>Option 2:</strong> Provide your own CSV file (see <a href="#traits-csv">Section: Species Traits CSV Format</a>)</li>
+        </ul>
+
+        <h4>Built-in Traits Database</h4>
+        <p>ComCon includes a built-in species trait database covering approximately 25 to 30 common intertidal and shallow subtidal species found in the North East Atlantic. The database provides spawning seasonality (start and end months) and planktonic larval duration (minimum and maximum PLD in days) for each species.</p>
+
+        <p>Trait values were compiled from peer-reviewed literature and the <a href="https://www.marlin.ac.uk/" target="_blank">Marine Life Information Network (MarLIN)</a>. Where published values varied between studies or geographic regions, ranges were chosen to represent typical conditions for UK and NE Atlantic populations. Not all data is specific to the NE Atlantic however as data is limited.</p>
+
+        <div class="warning-box">
+            <strong>Important caveats:</strong>
+            <ul>
+                <li><strong>PLD estimates are approximate.</strong> Larval duration varies with temperature, food availability and other environmental conditions. The database provides literature-based ranges, not exact values for your study extent.</li>
+                <li><strong>Spawning windows are generalised.</strong> Actual spawning timing varies with latitude, local conditions and year-to-year variation.</li>
+                <li><strong>Use Type 3 analysis</strong> (trait sensitivity) to test how sensitive your results are to uncertainty in these trait values.</li>
+            </ul>
+        </div>
+
+        <div class="tip-box">
+            <strong>Tip:</strong> You can view the full built-in database by selecting Option 1 in Step 1 and browsing the species list. If your target species is not included or if you have more accurate trait data for your study region, provide your own CSV file using Option 2 (see <a href="#traits-csv">Species Traits CSV Format</a>).
+        </div>
+
+        <div class="info-box">
+            <strong>Temporal buffer (optional):</strong> After loading traits you can add a buffer of extra days before the earliest spawning date and after the latest dispersal date. This widens the downloaded hydrodynamic window so that the Type 3 trait-sensitivity analysis can later test earlier spawning or longer larval durations without re-downloading data. Leave it at zero for a standard run, and set it only if you intend to run Type 3.
+        </div>
+        
+        <h3>Copernicus Marine Service Login</h3>
+        <p>ComCon downloads ocean current data from the Copernicus Marine Service. You'll need a free account.</p>
+        
+        <div class="tip-box">
+            <strong>First time using Copernicus?</strong>
+            <ol>
+                <li>Go to <a href="https://marine.copernicus.eu/" target="_blank">https://marine.copernicus.eu/</a></li>
+                <li>Click "Register" and create a free account</li>
+                <li>Verify your email address</li>
+                <li>When ComCon prompts for login, enter your email and password</li>
+            </ol>
+            <p>Your credentials will be saved locally so you won't need to enter them again.</p>
+        </div>
+        
+        <h3>Choosing Your Study Extent</h3>
+        <p>You'll be asked to define the geographic bounds of your study extent using coordinates:</p>
+        <ul>
+            <li><strong>Minimum longitude (west):</strong> The western boundary</li>
+            <li><strong>Maximum longitude (east):</strong> The eastern boundary</li>
+            <li><strong>Minimum latitude (south):</strong> The southern boundary</li>
+            <li><strong>Maximum latitude (north):</strong> The northern boundary</li>
+        </ul>
+        
+        <div class="info-box">
+            <strong>Coordinate tips:</strong>
+            <ul>
+                <li>Longitude: Negative values = West, Positive values = East</li>
+                <li>Latitude: Negative values = South, Positive values = North</li>
+                <li>Example for UK waters: Lon: -10 to 2, Lat: 49 to 61</li>
+            </ul>
+        </div>
+
+        <h3>Supported Hydrodynamic Models</h3>
+        <p>ComCon uses ocean current data from the <a href="https://marine.copernicus.eu/" target="_blank">Copernicus Marine Service</a>. The default model is the <strong>Global Ocean Physics Analysis and Forecast</strong> NEMO configuration (<code>cmems_mod_glo_phy_anfc_0.083deg_PT1H-m</code>), which provides global coverage at approximately 9 km horizontal resolution. Several regional models are also offered in the dataset menu (NW European Shelf at ~1.5 km, Atlantic,Iberian,Mediterranean at ~3 km, and Mediterranean Sea at ~4 km), and you can enter any other Copernicus dataset ID for your region.</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Dataset ID</th>
+                    <th>Coverage</th>
+                    <th>Resolution</th>
+                    <th>Best For</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>cmems_mod_nws_phy-cur_anfc_1.5km-2D_PT1H-i</code></td>
+                    <td>NW European Shelf</td>
+                    <td>~1.5 km, hourly</td>
+                    <td>UK, Ireland, North Sea, Bay of Biscay (forecast, multi-year)</td>
+                </tr>
+                <tr>
+                    <td><code>cmems_mod_glo_phy_my_0.083deg_P1D-m</code></td>
+                    <td>Global</td>
+                    <td>~8 km (1/12°), daily</td>
+                    <td>Studies outside European shelf waters (reanalysis, multi-year)</td>
+                </tr>
+                <tr>
+                    <td><code>cmems_mod_ibi_phy_anfc_0.027deg-2D_PT1H-m</code></td>
+                    <td>Iberian-Biscay-Ireland</td>
+                    <td>~3 km, hourly</td>
+                    <td>Atlantic coast of Europe, Iberian Peninsula (forecast, multi-year)</td>
+                </tr>
+                <tr>
+                    <td><code>cmems_mod_med_phy_my_4.2km-2D_PT1H-i</code></td>
+                    <td>Mediterranean Sea</td>
+                    <td>~4 km, hourly</td>
+                    <td>Mediterranean studies (reanalysis, multi-year)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="info-box">
+            <strong>Choosing a dataset:</strong> The dataset is selected from a menu in Step 1 (Global Ocean is the default). For higher-resolution UK and NW European coastal waters, choose the NW European Shelf model (<code>cmems_mod_nws_phy-cur_anfc_1.5km-2D_PT1H-i</code>). For other regions, pick one of the listed regional models or browse the <a href="https://data.marine.copernicus.eu/products" target="_blank">Copernicus catalogue</a> and enter a custom dataset ID. ComCon works with any NEMO-format dataset that provides U and V current velocity fields.
+        </div>
+        <div class="warning-box">
+    <strong>Reanalysis vs Forecast:</strong> Reanalysis data has been quality-controlled and assimilated with observations, making it more reliable. Forecast models, on the other hand, are often available in high spatial and temporal resolution.
+</div>
+
+
+        <h3>Continuing to Step 2</h3>
+        <p>After Step 1 completes, you'll see a message like:</p>
+        <pre><code>Step 1 completed.
+To continue, run in the next cell:
+workflow_step(2)</code></pre>
+        
+        <p>Create a new cell and run <code>workflow_step(2)</code> to continue.</p>
+        
+        <h2 id="step2">Step 2: Species Occurrence Data</h2>
+        
+        <p>This step defines where each species is found within your study extent. Occurrence data is used to determine appropriate release and settlement locations. After the study extent polygon is created, ComCon displays the hydrodynamic extent with your study extent overlaid so you can verify spatial coverage.</p>
+        
+        <h3>Data Source Options</h3>
+        <ul>
+            <li><strong>Option 1: Download from GBIF</strong> - ComCon automatically downloads occurrence records for your species from the Global Biodiversity Information Facility</li>
+            <li><strong>Option 2: Your own data</strong> - Provide a CSV file with species occurrence coordinates (see <a href="#occurrence-csv">Section: Occurrence Data CSV Format</a>)</li>
+        </ul>
+
+        <div class="info-box">
+            <strong>Naming your study sites (optional):</strong> If your occurrence CSV includes a <code>site_name</code> column, ComCon treats those locations as named study sites and labels every figure and CSV with your site names instead of grid IDs. This is entirely optional and needs no separate mode. See <a href="#site-based">Working with your own study sites</a> for details.
+        </div>
+
+        <h3>Defining the Study Extent Boundary</h3>
+        <p>You can define your study extent boundary using:</p>
+        <ul>
+            <li><strong>Interactive map:</strong> Draw a polygon on a map</li>
+            <li><strong>GeoJSON file:</strong> Load a pre-defined boundary</li>
+            <li><strong>Bounding box:</strong> Use the coordinates from Step 1</li>
+        </ul>
+        
+        <h3>Creating Land and Coastal Masks</h3>
+        <p>ComCon creates masks to distinguish between:</p>
+        <ul>
+            <li><strong>Land cells:</strong> Where particles cannot go</li>
+            <li><strong>Ocean cells:</strong> Open water</li>
+            <li><strong>Coastal cells:</strong> Cells next to land, where shallow-water and intertidal species typically occur</li>
+        </ul>
+
+        <h3>Habitat Filtering</h3>
+        <p>When cleaning your occurrence data, ComCon asks which habitat type your species belong to. This decides which grid cells can become release and settlement sites, and removes occurrence records that fall outside that habitat:</p>
+        <ul>
+            <li><strong>Coastal:</strong> Keeps only coastal occurrences and removes records on land or offshore. Appropriate for littoral and infralittoral species.</li>
+            <li><strong>Ocean:</strong> Keeps all ocean occurrences (coastal and offshore) and removes records on land. Appropriate for offshore or mixed coastal-and-offshore species.</li>
+            <li><strong>None:</strong> Uses your data exactly as provided, with no habitat cleaning. Appropriate for data you have already cleaned. The candidate cells are the same as for "ocean". Only the cleaning of your records differs.</li>
+        </ul>
+        <div class="tip-box">
+            <strong>Which to choose:</strong> Use <strong>coastal</strong> for rocky-shore and intertidal work, <strong>ocean</strong> if your species occur offshore, and <strong>none</strong> only when your data is already pre-cleaned. If coastal filtering removes sites you know are valid, your hydrodynamic resolution may be too coarse to place them in a coastal cell, choosing ocean or none may retain them.
+        </div>
+
+        <h2 id="step3">Step 3: Simulation Setup</h2>
+        
+        <p>This step configures how particles are released into the simulation and where they can settle. The grid resolution for release and settlement was already selected in Step 1. If the domain was binned, the coarser grid is used for release/settlement while the native resolution is used for particle advection.</p>
+        <div class="info-box">
+            <strong>Release and settlement are independent:</strong> You choose the release strategy and the settlement strategy separately and they can use two different datasets. For example, pick <em>"Everywhere in your study extent"</em> for release and <em>"Species-specific habitat"</em> or <em>"A different occurrence dataset"</em> for settlement to release broadly but settle only at specific sites. The occurrence data you load in Step 2 is used only if a species- or site-specific release/settlement option is chosen. <em>"Everywhere in your study extent"</em> ignores it.
+        </div>
+        <h3>Release Strategy</h3>
+        <p>ComCon runs one connectivity analysis. The release strategy only changes which sites particles are released from. Your occurrence data from Step 2 always has a <code>species</code> column, and if it also includes a <code>site_name</code> column those names carry through to all outputs. Choose how particles are released:</p>
+        <ul>
+            <li><strong>Whole study extent:</strong> Release from every cell in your study extent grid (coastal or ocean), regardless of where species occur. Does not use the occurrence data. Best for maximum-dispersal or data-poor scenarios.</li>
+            <li><strong>Pooled across species:</strong> Release from every occupied site in your occurrence data, combined across all species, so every species is released from all of those sites. Best when you want to release from your sampled sites without splitting by species.</li>
+            <li><strong>Species-specific:</strong> Release each species only from its own occurrence sites. Best for trait-based analyses.</li>
+        </ul>
+        
+        <h3>Settlement Strategy</h3>
+        <p>Choose where particles are allowed to settle. The first three options mirror the release options and use the same Step 2 occurrence data, and the fourth lets you supply a separate dataset for settlement only:</p>
+        <ul>
+            <li><strong>Whole study extent:</strong> Particles can settle at any cell in the study grid, regardless of where species occur.</li>
+            <li><strong>Pooled across species:</strong> Particles can settle at every occupied site in your occurrence data, combined across all species.</li>
+            <li><strong>Species-specific:</strong> Each species can settle only at its own occurrence sites.</li>
+            <li><strong>A different dataset:</strong> Upload a separate occurrence or habitat-suitability CSV (<code>species, latitude, longitude</code>, optional <code>site_name</code>) used for settlement only. You then choose whether it is applied pooled or species-specific, exactly as for the options above.</li>
+        </ul>
+        <p>The pooled and species-specific options appear only when occurrence data is present. The whole-study-extent and different-dataset options are always available.</p>
+        
+        <h3>Particle Parameters</h3>
+        <p>You'll configure:</p>
+        <ul>
+            <li><strong>Particles per site:</strong> How many particles to release from each location (more particles = more accurate but slower)</li>
+            <li><strong>Release frequency:</strong> How often new particles are released during the spawning window</li>
+            <li><strong>Horizontal diffusivity:</strong> Small-scale random movement (typical values: 1-100 m²/s)</li>
+        </ul>
+        
+        <div class="tip-box">
+            <strong>Recommended starting values:</strong>
+            <ul>
+                <li>Particles per site: 100 for testing, 1,000 to 10,000 for publication-quality runs</li>
+                <li>Release frequency: Weekly (good balance between temporal coverage and particle count). Daily releases give finer resolution but produce more particles.</li>
+                <li>Diffusivity: 1 m²/s is typical for coastal/shelf seas. Higher values (10 to 100 m²/s) may be appropriate for open ocean or highly turbulent areas.</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <strong>Particle numbers:</strong> The number of particles per site controls the <em>sampling resolution</em> of the model. It is not meant to represent the actual number of larvae released by organisms. More particles give more statistically robust connectivity estimates. For preliminary exploration, 100 particles is sufficient. For results you plan to publish, use at least 1000.
+        </div>
+        
+        <h2 id="step4">Step 4: Execute the Simulation</h2>
+        
+        <p>This step executes the actual particle tracking simulation. Particles are released and tracked as they drift with the ocean currents.</p>
+        
+        <h3>What to Expect</h3>
+        <ul>
+            <li><strong>Progress bar:</strong> Shows simulation progress</li>
+            <li><strong>Memory monitoring:</strong> ComCon monitors system memory to prevent crashes</li>
+            <li><strong>Runtime:</strong> Depends on number of particles and simulation length (minutes to hours)</li>
+        </ul>
+        
+        <div class="warning-box">
+            <strong>During the simulation:</strong>
+            <ul>
+                <li>Don't close Jupyter Lab or your terminal</li>
+                <li>Avoid running other memory-intensive programs</li>
+                <li>If your computer goes to sleep, the simulation may pause or fail</li>
+            </ul>
+        </div>
+
+        <div class="warning-box">
+            <strong>Session restore note:</strong> The particle set and kernels from Step 3 contain compiled simulation code that cannot be saved between sessions. If you restart the kernel, ComCon will automatically rebuild these from saved configuration when you run Step 4. Steps 3 and 4 run most efficiently in the same kernel session.
+        </div>
+
+        <h2 id="step5">Step 5: Post-Processing</h2>
+        
+        <p>After the simulation, this step applies species-specific filters to the trajectory data.</p>
+        
+        <h3>Filtering Steps</h3>
+        <ol>
+            <li><strong>Spawning filter:</strong> Keeps only particles released during each species' spawning window.</li>
+            <li><strong>PLD filter:</strong> Keeps only particles that reach suitable settlement habitat within the species' minimum-to-maximum PLD window. Particles that never reach suitable habitat in that window are treated as mortalities. This step is usually where most trajectories are filtered out.</li>
+            <li><strong>Habitat filter:</strong> Keeps only particles released from the species' own habitat. In a species-specific run where every species shares the same release sites, this step often removes nothing, which is expected.</li>
+        </ol>
+        
+        <div class="info-box">
+            <strong>Settlement buffer:</strong> A propagule is counted as settled if it reaches a settlement site or, if selected, a buffer grid cells adjacent to the original site, which accounts for sub-grid-scale habitat and small positional error. Settlements that land in a buffer cell are credited to the nearest real settlement site, never to the buffer cell itself, so the number of settlement sites reported always equals the number of real sites you supplied (the buffer can never inflate the site count).
+        </div>
+        
+        <h2 id="step6">Step 6: Connectivity Analyses</h2>
+        
+        <p>The final step calculates connectivity metrics and produces visualisations. Results are displayed in interactive dropdown viewers and can be exported to CSV.</p>
+        
+        <h3>Type 1: Connectivity Metrics</h3>
+        <p>Dispersal statistics at community and per-species level, displayed in an interactive dropdown viewer:</p>
+        <ul>
+            <li>Total particles released and settled</li>
+            <li>Settlement and mortality rates</li>
+            <li>Self-recruitment rate</li>
+            <li>Mean, min, and max dispersal distance (km)</li>
+            <li>Mean, min, and max realised PLD (days)</li>
+        </ul>
+
+        <h3>Type 2: Network Analysis</h3>
+        <p>Treats sites as nodes in a directed connectivity network. Results include interactive viewers for:</p>
+        <ul>
+            <li><strong>Network summary:</strong> Site counts, connection counts, community counts per species and community</li>
+            <li><strong>Connectivity matrix:</strong> Source × sink of particle exchanges</li>
+            <li><strong>Network and Hotspot map:</strong> Network maps and maps displaying the Top 10 sites ranked across source, sink, self-recruitment, betweenness, closeness and degree centrality</li>
+            <li><strong>Site × metric heatmap:</strong> Visual comparison of all six network metrics across sites</li>
+            <li><strong>Community map:</strong> Louvain community detection showing functionally connected groups</li>
+        </ul>
+
+        <div class="info-box">
+            <strong>Self-recruitment exclusion:</strong> You can optionally exclude self-recruitment (particles returning to their release site) from source/sink metrics. This helps distinguish between sites that are genuine exporters/importers and sites that simply retain their own propagules. Self-recruitment is always calculated regardless of this choice.
+        </div>
+        
+        <h3>Type 3: Trait Sensitivity Analysis</h3>
+        <p>Compare how different trait values affect connectivity. Requires a temporal buffer to have been set in Step 1:</p>
+        <ul>
+            <li><strong>PLD modification:</strong> Test how increasing or decreasing planktonic larval duration changes connectivity patterns</li>
+            <li><strong>Spawning window shift:</strong> Test how shifting spawning timing affects which sites are connected</li>
+        </ul>
         <h2 id="manual-mode">Manual Mode: Running Functions Directly</h2>
         <p>Manual mode gives you direct access to every ComCon function, for scripting, customisation, or running only part of the workflow. It does not walk you through the steps , instead you call the functions you need, in the order you need them. This is the most flexible mode and the one to use when you want to build your own pipeline or re-run just one stage.</p>
+
+        <div class="tip-box">
+            <strong>Bring your own trajectories:</strong> ComCon's analysis functions are designed to be used independently. <code>post_process()</code> accepts either a directory of trajectory chunks (the normal, memory-safe route for large runs) <em>or</em> a single in-memory pandas DataFrame of trajectories. If you have simulation output from another source, load it into a DataFrame with the expected columns (<code>trajectory</code>, <code>time</code>, <code>obs</code>, <code>grid_id</code>, <code>lat</code>, <code>lon</code>) and pass it straight to <code>post_process()</code> , no chunking required for smaller datasets.</div>
 
         <p>Two built-in helpers orient you:</p>
         <ul>
@@ -1649,7 +1975,7 @@ cc.create_network_map(network['site_metrics'], network['site_metrics'].head(10),
                       composite_col='overall_composite')</code></pre>
 
         <div class="tip-box">
-            <strong>Tip:</strong> the dropdown viewers (<code>trait_metrics_viewer</code>, <code>network_metrics_viewer</code>, <code>trait_community_viewer</code>) are built for the multi-scale results structure that Interactive and Automatic modes produce , a dict keyed by scale, e.g. <code>{'full_domain': {'community': network}}</code>. In a manual script, the <code>create_*</code> functions above are the simplest way to plot a single result.
+            <strong>Tip:</strong> The dropdown viewers (<code>trait_metrics_viewer</code>, <code>network_metrics_viewer</code>, <code>trait_community_viewer</code>) are built for the multi-scale results structure that Interactive and Automatic modes produce , a dict keyed by scale, e.g. <code>{'full_domain': {'community': network}}</code>. In a manual script, the <code>create_*</code> functions above are the simplest way to plot a single result.
         </div>
 
         <h2 id="vignettes">Vignettes: Worked Examples</h2>
@@ -1742,317 +2068,7 @@ cc.create_network_map(network['site_metrics'], network['site_metrics'].head(10),
         <div class="warning-box">
             <strong>Note:</strong> Running the vignettes requires a free <a href="https://data.marine.copernicus.eu/register">Copernicus Marine Service account</a> for downloading hydrodynamic data. Your results will not match the vignette outputs exactly, as GBIF data and ocean model outputs may have been updated since the vignettes were created.
         </div>
-    </section>
 
-    <!-- Part 5: The 6-Step Workflow -->
-    <section id="part5-workflow">
-        <h1>Part 5: The 6-Step Workflow</h1>
-        
-        <p>The ComCon workflow consists of 6 main steps. Each step builds on the previous one, taking you from raw data to connectivity analysis outputs.</p>
-        
-        <div class="info-box">
-            <strong>Workflow Overview:</strong>
-            <ol>
-                <li>Hydrodynamic and Trait Data Setup - Load ocean current data</li>
-                <li>Species Occurrence Data Setup - Define where species are found</li>
-                <li>Release/Settlement Setup - Configure particle release and settlement</li>
-                <li>Particle Simulation - Run the dispersal model</li>
-                <li>Post-Processing - Apply species-specific filters</li>
-                <li>Connectivity Analyses - Calculate metrics and visualise results</li>
-            </ol>
-        </div>
-        
-        <h2 id="step1">Step 1: Hydrodynamic Data Setup</h2>
-        
-        <p>In this step, you'll load the ocean current data needed to simulate larval dispersal. The currents drive the particle movement in the model.</p>
-        
-        <h3>What Happens in Step 1</h3>
-        <ol>
-            <li><strong>Load species traits:</strong> Select species from the built-in database or provide your own CSV file</li>
-            <li><strong>Calculate dispersal period:</strong> Determine the simulation timeframe based on spawning windows and PLDs</li>
-            <li><strong>Download hydrodynamic data:</strong> Get NEMO ocean current data from Copernicus Marine Service</li>
-            <li><strong>Grid resolution selection:</strong> Choose the resolution for release and settlement sites (see below)</li>
-            <li><strong>Visualise the hydrodynamic extent:</strong> View land/ocean/coastal masks with your chosen resolution</li>
-        </ol>
-        
-        <h3>Grid Resolution for Release and Settlement</h3>
-        <p>After the hydrodynamic data is downloaded, ComCon lets you choose the grid resolution used for release and settlement sites. Particle advection always runs on the full native-resolution hydrodynamic grid. Only the sites where particles are released and settle are affected by this choice.</p>
-        <p>A coarser grid means fewer release/settlement sites, fewer particles and faster simulations, but less spatial detail in the connectivity results. ComCon recommends a resolution based on your domain size and shows you a grid summary with native and (if applicable) binned ocean and coastal cell counts.</p>
-        <p>For small domains, the native resolution is typically recommended. For large domains (e.g., Mediterranean-wide studies), a coarser grid significantly reduces computation time while preserving meaningful connectivity patterns.</p>
-        
-        <h3>Species Trait Data</h3>
-        <p>Species traits tell the model when each species spawns and how long larvae remain in the plankton. You can:</p>
-        <ul>
-            <li><strong>Option 1:</strong> Select species from the built-in database (covers common intertidal species)</li>
-            <li><strong>Option 2:</strong> Provide your own CSV file (see <a href="#traits-csv">Section: Species Traits CSV Format</a>)</li>
-        </ul>
-
-        <h4>Built-in Traits Database</h4>
-        <p>ComCon includes a built-in species trait database covering approximately 25 to 30 common intertidal and shallow subtidal species found in the North East Atlantic. The database provides spawning seasonality (start and end months) and planktonic larval duration (minimum and maximum PLD in days) for each species.</p>
-
-        <p>Trait values were compiled from peer-reviewed literature and the <a href="https://www.marlin.ac.uk/" target="_blank">Marine Life Information Network (MarLIN)</a>. Where published values varied between studies or geographic regions, ranges were chosen to represent typical conditions for UK and NE Atlantic populations. Not all data is specific to the NE Atlantic however as data is limited.</p>
-
-        <div class="warning-box">
-            <strong>Important caveats:</strong>
-            <ul>
-                <li><strong>PLD estimates are approximate.</strong> Larval duration varies with temperature, food availability and other environmental conditions. The database provides literature-based ranges, not exact values for your study extent.</li>
-                <li><strong>Spawning windows are generalised.</strong> Actual spawning timing varies with latitude, local conditions and year-to-year variation.</li>
-                <li><strong>Use Type 3 analysis</strong> (trait sensitivity) to test how sensitive your results are to uncertainty in these trait values.</li>
-            </ul>
-        </div>
-
-        <div class="tip-box">
-            <strong>Tip:</strong> You can view the full built-in database by selecting Option 1 in Step 1 and browsing the species list. If your target species is not included or if you have more accurate trait data for your study region, provide your own CSV file using Option 2 (see <a href="#traits-csv">Species Traits CSV Format</a>).
-        </div>
-
-        <div class="info-box">
-            <strong>Temporal buffer (optional):</strong> After loading traits you can add a buffer of extra days before the earliest spawning date and after the latest dispersal date. This widens the downloaded hydrodynamic window so that the Type 3 trait-sensitivity analysis can later test earlier spawning or longer larval durations without re-downloading data. Leave it at zero for a standard run, and set it only if you intend to run Type 3.
-        </div>
-        
-        <h3>Copernicus Marine Service Login</h3>
-        <p>ComCon downloads ocean current data from the Copernicus Marine Service. You'll need a free account.</p>
-        
-        <div class="tip-box">
-            <strong>First time using Copernicus?</strong>
-            <ol>
-                <li>Go to <a href="https://marine.copernicus.eu/" target="_blank">https://marine.copernicus.eu/</a></li>
-                <li>Click "Register" and create a free account</li>
-                <li>Verify your email address</li>
-                <li>When ComCon prompts for login, enter your email and password</li>
-            </ol>
-            <p>Your credentials will be saved locally so you won't need to enter them again.</p>
-        </div>
-        
-        <h3>Choosing Your Study Area</h3>
-        <p>You'll be asked to define the geographic extent of your study extent using coordinates:</p>
-        <ul>
-            <li><strong>Minimum longitude (west):</strong> The western boundary</li>
-            <li><strong>Maximum longitude (east):</strong> The eastern boundary</li>
-            <li><strong>Minimum latitude (south):</strong> The southern boundary</li>
-            <li><strong>Maximum latitude (north):</strong> The northern boundary</li>
-        </ul>
-        
-        <div class="info-box">
-            <strong>Coordinate tips:</strong>
-            <ul>
-                <li>Longitude: Negative values = West, Positive values = East</li>
-                <li>Latitude: Negative values = South, Positive values = North</li>
-                <li>Example for UK waters: Lon: -10 to 2, Lat: 49 to 61</li>
-            </ul>
-        </div>
-
-        <h3>Supported Hydrodynamic Models</h3>
-        <p>ComCon uses ocean current data from the <a href="https://marine.copernicus.eu/" target="_blank">Copernicus Marine Service</a>. The default model is the <strong>Global Ocean Physics Analysis and Forecast</strong> NEMO configuration (<code>cmems_mod_glo_phy_anfc_0.083deg_PT1H-m</code>), which provides global coverage at approximately 9 km horizontal resolution. Several regional models are also offered in the dataset menu (NW European Shelf at ~1.5 km, Atlantic,Iberian,Mediterranean at ~3 km, and Mediterranean Sea at ~4 km), and you can enter any other Copernicus dataset ID for your region.</p>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>Dataset ID</th>
-                    <th>Coverage</th>
-                    <th>Resolution</th>
-                    <th>Best For</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><code>cmems_mod_nws_phy-cur_anfc_1.5km-2D_PT1H-i</code></td>
-                    <td>NW European Shelf</td>
-                    <td>~1.5 km, hourly</td>
-                    <td>UK, Ireland, North Sea, Bay of Biscay (forecast, multi-year)</td>
-                </tr>
-                <tr>
-                    <td><code>cmems_mod_glo_phy_my_0.083deg_P1D-m</code></td>
-                    <td>Global</td>
-                    <td>~8 km (1/12°), daily</td>
-                    <td>Studies outside European shelf waters (reanalysis, multi-year)</td>
-                </tr>
-                <tr>
-                    <td><code>cmems_mod_ibi_phy_anfc_0.027deg-2D_PT1H-m</code></td>
-                    <td>Iberian-Biscay-Ireland</td>
-                    <td>~3 km, hourly</td>
-                    <td>Atlantic coast of Europe, Iberian Peninsula (forecast, multi-year)</td>
-                </tr>
-                <tr>
-                    <td><code>cmems_mod_med_phy_my_4.2km-2D_PT1H-i</code></td>
-                    <td>Mediterranean Sea</td>
-                    <td>~4 km, hourly</td>
-                    <td>Mediterranean studies (reanalysis, multi-year)</td>
-                </tr>
-            </tbody>
-        </table>
-
-        <div class="info-box">
-            <strong>Choosing a dataset:</strong> The dataset is selected from a menu in Step 1 (Global Ocean is the default). For higher-resolution UK and NW European coastal waters, choose the NW European Shelf model (<code>cmems_mod_nws_phy-cur_anfc_1.5km-2D_PT1H-i</code>). For other regions, pick one of the listed regional models or browse the <a href="https://data.marine.copernicus.eu/products" target="_blank">Copernicus catalogue</a> and enter a custom dataset ID. ComCon works with any NEMO-format dataset that provides U and V current velocity fields.
-        </div>
-        <div class="warning-box">
-    <strong>Reanalysis vs Forecast:</strong> Reanalysis data has been quality-controlled and assimilated with observations, making it more reliable. Forecast models, on the other hand, are often available in high spatial and temporal resolution.
-</div>
-
-
-        <h3>Continuing to Step 2</h3>
-        <p>After Step 1 completes, you'll see a message like:</p>
-        <pre><code>Step 1 completed.
-To continue, run in the next cell:
-workflow_step(2)</code></pre>
-        
-        <p>Create a new cell and run <code>workflow_step(2)</code> to continue.</p>
-        
-        <h2 id="step2">Step 2: Species Occurrence Data</h2>
-        
-        <p>This step defines where each species is found within your study extent. Occurrence data is used to determine appropriate release and settlement locations. After the study extent polygon is created, ComCon displays the hydrodynamic extent with your study extent overlaid so you can verify spatial coverage.</p>
-        
-        <h3>Data Source Options</h3>
-        <ul>
-            <li><strong>Option 1: Download from GBIF</strong> - ComCon automatically downloads occurrence records for your species from the Global Biodiversity Information Facility</li>
-            <li><strong>Option 2: Your own data</strong> - Provide a CSV file with species occurrence coordinates (see <a href="#occurrence-csv">Section: Occurrence Data CSV Format</a>)</li>
-        </ul>
-        
-        <h3>Defining the Study Area Boundary</h3>
-        <p>You can define your study extent boundary using:</p>
-        <ul>
-            <li><strong>Interactive map:</strong> Draw a polygon on a map</li>
-            <li><strong>GeoJSON file:</strong> Load a pre-defined boundary</li>
-            <li><strong>Bounding box:</strong> Use the coordinates from Step 1</li>
-        </ul>
-        
-        <h3>Creating Land and Coastal Masks</h3>
-        <p>ComCon creates masks to distinguish between:</p>
-        <ul>
-            <li><strong>Land cells:</strong> Where particles cannot go</li>
-            <li><strong>Ocean cells:</strong> Open water</li>
-            <li><strong>Coastal cells:</strong> Cells next to land, where shallow-water and intertidal species typically occur</li>
-        </ul>
-
-        <h3>Habitat Filtering</h3>
-        <p>When cleaning your occurrence data, ComCon asks which habitat type your species belong to. This decides which grid cells can become release and settlement sites, and removes occurrence records that fall outside that habitat:</p>
-        <ul>
-            <li><strong>Coastal:</strong> keeps only coastal occurrences and removes records on land or offshore. Appropriate for littoral and infralittoral species.</li>
-            <li><strong>Ocean:</strong> keeps all ocean occurrences (coastal and offshore) and removes records on land. Appropriate for offshore or mixed coastal-and-offshore species.</li>
-            <li><strong>None:</strong> uses your data exactly as provided, with no habitat cleaning. Appropriate for data you have already cleaned. The candidate cells are the same as for "ocean"; only the cleaning of your records differs.</li>
-        </ul>
-        <div class="tip-box">
-            <strong>Which to choose:</strong> Use <strong>coastal</strong> for rocky-shore and intertidal work, <strong>ocean</strong> if your species occur offshore, and <strong>none</strong> only when your data is already curated. If coastal filtering removes sites you know are valid, your hydrodynamic resolution may be too coarse to place them in a coastal cell , choosing ocean, or a finer resolution, will retain them.
-        </div>
-
-        <h2 id="step3">Step 3: Release and Settlement Setup</h2>
-        
-        <p>This step configures how particles are released into the simulation and where they can settle. The grid resolution for release and settlement was already selected in Step 1. If the domain was binned, the coarser grid is used for release/settlement while the native resolution is used for particle advection.</p>
-        
-        <h3>Release Strategy</h3>
-        <p>ComCon runs one connectivity analysis. The release strategy only changes which sites particles are released from. Your occurrence data from Step 2 always has a <code>species</code> column, and if it also includes a <code>site_name</code> column those names carry through to all outputs. Choose how particles are released:</p>
-        <ul>
-            <li><strong>Whole study extent:</strong> release from every cell in your study grid, regardless of where species occur. Does not use the occurrence data. Best for maximum-dispersal or data-poor scenarios.</li>
-            <li><strong>Pooled across species:</strong> release from every occupied site in your occurrence data, combined across all species, so every species is released from all of those sites. Best when you want to release from your sampled sites without splitting by species.</li>
-            <li><strong>Species-specific:</strong> release each species only from its own occurrence sites. Best for trait-based analyses.</li>
-        </ul>
-        
-        <h3>Settlement Strategy</h3>
-        <p>Choose where particles are allowed to settle. The first three options mirror the release options and use the same Step 2 occurrence data, and the fourth lets you supply a separate dataset for settlement only:</p>
-        <ul>
-            <li><strong>Whole study extent:</strong> particles can settle at any cell in the study grid, regardless of where species occur.</li>
-            <li><strong>Pooled across species:</strong> particles can settle at every occupied site in your occurrence data, combined across all species.</li>
-            <li><strong>Species-specific:</strong> each species can settle only at its own occurrence sites.</li>
-            <li><strong>A different dataset:</strong> upload a separate occurrence or habitat-suitability CSV (<code>species, latitude, longitude</code>, optional <code>site_name</code>) used for settlement only. You then choose whether it is applied pooled or species-specific, exactly as for the options above.</li>
-        </ul>
-        <p>The pooled and species-specific options appear only when occurrence data is present. The whole-study-area and different-dataset options are always available.</p>
-        
-        <h3>Particle Parameters</h3>
-        <p>You'll configure:</p>
-        <ul>
-            <li><strong>Particles per site:</strong> How many particles to release from each location (more particles = more accurate but slower)</li>
-            <li><strong>Release frequency:</strong> How often new particles are released during the spawning window</li>
-            <li><strong>Horizontal diffusivity:</strong> Small-scale random movement (typical values: 1-100 m²/s)</li>
-        </ul>
-        
-        <div class="tip-box">
-            <strong>Recommended starting values:</strong>
-            <ul>
-                <li>Particles per site: 100 for testing, 1,000 to 10,000 for publication-quality runs</li>
-                <li>Release frequency: Weekly (good balance between temporal coverage and particle count). Daily releases give finer resolution but produce more particles.</li>
-                <li>Diffusivity: 1 m²/s is typical for coastal/shelf seas. Higher values (10 to 100 m²/s) may be appropriate for open ocean or highly turbulent areas.</li>
-            </ul>
-        </div>
-
-        <div class="info-box">
-            <strong>Particle numbers:</strong> The number of particles per site controls the <em>sampling resolution</em> of the model. It is not meant to represent the actual number of larvae released by organisms. More particles give more statistically robust connectivity estimates. For preliminary exploration, 100 particles is sufficient. For results you plan to publish, use at least 1000.
-        </div>
-        
-        <h2 id="step4">Step 4: Running the Simulation</h2>
-        
-        <p>This step executes the actual particle tracking simulation. Particles are released and tracked as they drift with the ocean currents.</p>
-        
-        <h3>What to Expect</h3>
-        <ul>
-            <li><strong>Progress bar:</strong> Shows simulation progress</li>
-            <li><strong>Memory monitoring:</strong> ComCon monitors system memory to prevent crashes</li>
-            <li><strong>Runtime:</strong> Depends on number of particles and simulation length (minutes to hours)</li>
-        </ul>
-        
-        <div class="warning-box">
-            <strong>During the simulation:</strong>
-            <ul>
-                <li>Don't close Jupyter Lab or your terminal</li>
-                <li>Avoid running other memory-intensive programs</li>
-                <li>If your computer goes to sleep, the simulation may pause or fail</li>
-            </ul>
-        </div>
-
-        <div class="warning-box">
-            <strong>Session restore note:</strong> The particle set and kernels from Step 3 contain compiled simulation code that cannot be saved between sessions. If you restart the kernel, ComCon will automatically rebuild these from saved configuration when you run Step 4. Steps 3 and 4 run most efficiently in the same kernel session.
-        </div>
-
-        <h2 id="step5">Step 5: Post-Processing</h2>
-        
-        <p>After the simulation, this step applies species-specific filters to the trajectory data.</p>
-        
-        <h3>Filtering Steps</h3>
-        <ol>
-            <li><strong>Spawning filter:</strong> Keeps only particles released during each species' spawning window</li>
-            <li><strong>PLD filter:</strong> Keeps only particles that settle within the species' PLD range</li>
-            <li><strong>Habitat filter:</strong> Keeps only particles that settle in suitable habitat</li>
-        </ol>
-        
-        <h3>Why Filter?</h3>
-        <p>The simulation releases particles throughout the entire simulation period. But not all particles represent biologically realistic dispersal events:</p>
-        <ul>
-            <li>A particle released in January shouldn't count for a species that spawns in July</li>
-            <li>A particle that settles after 100 days shouldn't count for a species with a 30-day PLD</li>
-        </ul>
-        
-        <h2 id="step6">Step 6: Connectivity Analyses</h2>
-        
-        <p>The final step calculates connectivity metrics and produces visualisations. Results are displayed in interactive dropdown viewers and can be exported to CSV.</p>
-        
-        <h3>Type 1: Connectivity Metrics</h3>
-        <p>Dispersal statistics at community and per-species level, displayed in an interactive dropdown viewer:</p>
-        <ul>
-            <li>Total particles released and settled</li>
-            <li>Settlement and mortality rates</li>
-            <li>Self-recruitment rate</li>
-            <li>Mean, min, and max dispersal distance (km)</li>
-            <li>Mean, min, and max realised PLD (days)</li>
-        </ul>
-
-        <h3>Type 2: Network Analysis</h3>
-        <p>Treats sites as nodes in a directed connectivity network. Results include interactive viewers for:</p>
-        <ul>
-            <li><strong>Network summary:</strong> Site counts, connection counts, community counts per species and community</li>
-            <li><strong>Connectivity matrix:</strong> Source × sink of particle exchanges</li>
-            <li><strong>Hotspot map:</strong> Top 10 sites ranked across source, sink, self-recruitment, betweenness, closeness and degree centrality</li>
-            <li><strong>Site × metric heatmap:</strong> Visual comparison of all six network metrics across sites</li>
-            <li><strong>Community map:</strong> Louvain community detection showing functionally connected groups</li>
-        </ul>
-
-        <div class="info-box">
-            <strong>Self-recruitment exclusion:</strong> You can optionally exclude self-recruitment (particles returning to their release site) from source/sink metrics. This helps distinguish between sites that are genuine exporters/importers and sites that simply retain their own larvae. Self-recruitment is always calculated regardless of this choice.
-        </div>
-        
-        <h3>Type 3: Trait Sensitivity Analysis</h3>
-        <p>Compare how different trait values affect connectivity. Requires a temporal buffer to have been set in Step 1:</p>
-        <ul>
-            <li><strong>PLD modification:</strong> Test how increasing or decreasing planktonic larval duration changes connectivity patterns</li>
-            <li><strong>Spawning window shift:</strong> Test how shifting spawning timing affects which sites are connected</li>
-        </ul>
     </section>
 
     <!-- Part 4: Understanding Outputs -->
@@ -2062,6 +2078,7 @@ workflow_step(2)</code></pre>
         <p>ComCon produces various outputs saved to your working directory. Here's what each file contains:</p>
         
         <h2>Output Files</h2>
+        <p>At any export or output directory prompt, press <strong>Enter</strong> to open a folder browser and select a location, or type a path directly and press Enter to use it.</p>
         
         <table>
             <thead>
@@ -2080,25 +2097,37 @@ workflow_step(2)</code></pre>
                     <td>Raw particle trajectory data from the simulation</td>
                 </tr>
                 <tr>
-                    <td><code>connectivity_metrics.csv</code></td>
-                    <td>Summary statistics for each species and/or community</td>
+                    <td><code>&lt;label&gt;_connectivity_summary.csv</code></td>
+                    <td>Summary of the connectivity metrics. One file is created per species and one for the community, the &lt;label&gt; prefix identifying which</td>
                 </tr>
                 <tr>
-                    <td><code>network_metrics.csv</code></td>
+                    <td><code>network_site_metrics.csv</code></td>
                     <td>Centrality and functional role metrics for each site</td>
+                </tr>
+                <tr>
+                    <td><code>network_summary.csv</code></td>
+                    <td>Network-level summary scalars for each analysis level and scale (number of species, study extent, potential and realised connectivity sites, unique connections). The whole-network companion to the per-site <code>network_site_metrics.csv</code>.</td>
                 </tr>
                 <tr>
                     <td><code>connectivity_matrix.csv</code></td>
                     <td>Raw particle-exchange counts between every source site (rows) and sink site (columns). The on-screen matrix shows log<sub>10</sub> of these counts for clarity (see <em>Connectivity Strength</em> in the Glossary). This file holds the absolute numbers.</td>
                 </tr>
                 <tr>
+                    <td><code>community_trait_sensitivity_&lt;scenario&gt;.csv</code></td>
+                    <td>Type 3 trait-sensitivity comparison: each connectivity metric under the original versus trait-modified traits, with the change, plus Mantel test and hotspot-overlap statistics. One file per chosen scenario.</td>
+                </tr>
+                <tr>
+                    <td><code>grid_full_domain.csv</code>, <code>grid_study_area.csv</code></td>
+                    <td>The release/settlement grid cells (grid_id, longitude, latitude) for the full hydrodynamic domain and for the study extent. Written when grid saving is enabled, in every mode (interactive, automatic and manual).</td>
+                </tr>
+                <tr>
                     <td><code>figures/</code></td>
                     <td>Saved maps and plots, organised into one subfolder per analysis level and scale (e.g. <code>community_full_domain/</code>), containing the hotspot map, network-only map, community map, connectivity matrix, site × metric heatmap and per-metric hotspot maps.</td>
                 </tr>
                 <tr>
-
-                </tr><td><code>comcon_outputs.xlsx</code></td>
-                    <td>A record of the run across three sheets: an outputs catalogue (what each file is, and whether it was saved), the full run configuration, and a Metric Definitions sheet explaining how every reported metric is calculated. Use this alongside your results to interpret and reproduce them.</td>
+                    <td><code>comcon_outputs.xlsx</code></td>
+                    <td>A metadata file with a record of the run across four sheets: A list of all outputs (what each file is and whether it was saved), the full run configuration, a Metric Definitions sheet explaining how every reported metric is calculated and a Column Definitions sheet documenting every column in the exported CSVs. Use this alongside your results to interpret and reproduce them.</td>
+                </tr>
             </tbody>
         </table>
         
@@ -2115,11 +2144,50 @@ workflow_step(2)</code></pre>
         
         <h3>Network Roles</h3>
         <ul>
-            <li><strong>Sources:</strong> Sites that export many larvae to other sites (high out-degree)</li>
-            <li><strong>Sinks:</strong> Sites that receive many larvae from other sites (high in-degree)</li>
+            <li><strong>Sources:</strong> Sites that export many propagules to other sites (high out-degree)</li>
+            <li><strong>Sinks:</strong> Sites that receive many propagules from other sites (high in-degree)</li>
             <li><strong>Stepping stones:</strong> Sites that connect other sites (high betweenness centrality)</li>
             <li><strong>Self-recruiters:</strong> Sites with high self-recruitment</li>
         </ul>
+        <h2 id="methods">Methods & Assumptions</h2>
+        <p>This section summarises the modelling choices and assumptions ComCon makes, so you can interpret your results and know what is happening under the hood. For the full methodology and references, see the ComCon methods paper.</p>
+
+        <h3>Particle transport</h3>
+        <ul>
+            <li><strong>Lagrangian particle tracking</strong> using <a href="https://oceanparcels.org/" target="_blank">OceanParcels</a>. Each particle represents a larva (propagule) advected by ocean currents.</li>
+            <li><strong>Advection scheme:</strong> Fourth-order Runge-Kutta (<code>AdvectionRK4</code>). The simulation timestep is short (minutes) while trajectory positions are written at a coarser interval (hours).</li>
+            <li><strong>Hydrodynamic forcing:</strong> NEMO ocean-current fields from the Copernicus Marine Service (default: Global Ocean, ~9&nbsp;km). Data are streamed (lazy-loaded) by default rather than downloaded.</li>
+            <li><strong>Coastlines:</strong> A reflective-boundary kernel prevents particles from beaching or becoming stuck on land cells.</li>
+        </ul>
+
+        <h3>Larval behaviour (trait-defined pathway)</h3>
+        <ul>
+            <li><strong>Spawning window:</strong> Particles are released only during each species' spawning period, at a release frequency you set.</li>
+            <li><strong>Competency (minimum PLD):</strong> A propagule cannot settle until it has reached its minimum planktonic larval duration.</li>
+            <li><strong>Mortality (maximum PLD):</strong> A propagule that has not settled by its maximum PLD is assumed to have died. Mortality is therefore derived from the proportion of released particles that never settle.</li>
+            <li><strong>Settlement:</strong> A competent propagule settles when it is within a designated settlement cell (the whole study extent, your occurrence data pooled or species-specific, or a different dataset, depending on your settlement strategy). A small cell buffer allows settlement in immediately adjacent cells to account for grid discretisation.</li>
+        </ul>
+
+        <h3>Passive pathway</h3>
+        <ul>
+            <li>Trait-free: Particles are released from all ocean cells in the study extent, with no spawning, competency or mortality filtering.</li>
+            <li>Runs 28-day simulations for summer (July) and winter (February), with connectivity extracted at fixed timepoints (7, 14, 21 and 28 days) to represent a range of dispersal capabilities. Follows James et&nbsp;al. (2025).</li>
+        </ul>
+
+        <h3>Connectivity and network analysis</h3>
+        <ul>
+            <li><strong>Connectivity matrix:</strong> The number of particles travelling from each source site to each sink site. Figures display log<sub>10</sub>(count&nbsp;+&nbsp;1) for clarity. The exported CSV holds raw counts.</li>
+            <li><strong>Network:</strong> Sites are nodes in a directed, weighted graph (edge weight = particles exchanged). Optional distance thresholds filter out connections longer than a chosen scale.</li>
+            <li><strong>Site metrics:</strong> Source and sink strength (weighted out-/in-degree, with the option to exclude a site's own self-recruitment so it does not inflate these), self-recruitment (self-connections), and degree, betweenness and closeness centrality (via NetworkX). Each metric is ranked (rank&nbsp;1&nbsp;=&nbsp;highest); composites are the mean of their member metrics' ranks (equal weight, scale-independent, lower&nbsp;=&nbsp;higher priority). ComCon reports three fixed composites , <em>functional</em> (source, sink, self-recruitment), <em>centrality</em> (betweenness, closeness, degree) and <em>overall</em> (all six) , and lets you build a <em>custom</em> composite from any subset of metrics so a study can prioritise the aspects of connectivity that matter to it. Choosing a composite only sets which composite hotspot layer is built; all six individual metrics are always computed and exported regardless of the choice.</li>
+            <li><strong>Communities:</strong> Louvain community detection on the undirected, weighted graph, by modularity maximisation, groups of sites that exchange more propagules with each other than with the rest of the network.</li>
+        </ul>
+        <h3>Spatial resolution and sites</h3>
+        <ul>
+            <li><strong>Resolution:</strong> Connectivity is resolved at the hydrodynamic grid-cell scale. Two locations within the same cell cannot be distinguished by dispersal; choose a finer grid if you need to separate nearby sites.</li>
+            <li><strong>Site snapping:</strong> Occurrence records are snapped to the nearest grid cell of your selected habitat type (coastal or ocean) using KD-tree nearest-neighbour search. Site names attach to grid cells: A named cell shows its name everywhere in the outputs, an unnamed cell shows its grid_id (<code>site_&lt;grid_id&gt;</code>), and you can name some, all, or none of your sites. If two named sites fall in the same cell, both names are reported together for that cell.</li>
+            <li><strong>Distances:</strong> Inter-site dispersal distances and distance-threshold (scale) filtering both use great-circle (haversine) distances on a sphere of radius 6371 km, so east-west distances are correct at all latitudes.</li>
+        </ul>
+        <p>Every metric's exact definition and formula is also written into the <code>comcon_outputs.xlsx</code> file produced with each run (Metric Definitions sheet), so the calculations travel with your results.</p>
     </section>
 
     <!-- Part 7: Data Preparation -->
@@ -2269,8 +2337,12 @@ ds.to_netcdf('my_data_renamed.nc')</code></pre>
             </tbody>
         </table>
         
-        <p>*Either species_name OR aphia_id must be provided. Both can be provided.</p>
-        
+        <div class="tip-box">
+            <strong>Dates and years:</strong> Spawning dates can be given as <code>DD/MM</code> or <code>DD/MM/YYYY</code>. If you do not include a year, ComCon asks which dispersal year to start in. If you supply a year, it is used. All species sit on one continuous timeline, so it is fine for them to carry different dates. If your species spawn across a calendar-year boundary (for example a winter spawner releasing in December and a spring spawner in April), ComCon runs <strong>one continuous simulation</strong> spanning the earliest spawning start to the latest spawning end plus the longest PLD. To keep runtimes and data volumes manageable, group species into one dispersal season wherever biologically reasonable.</div>
+
+        <div class="tip-box">
+            <strong>Species identifier and internet:</strong> Provide <code>species_name</code>, <code>aphia_id</code>, or both. If both are provided, AphiaID is used. If you supply <strong>only</strong> an <code>aphia_id</code>, ComCon looks the species name up from the WoRMS online register, so a stable internet connection is required when loading your traits file (the same as Copernicus hydrodynamic data or GBIF occurrence data). If both columns are present, no lookup is needed and traits load offline. AphiaIDs resolve the current accepted name, so they are recommended for marine species whose taxonomy changes.</div>
+
         <h3>Example CSV</h3>
         <pre><code>species_name,aphia_id,spawning_start,spawning_end,min_PLD,max_PLD
 Patella vulgata,140685,01/10,31/01,2,10
@@ -2313,9 +2385,15 @@ Semibalanus balanoides,106210,01/02,30/04,21,60</code></pre>
                     <td>Longitude in decimal degrees</td>
                     <td>-4.1427</td>
                 </tr>
+                <tr>
+                    <td><code>site_name</code></td>
+                    <td>No (optional)</td>
+                    <td>A label for the site. When present, results are reported by site name instead of grid ID, and the names carry through to every figure and CSV. See <a href="#site-based">Working with your own study sites</a>.</td>
+                    <td>Plymouth_Sound</td>
+                </tr>
             </tbody>
         </table>
-        
+
         <div class="warning-box">
             <strong>Important:</strong> Species names in the occurrence file must exactly match those in your traits file. Use underscores instead of spaces (e.g., <code>Patella_vulgata</code> not <code>Patella vulgata</code>).
         </div>
@@ -2323,10 +2401,10 @@ Semibalanus balanoides,106210,01/02,30/04,21,60</code></pre>
 
         <p>If you include site names during your occurrence data upload (a CSV with <code>species</code>, <code>latitude</code>, <code>longitude</code> and <code>site_name</code>) to use as the release and/or settlement locations, instead of all coastal cells or species occurrence records, the site names are carried through to every output. Your figures and CSVs will be labelled with your site names rather than grid IDs. To release or settle from your sites without splitting by species, choose the <strong>pooled</strong> option in Step 3. To include species-specific habitat preferences, choose <strong>species-specific</strong>.</p>
 
-        <p><strong>What switches it on:</strong> including a <code>site_name</code> column in the occurrence data you upload in Step 2. When ComCon detects that column it treats your sites as the labelled units of the analysis and reports every result by site name. No separate mode needs to be selected , the column is the trigger.</p>
+        <p><strong>How to set it up:</strong> Include a <code>site_name</code> column in the occurrence data you upload in Step 2. When ComCon detects that column it treats your sites as the labelled units of the analysis and reports every result by site name. No separate mode needs to be selected , the column is the trigger.</p>
 
         <h3>How sites map to the grid</h3>
-        <p>Each site is snapped to the nearest grid cell of your chosen habitat type (coastal or ocean) using a nearest-neighbour search. Connectivity is then resolved at the grid-cell scale: the model can only tell two sites apart if they fall in different cells. The grid resolution you set in Step 1 therefore decides whether nearby sites stay separate or merge into one.</p>
+        <p>Each site is snapped to the nearest grid cell of your chosen habitat type (coastal or ocean) using a nearest-neighbour search. Connectivity is then resolved at the grid-cell scale: The model can only tell two sites apart if they fall in different cells. The grid resolution you set in Step 1 therefore decides whether nearby sites stay separate or merge into one.</p>
 
         <h3>Choosing a resolution for site-based runs</h3>
         <p>Finer resolutions (smaller cells) keep nearby sites separate, and coarser resolutions merge them. The <strong>native hydrodynamic resolution is the finest available</strong> , you cannot resolve detail below the resolution of the current data itself. Because a site-based run releases particles from only your handful of sites (far fewer particles than a whole-domain run), you can usually afford the native resolution even over a large area, where a whole-domain run would need a coarser grid. As a rule of thumb, choose a resolution finer than the smallest distance between any two of your sites, so each site occupies its own cell. If you already know your sites and their spacing, set this resolution when prompted in Step 1.</p>
@@ -2336,10 +2414,10 @@ Semibalanus balanoides,106210,01/02,30/04,21,60</code></pre>
         </div>
 
         <div class="warning-box">
-            <strong>Sites closer than the data resolution:</strong> Two sites closer together than the native hydrodynamic resolution, for example a natural and an artificial reef 100&nbsp;m apart, with 4&nbsp;km data , will always fall in the same cell and cannot be separated by any resolution choice, because the current data has no information at that sub-cell scale. ComCon reports such co-located sites together, under both names, and still analyses every species present across them. Resolving co-located sites as fully separate nodes (sharing the cell's dispersal but keeping their own per-site results) is planned for a future version.
+            <strong>Sites closer than the data resolution:</strong> Two sites closer together than the native hydrodynamic resolution, for example a natural and an artificial reef 100&nbsp;m apart, with 4&nbsp;km data, will always fall in the same cell and cannot be separated by any resolution choice, because the current data has no information at that sub-cell scale. ComCon reports such co-located sites together, under both names, and still analyses every species present across them. Resolving co-located sites as fully separate nodes (sharing the cell's dispersal but keeping their own per-site results) is planned for a future version.
         </div>
 
-        <h2 id="geojson-format">GeoJSON Study Area Format</h2>
+        <h2 id="geojson-format">GeoJSON Study Extent Format</h2>
 
         <p>ComCon includes an interactive map for drawing your study extent polygon. However, if you prefer to provide your own GeoJSON file (e.g., from QGIS, R or another tool), it must follow this format:</p>
 
@@ -2396,7 +2474,7 @@ Semibalanus balanoides,106210,01/02,30/04,21,60</code></pre>
 
         <p><strong>Saving a session</strong> saves your whole workflow state (traits, grids, filtered results, and so on) into a single checkpoint, so you can close Jupyter and resume exactly where you left off. To make the session resumable, ComCon also tucks a copy of the ocean velocity fields (the u and v currents) inside it, so the simulation can continue when you reload. It is not a general-purpose hydro file, though: it keeps only the velocity fields the simulation needs, and you cannot open it as a dataset on its own. If you want a reusable hydro file, use the export option above.</p>
 
-        <p><strong>One practical note:</strong> saving a session immediately after Step 1 is slow, because ComCon has to pull the entire hydrodynamic field into memory to store it. Only save at that point if you are genuinely stopping for a while. If you are carrying straight on to Step 2, just answer "no" , you do not need a checkpoint yet.</p>
+        <p><strong>One practical note:</strong> Saving a session immediately after Step 1 is slow, because ComCon has to pull the entire hydrodynamic field into memory to store it. Only save at that point if you are genuinely stopping for a while. If you are carrying straight on to Step 2, just answer "no" , you do not need a checkpoint yet.</p>
 
         <h2>Saving a Session</h2>
 
@@ -2438,16 +2516,16 @@ metrics = calculate_connectivity_metrics(
 
         <h2>What Gets Saved</h2>
 
-        <p>The session file includes all variables needed to resume from any step: species traits, hydrodynamic parameters, a stripped copy of the ocean velocity fields (u and v currents), cleaned occurrence data, masks, release/settlement grids, grid IDs, and filtered results.</p>
+        <p>The session file includes all variables needed to resume from any step: Species traits, hydrodynamic parameters, a stripped copy of the ocean velocity fields (u and v currents), cleaned occurrence data, masks, release/settlement grids, grid IDs, and filtered results.</p>
 
         <h3>How Trajectory Data is Handled</h3>
-        <p>ComCon saves your simulation results to disk as you go, so you can close the notebook and pick up later or re-analyse data without re-running the simulation. This happens automatically. You don't need to manage any of the underlying files yourself.</p>
+        <div class="info-box">ComCon saves your simulation results to disk as you go, so you can close the notebook and pick up later or re-analyse data without re-running the simulation. This happens automatically. You don't need to manage any of the underlying files yourself.</div>
 
         <h3>How Hydrodynamic Data is Handled</h3>
-        <p>The hydrodynamic data (ocean currents) is streamed from Copernicus during the simulation and cached in memory. On save, ComCon strips the streaming backend and saves a clean copy. On first save after Step 1, this may take a moment as the data is materialised , subsequent saves are instant.</p>
+        <div class="info-box">The hydrodynamic data (ocean currents) is streamed from Copernicus during the simulation and cached in memory. On save, ComCon strips the streaming backend and saves a clean copy. On first save after Step 1, this may take a moment as the data is materialised , subsequent saves are instant.</div>
 
         <h3>Particle Set and Kernels</h3>
-        <p>The particle set (<code>pset</code>) and simulation kernels contain compiled C code that cannot be serialised. ComCon saves the configuration parameters (release interval, particles per site, diffusivity) to a JSON file. If you restart and run Step 4, ComCon automatically rebuilds the particle set and kernels from this saved configuration without requiring manual re-entry of parameters.</p>
+        <div class="info-box">The particle set (<code>pset</code>) and simulation kernels contain compiled C code that cannot be serialised. ComCon saves the configuration parameters (release interval, particles per site, diffusivity) to a JSON file. If you restart and run Step 4, ComCon automatically rebuilds the particle set and kernels from this saved configuration without requiring manual re-entry of parameters.</div>
 
         <div class="warning-box">
             <strong>Important:</strong> Session and simulation files can be large (depending on your simulation size). If you are low on disk space, delete old session files once you no longer need them. Keep the contents of your project's <code>simulation/</code> folder if you want to be able to re-analyse or animate results after reloading a session.
@@ -2523,7 +2601,7 @@ metrics = calculate_connectivity_metrics(
         <ul>
             <li>Species not recorded in GBIF for your study extent</li>
             <li>Species name spelled incorrectly</li>
-            <li>Study area too small</li>
+            <li>Study extent too small</li>
         </ul>
         <p><strong>Solution:</strong> Provide your own occurrence data or expand the study extent</p>
         
@@ -2716,47 +2794,7 @@ metrics = calculate_connectivity_metrics(
 
     </section>
 
-    <section id="methods">
-        <h1>Methods & Assumptions</h1>
-        <p>This section summarises the modelling choices and assumptions ComCon makes, so you can interpret your results and know what is happening under the hood. For the full methodology and references, see the ComCon methods paper.</p>
 
-        <h2>Particle transport</h2>
-        <ul>
-            <li><strong>Lagrangian particle tracking</strong> using <a href="https://oceanparcels.org/" target="_blank">OceanParcels</a>. Each particle represents a larva (propagule) advected by ocean currents.</li>
-            <li><strong>Advection scheme:</strong> fourth-order Runge-Kutta (<code>AdvectionRK4</code>). The simulation timestep is short (minutes) while trajectory positions are written at a coarser interval (hours).</li>
-            <li><strong>Hydrodynamic forcing:</strong> NEMO ocean-current fields from the Copernicus Marine Service (default: Global Ocean, ~9&nbsp;km). Data are streamed (lazy-loaded) by default rather than downloaded.</li>
-            <li><strong>Coastlines:</strong> a reflective-boundary kernel prevents particles from beaching or becoming stuck on land cells.</li>
-        </ul>
-
-        <h2>Larval behaviour (trait-defined pathway)</h2>
-        <ul>
-            <li><strong>Spawning window:</strong> particles are released only during each species' spawning period, at a release frequency you set.</li>
-            <li><strong>Competency (minimum PLD):</strong> a larva cannot settle until it has reached its minimum planktonic larval duration.</li>
-            <li><strong>Mortality (maximum PLD):</strong> a larva that has not settled by its maximum PLD is assumed to have died. Mortality is therefore derived from the proportion of released particles that never settle.</li>
-            <li><strong>Settlement:</strong> a competent larva settles when it is within a designated settlement cell (the whole study extent, your occurrence data pooled or species-specific, or a different dataset, depending on your settlement strategy). A small cell buffer allows settlement in immediately adjacent cells to account for grid discretisation.</li>
-        </ul>
-
-        <h2>Passive pathway</h2>
-        <ul>
-            <li>Trait-free: particles are released from all ocean cells in the study extent, with no spawning, competency or mortality filtering.</li>
-            <li>Runs 28-day simulations for summer (July) and winter (February), with connectivity extracted at fixed timepoints (7, 14, 21 and 28 days) to represent a range of dispersal capabilities. Follows James et&nbsp;al. (2025).</li>
-        </ul>
-
-        <h2>Connectivity and network analysis</h2>
-        <ul>
-            <li><strong>Connectivity matrix:</strong> the number of particles travelling from each source site to each sink site. Figures display log<sub>10</sub>(count&nbsp;+&nbsp;1) for clarity; the exported CSV holds raw counts.</li>
-            <li><strong>Network:</strong> sites are nodes in a directed, weighted graph (edge weight = particles exchanged). Optional distance thresholds filter out connections longer than a chosen scale.</li>
-            <li><strong>Site metrics:</strong> source and sink strength (weighted out-/in-degree, with the option to exclude a site's own self-recruitment so it does not inflate these), self-recruitment (self-connections), and degree, betweenness and closeness centrality (via NetworkX). Each metric is ranked (rank&nbsp;1&nbsp;=&nbsp;highest); composites are the mean of their member metrics' ranks (equal weight, scale-independent; lower&nbsp;=&nbsp;higher priority). ComCon reports three fixed composites , <em>functional</em> (source, sink, self-recruitment), <em>centrality</em> (betweenness, closeness, degree) and <em>overall</em> (all six) , and lets you build a <em>custom</em> composite from any subset of metrics so a study can prioritise the aspects of connectivity that matter to it.</li>
-            <li><strong>Communities:</strong> Louvain community detection on the undirected, weighted graph, by modularity maximisation, groups of sites that exchange more larvae with each other than with the rest of the network.</li>
-        </ul>
-        <h2>Spatial resolution and sites</h2>
-        <ul>
-            <li><strong>Resolution:</strong> connectivity is resolved at the hydrodynamic grid-cell scale. Two locations within the same cell cannot be distinguished by dispersal; choose a finer grid if you need to separate nearby sites.</li>
-            <li><strong>Site snapping:</strong> occurrence records are snapped to the nearest grid cell of your selected habitat type (coastal or ocean) using KD-tree nearest-neighbour search. Site names attach to grid cells: a named cell shows its name everywhere in the outputs, an unnamed cell shows its grid_id (<code>site_&lt;grid_id&gt;</code>), and you can name some, all, or none of your sites. If two named sites fall in the same cell, both names are reported together for that cell.</li>
-            <li><strong>Distances:</strong> inter-site distances and distance-threshold filtering use a spherical approximation of 1° ≈ 111 km.</li>
-        </ul>
-        <p>Every metric's exact definition and formula is also written into the <code>comcon_outputs.xlsx</code> file produced with each run (Metric Definitions sheet), so the calculations travel with your results.</p>
-    </section>
 
     <!-- References Section -->
     <section id="references">

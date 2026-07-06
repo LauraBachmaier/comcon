@@ -14,8 +14,8 @@ dependencies:
   # Python version (3.10 required for parcels compatibility)
   - python=3.10
   
-  # Core ocean modelling - this installs parcels with all its dependencies
-  # including the gcc compiler needed for just-in-time compilation
+  # Core ocean modelling
+  # This installs parcels with all its dependencies including the gcc compiler needed for just-in-time compilation
   - parcels>=3.0.0
   
   # Geospatial libraries
@@ -27,13 +27,14 @@ dependencies:
   - jupyterlab
   - notebook
   - ipywidgets>=7.6.0
-  
+
   # Data handling
   - pandas>=1.3.0
   - numpy>=1.21.0
   - xarray>=0.19.0
   - netCDF4>=1.5.0
   - scipy>=1.7.0
+  - openpyxl>=3.0.0
   
   # Visualisation
   - matplotlib>=3.4.0
