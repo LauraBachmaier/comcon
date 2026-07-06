@@ -140,20 +140,6 @@ def get_memory_config(available_gb, runtime_days=None, output_hours=None):
     else:
         return {'system_type': 'limited', 'chunk_size': 25000}
 
-## Get validation report
-def get_validated_input(prompt, valid_options, default=None):
-    """Get validated user input with error handling."""
-    while True:
-        if default:
-            user_input = input(f"{prompt} [default: {default}]: ").strip() or default
-        else:
-            user_input = input(f"{prompt}: ").strip()
-
-        if user_input.lower() in [str(v).lower() for v in valid_options]:
-            return user_input
-        else:
-            print(f"  Invalid input. Please enter one of: {', '.join(str(v) for v in valid_options)}")
-
 ## Error handling for inputs
 ## Analyses error handling function
 def get_yes_no(prompt, default='no'):

@@ -1675,57 +1675,6 @@ def select_species_from_database(traits_df):
             print("Invalid input. Using all species.")
             return traits_df
 
-## Allow users to set the dispersal year
-def apply_dispersal_year(traits_list, start_year):
-    """
-    Apply dispersal season year to trait dates.
-
-    Handles both DD/MM (text) and DD/MM/YYYY formats.
-    For DD/MM: adds the year
-    For DD/MM/YYYY: replaces the existing year
-
-    Parameters
-    ----------
-    traits_list : list of dict
-        Trait data with spawning dates
-    start_year : int
-        Year when dispersal season starts
-
-    Returns
-    -------
-    list of dict
-        Traits with updated dates
-    """
-    updated_traits = []
-
-    for t in traits_list:
-        new_t = t.copy()
-
-        start_parts = str(t['spawning_start']).split('/')
-        end_parts = str(t['spawning_end']).split('/')
-
-        # Extract day and month (works for both DD/MM and DD/MM/YYYY)
-        start_day = start_parts[0]
-        start_month = int(start_parts[1])
-        end_day = end_parts[0]
-        end_month = int(end_parts[1])
-
-        # Determine year for each date
-        start_year_use = start_year
-        if end_month < start_month:
-            # Spawning crosses year boundary (e.g., Oct-Mar)
-            end_year_use = start_year + 1
-        else:
-            end_year_use = start_year
-
-        # Create full dates
-        new_t['spawning_start'] = f"{start_day}/{start_month:02d}/{start_year_use}"
-        new_t['spawning_end'] = f"{end_day}/{end_month:02d}/{end_year_use}"
-
-        updated_traits.append(new_t)
-
-    return updated_traits
-
 ## Calculate the overall runtime
 def calculate_overall_dispersal_period(traits, buffer_before=0, buffer_after=0):
     """
