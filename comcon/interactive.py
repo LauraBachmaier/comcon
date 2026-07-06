@@ -821,17 +821,22 @@ def calculate_resolution(lat_extent, lon_extent):
     -------
     int
         Recommended grid resolution in kilometres.
-        Possible values: 9 (native), 15, 25 or 30.
+        Possible values: 9, 15, 25 or 30.
 
     Notes
     -----
     The resolution lookup table is based on domain area in square degrees:
-        <25 sq deg   -> 9 km (native NEMO global resolution)
+        <25 sq deg   -> 9 km
         25-100       -> 15 km
         100-400      -> 25 km
         >400         -> 30 km
 
     Boundary cases use strict less-than, e.g. a 25 sq deg domain gets 15 km.
+    These values are an analysis-grid recommendation chosen to keep the particle
+    count manageable, not the dataset's native resolution. The caller only bins
+    when this value is coarser than the native grid, so on a fine-resolution
+    dataset (e.g. the ~1.5 km NW European Shelf) a small domain that returns 9 km
+    is still binned down from native; select Native or Custom to keep finer cells.
     """
     area_sqdeg = float(lat_extent) * float(lon_extent)
 
@@ -8400,8 +8405,10 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
 
     Parameters
     ----------
-    traj: pandas.DataFrame
-        Raw particle trajectory data from process_sim_results() with columns:
+    chunks_dir_or_traj : str or pandas.DataFrame
+        Either a path to the directory of on-disk trajectory chunks (memory-efficient
+        mode) or an in-memory DataFrame of raw particle trajectories from
+        process_sim_results(). When a DataFrame, it has the columns:
         - 'trajectory' : int
             Particle ID
         - 'time' : datetime64
