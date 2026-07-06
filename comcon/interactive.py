@@ -9986,10 +9986,13 @@ def create_connectivity_matrix_plot(connectivity_matrix, title="Connectivity Mat
     ax.set_ylabel('Source Site', fontsize=14, labelpad=15)
     ax.set_title(title, fontsize=16, fontweight='bold', pad=15)
 
-    # Keep the default imshow orientation (first source at the top-left origin) so the
-    # self-recruitment diagonal runs top-left -> bottom-right, matching the combined
-    # matrix viewer. Do NOT invert the y-axis, or the two matrices would disagree.
-    ax.plot([0, n_sites - 1], [0, n_sites - 1], 'k--', alpha=0.7, linewidth=1.2)
+    # Match the live combined matrix viewer (create_matrix_with_map): invert the y-axis so the
+    # first source sits at the bottom-left origin and the self-recruitment diagonal runs
+    # bottom-left -> top-right. Skip the diagonal when there are fewer than two sites, where the
+    # endpoints would be degenerate.
+    ax.invert_yaxis()
+    if n_sites >= 2:
+        ax.plot([0, n_sites - 1], [0, n_sites - 1], 'k--', alpha=0.7, linewidth=1.2)
     plt.tight_layout()
 
     # Save if output path provided
@@ -10086,7 +10089,10 @@ def create_matrix_with_map(connectivity_matrix, site_metrics,
     ax_matrix.set_ylabel('Source Site', fontsize=13, labelpad=8)
     ax_matrix.set_title('Connectivity Matrix', fontsize=12, fontweight='bold', pad=10)
     ax_matrix.invert_yaxis()
-    ax_matrix.plot([0, n_sites - 1], [0, n_sites - 1], 'k--', alpha=0.3, linewidth=1)
+    # Only draw the self-recruitment diagonal when there are at least two sites; on an empty
+    # (fully filtered) matrix the endpoints collapse and matplotlib would draw a misleading line.
+    if n_sites >= 2:
+        ax_matrix.plot([0, n_sites - 1], [0, n_sites - 1], 'k--', alpha=0.3, linewidth=1)
 
     # Right: Reference map
     ax_map = fig.add_subplot(gs[1], projection=ccrs.PlateCarree())
