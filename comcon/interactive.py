@@ -4550,10 +4550,13 @@ def plot_masks(landmask, coastalmask, lonarray, latarray, geojson_file_path=None
         except Exception as e:
             print(f"Note: Could not display study extent outline: {e}")
 
-    # Calculate grid info
+    # Calculate grid info. Convert to km using the LATITUDE spacing, where 1 deg ~= 111 km
+    # everywhere. Using the longitude spacing needs a cos(latitude) factor; without it the value
+    # is inflated (e.g. 0.210 deg lon at 50N is ~15 km, not 0.210*111 = 23.3 km). The binning
+    # targets square cells in km, so the latitude-based value is the true cell size.
     grid_spacing_lon = np.abs(np.diff(lonarray[0, :]).mean())
     grid_spacing_lat = np.abs(np.diff(latarray[:, 0]).mean())
-    grid_spacing_km = grid_spacing_lon * 111
+    grid_spacing_km = grid_spacing_lat * 111
 
     # Title
     ax.set_title(title, fontsize=12, fontweight='bold', pad=10, family='Arial')
@@ -4575,7 +4578,7 @@ def plot_masks(landmask, coastalmask, lonarray, latarray, geojson_file_path=None
     box1_ax.axis('off')
     box1_text = 'Model Domain\n\n'
     box1_text += f'Resolution: {grid_spacing_km:.1f} km\n\n'
-    box1_text += f'({grid_spacing_lon:.3f}° × {grid_spacing_lat:.3f}°)'
+    box1_text += f'({grid_spacing_lat:.3f}° lat × {grid_spacing_lon:.3f}° lon)'
     box1_ax.text(0.5, 0.5, box1_text,
                  fontsize=12, family='Arial', va='center', ha='center',
                  transform=box1_ax.transAxes, linespacing=0.8,
