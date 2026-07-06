@@ -1,11 +1,10 @@
-# region Interactive Functions
+﻿# region Interactive Functions
 """
 ComCon Interactive Mode
 =======================
 
 This module provides the interactive workflow for the ComCon package.
-Users are guided through each step with prompts, explanations, and
-the ability to review/edit parameters before proceeding.
+Users are guided through each step with prompts, explanations and the ability to review/edit parameters before proceeding.
 
 Usage:
     import comcon
@@ -265,7 +264,7 @@ def status_message(message, status="info"):
     Output:
       → Processing data...
       ✓ Data loaded successfully
-      ⚠ Warning: Some records outside study area
+      ⚠ Warning: Some records outside study extent
       ✗ Error: File not found
     """
     symbols = {
@@ -681,11 +680,12 @@ def get_valid_dir(prompt, default=None):
     """
     browse_hint = " (or press Enter to browse)"
     if default:
-        typed = input(f"{prompt} [default: {default}]{browse_hint}: ").strip()
-        if typed:
-            return os.path.expanduser(typed)
+        typed = input(f"{prompt} [default: {default}] (press Enter for default, type b to browse): ").strip()
         if typed == '':
-            # Try browser first, fall back to default
+            # Enter accepts the default. No browser is opened.
+            return default
+        if typed.lower() in ('b', 'browse'):
+            # Only open the file browser when the user explicitly asks for it.
             try:
                 import tkinter as tk
                 from tkinter import filedialog
@@ -700,6 +700,7 @@ def get_valid_dir(prompt, default=None):
             except Exception:
                 pass
             return default
+        return os.path.expanduser(typed)
     else:
         typed = input(f"{prompt}{browse_hint}: ").strip()
         if typed:
@@ -741,33 +742,36 @@ def get_save_path(prompt, default=None, extensions=None):
     """
     browse_hint = " (or press Enter to browse)"
     if default:
-        typed = input(f"{prompt} [default: {default}]{browse_hint}: ").strip()
-        if typed:
-            return os.path.expanduser(typed)
-        # blank → browser
-        try:
-            import tkinter as tk
-            from tkinter import filedialog
-            _root = tk.Tk()
-            _root.withdraw()
-            _root.attributes('-topmost', True)
-            ft = [("All files", "*.*")]
-            if extensions:
-                ext_str = " ".join(f"*{e}" for e in extensions)
-                ft = [(f"Supported files ({ext_str})", ext_str)] + ft
-            defext = extensions[0].lstrip('.') if extensions else ''
-            chosen = filedialog.asksaveasfilename(
-                title=prompt,
-                defaultextension=defext,
-                filetypes=ft,
-            )
-            _root.destroy()
-            if chosen:
-                print(f"  Selected: {chosen}")
-                return chosen
-        except Exception:
-            pass
-        return default
+        typed = input(f"{prompt} [default: {default}] (press Enter for default, type b to browse): ").strip()
+        if typed == '':
+            # Enter accepts the default. No browser is opened.
+            return default
+        if typed.lower() in ('b', 'browse'):
+            # Only open the save dialog when the user explicitly asks for it.
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+                _root = tk.Tk()
+                _root.withdraw()
+                _root.attributes('-topmost', True)
+                ft = [("All files", "*.*")]
+                if extensions:
+                    ext_str = " ".join(f"*{e}" for e in extensions)
+                    ft = [(f"Supported files ({ext_str})", ext_str)] + ft
+                defext = extensions[0].lstrip('.') if extensions else ''
+                chosen = filedialog.asksaveasfilename(
+                    title=prompt,
+                    defaultextension=defext,
+                    filetypes=ft,
+                )
+                _root.destroy()
+                if chosen:
+                    print(f"  Selected: {chosen}")
+                    return chosen
+            except Exception:
+                pass
+            return default
+        return os.path.expanduser(typed)
     else:
         typed = input(f"{prompt}{browse_hint}: ").strip()
         if typed:
@@ -891,31 +895,35 @@ def bin_mask(native_landmask, native_lonarray, native_latarray, target_km):
     n_coarse_lat = len(coarse_lat_edges) - 1
     n_coarse_lon = len(coarse_lon_edges) - 1
 
-    native_lats_1d = native_latarray[:, 0]
-    native_lons_1d = native_lonarray[0, :]
-
     binned_landmask = np.ones((n_coarse_lat, n_coarse_lon), dtype=np.int32)
     binned_lat_centroids = np.zeros(n_coarse_lat)
     binned_lon_centroids = np.zeros(n_coarse_lon)
 
-    for i in range(n_coarse_lat):
-        lat_lo, lat_hi = coarse_lat_edges[i], coarse_lat_edges[i + 1]
-        row_mask = (native_lats_1d >= lat_lo) & (native_lats_1d < lat_hi)
-        binned_lat_centroids[i] = (lat_lo + lat_hi) / 2.0
+    # Assign each native cell to a coarse cell by its centroid (np.digitize), then majority-vote.
+    # Identical to passive.bin_mask, so every pathway shares one binning algorithm and no
+    # assumption is made about grid regularity.
+    native_lon_flat = native_lonarray.ravel()
+    native_lat_flat = native_latarray.ravel()
+    native_land_flat = native_landmask.ravel()
 
+    lat_bin_idx = np.digitize(native_lat_flat, coarse_lat_edges) - 1
+    lon_bin_idx = np.digitize(native_lon_flat, coarse_lon_edges) - 1
+    lat_bin_idx = np.clip(lat_bin_idx, 0, n_coarse_lat - 1)
+    lon_bin_idx = np.clip(lon_bin_idx, 0, n_coarse_lon - 1)
+
+    for i in range(n_coarse_lat):
+        binned_lat_centroids[i] = (coarse_lat_edges[i] + coarse_lat_edges[i + 1]) / 2.0
         for j in range(n_coarse_lon):
-            lon_lo, lon_hi = coarse_lon_edges[j], coarse_lon_edges[j + 1]
-            col_mask = (native_lons_1d >= lon_lo) & (native_lons_1d < lon_hi)
-            block = native_landmask[np.ix_(row_mask, col_mask)]
-            if block.size == 0:
-                binned_landmask[i, j] = 1
+            mask = (lat_bin_idx == i) & (lon_bin_idx == j)
+            native_cells_in_bin = native_land_flat[mask]
+            if len(native_cells_in_bin) == 0:
+                # Empty edge cell (no native coverage): mark ocean, NOT land, so it doesn't
+                # become phantom coast via dilation.
+                binned_landmask[i, j] = 0
             else:
-                frac_land = block.sum() / block.size
+                frac_land = np.mean(native_cells_in_bin)
                 binned_landmask[i, j] = 1 if frac_land >= 0.5 else 0
 
-        binned_lon_centroids[j] = (lon_lo + lon_hi) / 2.0
-
-    # Fix: compute ALL lon centroids (the loop above only sets the last j)
     for j in range(n_coarse_lon):
         binned_lon_centroids[j] = (coarse_lon_edges[j] + coarse_lon_edges[j + 1]) / 2.0
 
@@ -1116,7 +1124,7 @@ def get_copernicus_credentials():
         print("  (To change credentials, run: copernicusmarine login)")
         return None, None
     else:
-        print("\n  First-time setup: your credentials will be saved for future sessions.")
+        print("\n  First-time setup: Your credentials will be saved for future sessions.")
         print("  You won't need to enter them again.\n")
         try:
             cm.login()
@@ -1175,29 +1183,31 @@ def save_session(filepath=None):
             except Exception as e:
                 print(f"  Warning: Could not save '{var_name}': {e}")
 
-        # Save hydro_data: strip the unpicklable Copernicus/S3 backend by converting to a plain in-memory dataset.
-        # Cache the clean copy so subsequent saves are instant
-        # Once the simulation has produced trajectory chunks, the velocity fields are no longer needed
-        if 'chunks_dir' in globals() and globals().get('chunks_dir') and os.path.isdir(str(globals()['chunks_dir'])):
-            print("\n  Simulation already complete, so the hydrodynamic velocities are not needed to resume and won't be saved (this keeps the checkpoint fast).")
-        elif 'hydro_data' in globals() and globals()['hydro_data'] is not None:
-            try:
-                _hd = globals()['hydro_data']
-                if _hd.attrs.get('_comcon_cleaned'):
-                    # Already cleaned on a previous save , reuse directly
-                    session_data['hydro_data'] = _hd
-                else:
-                    print("  Preparing hydrodynamic data for session save. This may take a moment...")
-                    _needed_vars = [v for v in ['uo', 'vo'] if v in _hd.data_vars]
-                    _hd_clean = xr.Dataset(
-                        {var: (list(_hd[var].dims), _hd[var].values) for var in _needed_vars},
-                        coords={coord: _hd[coord].values for coord in _hd.coords}
-                    )
-                    _hd_clean.attrs['_comcon_cleaned'] = True
-                    globals()['hydro_data'] = _hd_clean
-                    session_data['hydro_data'] = _hd_clean
-            except Exception as e:
-                print(f"  Note: Could not save hydro_data ({e}). Step 1 will need to be re-run after restart.")
+    # Save hydro_data: strip the unpicklable Copernicus/S3 backend by converting to a plain in-memory dataset.
+    # Cache the clean copy so subsequent saves are instant.
+    # Once the simulation has produced trajectory chunks, the velocity fields are no longer needed.
+    if 'chunks_dir' in globals() and globals().get('chunks_dir') and os.path.isdir(
+            str(globals()['chunks_dir'])):
+        print(
+            "\n  Simulation already complete, so the hydrodynamic velocities are not needed to resume and won't be saved (this keeps the checkpoint fast).")
+    elif 'hydro_data' in globals() and globals()['hydro_data'] is not None:
+        try:
+            _hd = globals()['hydro_data']
+            if _hd.attrs.get('_comcon_cleaned'):
+                # Already cleaned on a previous save , reuse directly
+                session_data['hydro_data'] = _hd
+            else:
+                print("  Preparing hydrodynamic data for session save. This may take a moment...")
+                _needed_vars = [v for v in ['uo', 'vo'] if v in _hd.data_vars]
+                _hd_clean = xr.Dataset(
+                    {var: (list(_hd[var].dims), _hd[var].values) for var in _needed_vars},
+                    coords={coord: _hd[coord].values for coord in _hd.coords}
+                )
+                _hd_clean.attrs['_comcon_cleaned'] = True
+                globals()['hydro_data'] = _hd_clean
+                session_data['hydro_data'] = _hd_clean
+        except Exception as e:
+            print(f"  Note: Could not save hydro_data ({e}). Step 1 will need to be re-run after restart.")
 
     # Save large DataFrames as parquet files alongside the pickle
     parquet_dir = os.path.dirname(os.path.abspath(filepath))
@@ -1268,7 +1278,7 @@ def save_session(filepath=None):
     print(f"workflow_step({next_step})")
 
 ## Load a previously saved workflow session and restore all variables to the module namespace
-def load_session(filepath='comcon_session.pkl'):
+def load_session(filepath=None):
     """
     Load a previously saved workflow session.
 
@@ -1276,9 +1286,28 @@ def load_session(filepath='comcon_session.pkl'):
 
     Parameters
     ----------
-    filepath : str
-        Path to the saved session file (default: 'comcon_session.pkl')
+    filepath : str, optional
+        Path to the saved session file. If omitted, a file picker opens so you can select the .pkl file.
     """
+    if filepath is None:
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            _root = tk.Tk()
+            _root.withdraw()
+            _root.attributes('-topmost', True)
+            filepath = filedialog.askopenfilename(
+                title="Select a ComCon session file",
+                filetypes=[("ComCon session", "*.pkl"), ("All files", "*.*")]
+            )
+            _root.destroy()
+        except Exception:
+            filepath = input("Enter the path to a saved session (.pkl) file: ").strip()
+
+        if not filepath:
+            print("  No session file selected.")
+            return
+
     if not os.path.exists(filepath):
         print(f"  Error: Session file not found: {filepath}")
         return
@@ -1374,10 +1403,12 @@ def standardise_species_name(name):
 
 ## Cleaned species name for display
 def display_species_name(name):
-    """Format species name for display (replace underscores with spaces)."""
+    """Format species name for display: underscores to spaces and capitalise the first
+    letter (genus), leaving the rest untouched so a binomial reads 'Carcinus maenas'."""
     if name is None:
         return None
-    return str(name).replace('_', ' ')
+    s = str(name).replace('_', ' ')
+    return s[:1].upper() + s[1:] if s else s
 
 ## Exporting visualisations in user's chosen format
 def get_output_format():
@@ -1491,15 +1522,15 @@ def calculate_figure_dimensions(lon_range, lat_range, base_size=10,
     """
     Calculate optimal figure dimensions based on spatial extent.
 
-    Handles different study area shapes (tall/narrow vs wide/short)
+    Handles different study extent shapes (tall/narrow vs wide/short)
     and multi-panel layouts intelligently.
 
     Parameters
     ----------
     lon_range : float
-        Longitude range of study area (degrees).
+        Longitude range of study extent (degrees).
     lat_range : float
-        Latitude range of study area (degrees).
+        Latitude range of study extent (degrees).
     base_size : float
         Base figure dimension in inches (default 10).
     min_dim : float
@@ -1522,9 +1553,9 @@ def calculate_figure_dimensions(lon_range, lat_range, base_size=10,
 
     # Auto-select layout based on aspect ratio
     if layout == 'auto':
-        if aspect > 1.5:  # Wide study area
+        if aspect > 1.5:  # Wide study extent
             actual_layout = 'vertical'  # Stack maps vertically
-        elif aspect < 0.67:  # Tall study area
+        elif aspect < 0.67:  # Tall study extent
             actual_layout = 'horizontal'  # Place maps side by side
         else:
             actual_layout = 'vertical'  # Default to vertical
@@ -1748,10 +1779,16 @@ def calculate_overall_dispersal_period(traits, buffer_before=0, buffer_after=0):
         if overall_end is None or dispersal_end_date > overall_end:
             overall_end = dispersal_end_date
 
-    # Save base (biological) period
-    base_start = overall_start
-    base_end = overall_end
-    base_days = (base_end - base_start).days
+        # Save base (biological) period
+        base_start = overall_start
+        base_end = overall_end
+        base_days = (base_end - base_start).days
+
+        # Warn when the dispersal season crosses a calendar-year boundary.
+        if base_start.year != base_end.year:
+            print(f"\nNote: Your spawning windows span two calendar years ({base_start.year} to {base_end.year}).")
+            print(
+                f"The simulation runs from {base_start:%Y-%m-%d} to {base_end:%Y-%m-%d}, so make sure your hydrodynamic data covers that whole period.")
 
     # Apply buffer to create simulation period
     buffered_start = overall_start - timedelta(days=buffer_before)
@@ -1898,8 +1935,9 @@ def load_spp_traits():
             "    max_PLD:                   maximum pelagic larval duration in whole days",
             "",
             "  Species identifier:",
-            "    You must provide a species_name, aphia_id or both. If both are given, aphia_id is used."
+            "    You must provide a species_name, aphia_id or both. If both are given, aphia_id is used.",
             "    AphiaID is recommended for marine species because it tracks name changes and synonyms.",
+            "    If you provide only an aphia_id, ComCon looks up the species name online, so a stable internet connection is required.",
             "    Find AphiaIDs at https://www.marinespecies.org/",
             "",
             "  Notes:",
@@ -2264,7 +2302,7 @@ def collect_hydro_params():
         username = None
         password = None
     else:
-        print("\n  First-time setup: your credentials will be saved for future sessions.")
+        print("\n  First-time setup: Your credentials will be saved for future sessions.")
         print("  You won't need to enter them again.\n")
         try:
             cm.login()
@@ -2424,7 +2462,7 @@ def collect_hydro_params():
         file_ext = '.zarr' if export_format == 'zarr' else '.nc'
         global project_dirs
         if project_dirs is not None:
-            default_hydro_path = os.path.join(project_dirs['data'], f"hydro_data{file_ext}")
+            default_hydro_path = os.path.join(project_dirs['hydro_data'], f"hydro_data{file_ext}")
         else:
             default_hydro_path = f"./data/hydro_data{file_ext}"
 
@@ -2812,9 +2850,19 @@ def edit_hydro_params(hydro_params):
 
             # If buffer is enabled, allow user to update buffer values
             if new_value:  # Buffer is/will be enabled
-                # Only prompt for values if we're enabling for the first time OR user kept it enabled
+                # Only prompt for values if we're enabling for the first time or user kept it enabled
                 if not value:  # Enabling buffer for first time
                     print("\nEnabling temporal buffer for trait sensitivity analysis.")
+                    current_before = hydro_params.get('buffer_before', 14)
+                    current_after = hydro_params.get('buffer_after', 14)
+                    buffer_before = get_positive_integer(
+                        f"Days to add before earliest spawning (current value: {current_before})",
+                        min_val=0
+                    )
+                    buffer_after = get_positive_integer(
+                        f"Days to add after latest dispersal end (current value: {current_after})",
+                        min_val=0
+                    )
                 else:  # Buffer was already enabled, user chose to keep it
                     print("\nBuffer is already enabled. Do you want to edit the buffer values?")
                     update = get_yes_no("Edit buffer values?", default='no')
@@ -3151,7 +3199,7 @@ def params():
             "",
             "This keeps your work organised and prevents files being overwritten between different analyses.",
         ])
-        project_dirs = setup_project_directory()
+        project_dirs = setup_project_directory(mode_tag='int')
 
     params_file = os.path.join(project_dirs['config'], "hydrodynamic_parameters.json")
 
@@ -3249,13 +3297,11 @@ def params():
                 traits = hydro_params.get("traits", None)
                 runtime = hydro_params.get("runtime", None)
 
-            # Remove the traits, species traits path, runtime, and buffer values before returning hydro_params
+            # Remove the traits, species traits path, and runtime before returning hydro_params.
+            # Keep buffer_before/buffer_after/add_buffer: they are read later to detect whether the Type 3 trait sensitivity analysis is available
             hydro_params.pop("traits", None)
             hydro_params.pop("species_traits_path", None)
             hydro_params.pop("runtime", None)
-            hydro_params.pop("buffer_before", None)
-            hydro_params.pop("buffer_after", None)
-            hydro_params.pop("add_buffer", None)
 
             return hydro_params, species_traits_path, runtime, traits
 
@@ -3313,8 +3359,8 @@ def params():
     hydro_params.pop("traits", None)
     hydro_params.pop("species_traits_path", None)
     hydro_params.pop("runtime", None)
-    hydro_params.pop("buffer_before", None)
-    hydro_params.pop("buffer_after", None)
+    # Keep buffer_before/buffer_after in hydro_params so post_analysis can detect that a temporal buffer was used
+    # Without these, Type 3 trait sensitivity is always skipped even when a buffer was added
     hydro_params.pop("add_buffer", None)
 
     return hydro_params, species_traits_path, runtime, traits
@@ -3610,7 +3656,7 @@ def load_hydrodynamic_data(file_path):
 
 # region Project Directory Setup
 ## Create or reuse a project folder with standard subfolders for organising outputs
-def setup_project_directory(project_name=None, custom_path=None, subfolders=None):
+def setup_project_directory(project_name=None, custom_path=None, subfolders=None, mode_tag=None):
     """
     Create or use a project directory for organising all ComCon outputs.
 
@@ -3636,7 +3682,7 @@ def setup_project_directory(project_name=None, custom_path=None, subfolders=None
     """
     # Default (Path B) subfolder set. Path A passes a reduced list via subfolders=.
     if subfolders is None:
-        subfolder_names = ['config', 'hydro_data', 'occurrence_data', 'grids', 'simulation', 'figures', 'results']
+        subfolder_names = ['config', 'hydro_data', 'occurrence_data', 'grids', 'simulation', 'figures', 'animation', 'results']
     else:
         subfolder_names = list(subfolders)
 
@@ -3657,6 +3703,9 @@ def setup_project_directory(project_name=None, custom_path=None, subfolders=None
         print("  3. Continue an existing ComCon project\n")
 
         choice = input("Select option (1/2/3) [default: 1]: ").strip() or '1'
+    else:
+        # A path was supplied programmatically (e.g. Manual Mode): treat it as a custom directory
+        choice = '2'
 
     if choice == '3':
         # Browse for existing ComCon project folder
@@ -3754,7 +3803,8 @@ def setup_project_directory(project_name=None, custom_path=None, subfolders=None
 
     # Standard project setup (choice == '1' or fallback)
     if project_name is None:
-        default_name = f"ComCon_{datetime.now().strftime('%Y%m%d_%H%M')}"
+        _tag = f"{mode_tag}_" if mode_tag else ""
+        default_name = f"ComCon_{_tag}{datetime.now().strftime('%Y%m%d_%H%M')}"
         project_name = input(
             f"\nEnter a name for this project/simulation [default: {default_name}]: "
         ).strip() or default_name
@@ -3794,7 +3844,7 @@ def edit_spp_params(spp_params):
     Interactively edits species occurrence data collection parameters.
 
     Allows modification of parameters controlling species distribution data download
-    from GBIF, including study area definition, data cleaning options and output
+    from GBIF, including study extent definition, data cleaning options and output
     file settings.
 
     Parameters
@@ -3937,7 +3987,7 @@ def create_map():
     Creates an interactive map for defining the study extent polygon.
 
     Launches an interactive map in Jupyter allowing users to draw
-    a polygon defining their study area. The polygon is captured directly
+    a polygon defining their study extent. The polygon is captured directly
     and saved as a GeoJSON file automatically.
 
     Returns
@@ -3951,12 +4001,10 @@ def create_map():
     - Falls back to folium if ipyleaflet is not installed (requires manual export)
     - Must be run in a Jupyter environment
     """
-    # Determine save location
-    global project_dirs
-    if project_dirs is not None:
-        save_dir = project_dirs.get('config', '.')
-    else:
-        save_dir = '.'
+    # Determine save location. Use globals().get so this never raises NameError when called from
+    # automatic mode (where interactive's module-level project_dirs may never have been assigned).
+    _pd = globals().get('project_dirs')
+    save_dir = _pd.get('config', '.') if _pd else '.'
     os.makedirs(save_dir, exist_ok=True)
     save_path = os.path.join(save_dir, "study_area.geojson")
 
@@ -4003,7 +4051,7 @@ def create_map():
 
         # Confirm button
         confirm_button = widgets.Button(
-            description="Confirm Study Area",
+            description="Confirm study extent",
             button_style='success',
             icon='check',
             layout=widgets.Layout(width='200px', height='40px')
@@ -4031,7 +4079,7 @@ def create_map():
                 }
                 with open(save_path, 'w') as f:
                     json.dump(geojson_data, f, indent=2)
-                print(f"  Study area saved to: {save_path}")
+                print(f"  study extent saved to: {save_path}")
                 confirmed[0] = True
 
         confirm_button.on_click(on_confirm)
@@ -4182,7 +4230,7 @@ def get_aphia(aphia_id):
 ### Get Species Occurrences
 def get_spp_occ(species_name, aphia_id, geometry, limit=300):
     """
-    Downloads species occurrence records from GBIF within defined study area.
+    Downloads species occurrence records from GBIF within defined study extent.
 
     Queries the Global Biodiversity Information Facility (GBIF) database for
     occurrence records of a specified species within a defined geographic area.
@@ -4199,7 +4247,7 @@ def get_spp_occ(species_name, aphia_id, geometry, limit=300):
         handles taxonomic updates and synonyms automatically.
         Provide either species_name OR aphia_id (not both)
     geometry : dict
-        GeoJSON polygon geometry defining the study area bounds. Must contain
+        GeoJSON polygon geometry defining the study extent bounds. Must contain
         'type' and 'coordinates' keys in standard GeoJSON format
     limit : int, optional
         Maximum number of records to retrieve per GBIF API call (default: 300).
@@ -4233,7 +4281,7 @@ def get_spp_occ(species_name, aphia_id, geometry, limit=300):
         - May miss records if name has changed or has synonyms
     - Free GBIF and WoRMS access requires no authentication
     - Large queries may take several minutes
-    - Records are automatically filtered to study area during download
+    - Records are automatically filtered to study extent during download
     - Returns only georeferenced records (records with valid coordinates)
     - Pagination continues until all records are retrieved
 
@@ -4292,24 +4340,24 @@ def get_spp_occ(species_name, aphia_id, geometry, limit=300):
                 print(f"    GBIF request failed after {max_retries + 1} attempts: {e}")
                 print(f"    Possible causes:")
                 print(f"      - GBIF server may be temporarily unavailable")
-                print(f"      - Study area polygon may have an issue")
+                print(f"      - study extent polygon may have an issue")
                 print(f"      - Network/firewall may be blocking the request")
-                print(f"    Try: redraw your study extent polygon or try again later.")
+                print(f"    Try: Redraw your study extent polygon or try again later.")
 
     return all_records
 
-### Download all species records from within the study area
+### Download all species records from within the study extent
 def get_all_spp_occ(geometry, limit=300):
     """
-    Downloads occurrence records for all species within the study area.
+    Downloads occurrence records for all species within the study extent.
 
     Useful for exploratory analysis to discover what species exist in your
-    study area before selecting focal species for connectivity modelling.
+    study extent before selecting focal species for connectivity modelling.
 
     Parameters
     ----------
     geometry : dict
-        GeoJSON polygon geometry defining the study area bounds. Must contain
+        GeoJSON polygon geometry defining the study extent bounds. Must contain
         'type' and 'coordinates' keys in standard GeoJSON format
     limit : int, optional
         Maximum number of records to retrieve per GBIF API call (default: 300).
@@ -4400,7 +4448,7 @@ def plot_masks(landmask, coastalmask, lonarray, latarray, geojson_file_path=None
     latarray : np.ndarray
         2D meshgrid of latitudes
     geojson_file_path : str, optional
-        Path to study area GeoJSON file. If provided, study area outline will be displayed.
+        Path to study extent GeoJSON file. If provided, study extent outline will be displayed.
     show_coastal : bool, default True
         If False, the coastal layer and its legend/info entries are omitted.
         Used by Path A which has no coastal classification.
@@ -4418,7 +4466,7 @@ def plot_masks(landmask, coastalmask, lonarray, latarray, geojson_file_path=None
     Notes
     -----
     - Shows full hydrodynamic domain extent
-    - Displays study area outline if provided
+    - Displays study extent outline if provided
     - Provides quick validation before time-consuming species download
     """
 
@@ -4490,7 +4538,7 @@ def plot_masks(landmask, coastalmask, lonarray, latarray, geojson_file_path=None
                edgecolors='black', linewidths=0.2,
                transform=ccrs.PlateCarree(), zorder=2)
 
-    # Add study area outline
+    # Add study extent outline
     if geojson_file_path:
         try:
             _, shapely_polygon = read_geojson(geojson_file_path)
@@ -4580,7 +4628,7 @@ def plot_masks(landmask, coastalmask, lonarray, latarray, geojson_file_path=None
     save_map = input("\nSave domain map? (yes/no) [default: no]: ").strip().lower() or 'no'
 
     if save_map in ['yes', 'y']:
-        default_dir = get_default_dir('figures')
+        default_dir = get_default_dir('grids')
         save_dir = get_valid_dir("Output directory", default=default_dir)
         filename = input("Enter the filename [default: dispersal_domain]: ").strip() or 'dispersal_domain'
         file_format = input("Select the format (tif/png/pdf/svg) [default: tif]: ").strip().lower() or 'tif'
@@ -4622,8 +4670,8 @@ def make_coastalmask(landmask):
 
     Notes
     -----
-    - Uses scipy.ndimage.binary_dilation with default structure
-    - Considers 4-connectivity (N, S, E, W) for adjacency
+    - Uses scipy.ndimage.binary_dilation with a 3x3 structure
+    - Considers 8-connectivity (N, S, E, W and the four diagonals) for adjacency
     - Coastal mask excludes land cells themselves
 
     Algorithm
@@ -4677,7 +4725,7 @@ def create_masks(hydro_data, geojson_file_path=None, show_map=True):
     -----
     - Land cells are identified by NaN values in velocity fields
     - Coastal cells are ocean cells with at least one adjacent land cell
-    - Adjacency is defined using 4-connectivity (N, S, E, W neighbours)
+    - Adjacency is defined using 8-connectivity (N, S, E, W and diagonal neighbours)
     - Edge cells of the domain are not considered coastal
     - Arrays are 2D with dimensions (latitude, longitude)
 
@@ -4732,7 +4780,7 @@ def create_masks(hydro_data, geojson_file_path=None, show_map=True):
     # Create 2D meshgrid from latitudes and longitudes
     lonarray, latarray = np.meshgrid(longitudes, latitudes)
 
-    # Visualise masks for immediate validation (Path B default; Path A suppresses and shows its own native+binned view)
+    # Visualise masks for immediate validation (Path B default, Path A suppresses and shows its own native+binned view)
     if show_map:
         if geojson_file_path:
             subsection_header("Visualising the Study Extent")
@@ -5100,8 +5148,10 @@ def plot_spp_occ(distributions, clean_spp, geojson_file_path, habitat_type, lona
     """
     ## Format a species name for use as a matplotlib label (italicised LaTeX string)
     def format_species_name(name, italic=True):
-        """Return the species name with underscores replaced by spaces, optionally formatted as an italic LaTeX string."""
+        """Return the species name with underscores replaced by spaces and the first letter
+        (genus) capitalised, optionally formatted as an italic LaTeX string."""
         formatted = str(name).replace('_', ' ')
+        formatted = formatted[:1].upper() + formatted[1:] if formatted else formatted
         if not italic:
             return formatted
         parts = formatted.split(' ', 1)
@@ -5122,7 +5172,7 @@ def plot_spp_occ(distributions, clean_spp, geojson_file_path, habitat_type, lona
 
     _, shapely_polygon = read_geojson(geojson_file_path)
 
-    # Use study area bounds with buffer
+    # Use study extent bounds with buffer
     if shapely_polygon:
         bounds = shapely_polygon.bounds
         lon_range_study = bounds[2] - bounds[0]
@@ -5164,12 +5214,12 @@ def plot_spp_occ(distributions, clean_spp, geojson_file_path, habitat_type, lona
                        label=format_species_name(species, italic=italicise))
             )
     legend_elements.append(
-        Line2D([0], [0], color=COLORS['border'], linewidth=2.5, label='Study Area')
+        Line2D([0], [0], color=COLORS['border'], linewidth=2.5, label='study extent')
     )
 
     # Legend layout
     if n_species_before <= 3:
-        legend_ncol = n_species_before + 1  # +1 for Study Area
+        legend_ncol = n_species_before + 1  # +1 for study extent
     elif n_species_before <= 8:
         legend_ncol = 3
     else:
@@ -5198,7 +5248,7 @@ def plot_spp_occ(distributions, clean_spp, geojson_file_path, habitat_type, lona
                                edgecolors='black', linewidths=0.5,
                                transform=ccrs.PlateCarree(), zorder=3)
 
-        # Study area polygon
+        # study extent polygon
         if shapely_polygon:
             x, y = shapely_polygon.exterior.xy
             ax.plot(x, y, color=COLORS['border'], linewidth=2.5,
@@ -5220,10 +5270,20 @@ def plot_spp_occ(distributions, clean_spp, geojson_file_path, habitat_type, lona
 
         ax.set_title(title_text, fontsize=14, fontweight='bold', pad=8)
 
-        # Legend row
+        # Legend row , reflect the groups actually present in THIS panel's data
+        # (so the "before" map legends its own groups, not just the post-filter ones).
+        _present = set(data[group_col].unique()) if len(data) > 0 else set()
+        _panel_legend = [
+            Line2D([0], [0], marker='o', color='w', markerfacecolor=species_colors[i],
+                   markersize=7, markeredgecolor='black', markeredgewidth=0.5,
+                   label=format_species_name(sp, italic=italicise))
+            for i, sp in enumerate(species_list) if sp in _present
+        ]
+        _panel_legend.append(
+            Line2D([0], [0], color=COLORS['border'], linewidth=2.5, label='study extent'))
         legend_ax = fig.add_subplot(gs[1])
         legend_ax.axis('off')
-        legend_ax.legend(handles=legend_elements, loc='upper center',
+        legend_ax.legend(handles=_panel_legend, loc='upper center',
                          ncol=legend_ncol,
                          fontsize=12, frameon=True,
                          edgecolor='#CCCCCC', framealpha=1.0,
@@ -5232,23 +5292,36 @@ def plot_spp_occ(distributions, clean_spp, geojson_file_path, habitat_type, lona
         plt.subplots_adjust(top=0.94, bottom=0.04, hspace=0.05)
         return fig
 
-    # Create two separate figures
-    fig1 = _make_panel(
-        distributions,
-        f'Species Occurrence Data: {filter_label} Filtering (Before)',
-        f'Before: {n_species_before} {group_label}, {len(distributions):,} records'
-    )
+    # For 'none' filtering, distributions == clean_spp, so a before/after comparison would be
+    # identical: show a single occurrence map instead. For coastal/ocean, show before + after.
+    # (Site names are used automatically in place of species when a 'site_name' column is present.)
+    single = (habitat_type == 'none')
+
+    if single:
+        fig1 = _make_panel(
+            distributions,
+            'Species Occurrence Data',
+            f'{n_species_before} {group_label}, {len(distributions):,} records'
+        )
+    else:
+        fig1 = _make_panel(
+            distributions,
+            f'Species Occurrence Data: {filter_label} Filtering (Before)',
+            f'Before: {n_species_before} {group_label}, {len(distributions):,} records'
+        )
     plt.show()
 
-    fig2 = _make_panel(
-        clean_spp,
-        f'Species Occurrence Data: {filter_label} Filtering (After)',
-        f'After: {n_species_after} {group_label}, {len(clean_spp):,} records'
-    )
+    fig2 = None
+    if not single:
+        fig2 = _make_panel(
+            clean_spp,
+            f'Species Occurrence Data: {filter_label} Filtering (After)',
+            f'After: {n_species_after} {group_label}, {len(clean_spp):,} records'
+        )
+        plt.show()
 
-    plt.show()
-
-    save_map = input("\nSave species maps? (yes/no) [default: no]: ").strip().lower() or 'no'
+    prompt = "Save the occurrence map?" if single else "Save species maps?"
+    save_map = input(f"\n{prompt} (yes/no) [default: no]: ").strip().lower() or 'no'
     if save_map in ['yes', 'y']:
         default_dir = get_default_dir('figures')
         save_dir = get_valid_dir("Output directory", default=default_dir)
@@ -5257,23 +5330,26 @@ def plot_spp_occ(distributions, clean_spp, geojson_file_path, habitat_type, lona
             file_format = 'tif'
         os.makedirs(save_dir, exist_ok=True)
 
-        for fig_obj, suffix in [(fig1, 'before'), (fig2, 'after')]:
-            filename = f'species_filtering_{suffix}.{file_format}'
+        _to_save = [(fig1, 'occurrence')] if single else [(fig1, 'before'), (fig2, 'after')]
+        for fig_obj, suffix in _to_save:
+            filename = (f'species_{suffix}.{file_format}' if single
+                        else f'species_filtering_{suffix}.{file_format}')
             save_path = os.path.join(save_dir, filename)
             fig_obj.savefig(save_path, dpi=300, bbox_inches='tight', facecolor='white')
             print(f"  Saved to: {save_path}")
 
     plt.close(fig1)
-    plt.close(fig2)
+    if fig2 is not None:
+        plt.close(fig2)
     return fig1, fig2
 
-### Add validation for uploaded data against selected study area
+### Add validation for uploaded data against selected study extent
 def validate_uploaded_data(distributions, shapely_polygon):
     """
     Validate uploaded species data falls within study extent polygon.
 
     When users upload their own species occurrence data, this function ensures
-    the data falls within the defined study area. Points outside the study area
+    the data falls within the defined study extent. Points outside the study extent
     cannot be used for release site definition and will lead to incorrect mapping.
 
     The study extent polygon defines where particles will be released and where
@@ -5285,7 +5361,7 @@ def validate_uploaded_data(distributions, shapely_polygon):
     distributions : pd.DataFrame
         Species occurrence data with 'latitude' and 'longitude' columns
     shapely_polygon : shapely.geometry.Polygon
-        Study area boundary polygon
+        study extent boundary polygon
 
     Returns:
     --------
@@ -5295,7 +5371,7 @@ def validate_uploaded_data(distributions, shapely_polygon):
     Raises:
     -------
     ValueError
-        If user chooses to abort when data is outside study area
+        If user chooses to abort when data is outside study extent
     """
     # Check each point
     within_bounds = []
@@ -5358,7 +5434,7 @@ def validate_uploaded_data(distributions, shapely_polygon):
 ## region Complete Species Occurrence Data Download (wrapper function)
 def spp_occ(hydro_data, species_traits_path):
     """
-        Complete workflow for species occurrence data acquisition and processing.
+        Complete workflow for species occurrence data setup and processing.
         A wrapper function.
 
         Manages the entire process of obtaining, cleaning and validating species
@@ -5404,10 +5480,10 @@ def spp_occ(hydro_data, species_traits_path):
         Notes
         -----
         - Parameters are saved to 'spp_occ_params.json' for future sessions
-        - Study area polygon can be reused or redrawn
+        - study extent polygon can be reused or redrawn
         - Habitat filtering can remove inland and open ocean records
         - Both pre-comparison and post-comparison maps can be generated
-        - Data validation checks ensure uploaded data matches study area
+        - Data validation checks ensure uploaded data matches study extent
 
         Workflow Steps
         --------------
@@ -5417,7 +5493,7 @@ def spp_occ(hydro_data, species_traits_path):
         4. Download from GBIF or load uploaded file
         5. Generate land and coastal masks
         6. Apply habitat filtering
-        7. Validate data within study area
+        7. Validate data within study extent
         8. Generate comparison maps (optional)
         9. Save cleaned data to CSV (optional)
         10. Create final distribution map
@@ -5493,7 +5569,7 @@ def spp_occ(hydro_data, species_traits_path):
             "  - Determines where particles can be released from and can settle to",
             "  - Network analysis results will focus on sites within this extent",
             "  - Should fit within the hydrodynamic domain with some margin",
-            "  - Example: if your hydro domain covers the Mediterranean, your study extent might focus on the Adriatic Sea",
+            "  - Example: If your hydro domain covers the Mediterranean, your study extent might focus on the Adriatic Sea",
         ])
 
         geojson_file_path = create_map()  # Trigger map creation if needed
@@ -5663,7 +5739,7 @@ def spp_occ(hydro_data, species_traits_path):
 
         else:
 
-            # Mode 2: Download all species in study area (exploratory)
+            # Mode 2: Download all species in study extent (exploratory)
             print(f"\nDownloading species occurrence data from GBIF for all species in your study extent.")
             print("Warning: This may download many species and take significant time.")
 
@@ -5699,14 +5775,15 @@ def spp_occ(hydro_data, species_traits_path):
                 print("These species will be included in occurrence data but cannot be used in connectivity modelling without trait information.")
 
     else:  # user data
-        print("\nUpload your species occurrence data in the required format: CSV with columns 'species', 'latitude', 'longitude")
-
         # Check if file path already saved in parameters
         if 'user_data_file_path' in spp_params and spp_params['user_data_file_path']:
             file_path = spp_params['user_data_file_path']
             print(f"\nUsing saved file path: {file_path}")
         else:
+            print(
+                "\nUpload your species occurrence data in the required format: CSV with columns 'species', 'latitude', 'longitude'.")
             file_path = get_valid_path("Enter the input path and file name", must_exist=True, extensions=['.csv'])
+
             # Ensure .csv extension
             if not file_path.endswith(".csv"):
                 file_path += ".csv"
@@ -5813,35 +5890,23 @@ def spp_occ(hydro_data, species_traits_path):
 
         # For user-uploaded data: resolve AphiaIDs to match species names in uploaded data
         if data_source == 'user':
-            subsection_header("Species Name Matching")
-            print("Matching uploaded species names with trait database...")
+            print("\nMatching uploaded species names with trait database...")
             for i, row in traits_df.iterrows():
                 aphia_id = int(row['aphia_id']) if pd.notna(row['aphia_id']) else None
                 species_name = row['species_name'] if pd.notna(row['species_name']) else None
 
-                # If only AphiaID provided, resolve it
+                # If only an AphiaID is provided (no species name), resolve it to a name.
+                # (Single pass: species names supplied directly need no lookup and this is instant.)
                 if aphia_id and (species_name is None or pd.isna(species_name) or
                                  str(species_name).strip() == ''):
                     try:
-                        for i, row in traits_df.iterrows():
-                            aphia_id = int(row['aphia_id']) if pd.notna(row['aphia_id']) else None
-                            species_name = row['species_name'] if pd.notna(row['species_name']) else None
-
-                            if aphia_id and (species_name is None or pd.isna(species_name) or
-                                             str(species_name).strip() == ''):
-                                try:
-                                    resolved_name = get_aphia(aphia_id)
-                                    resolved_name_formatted = resolved_name.replace(' ', '_')
-                                    traits_df.at[i, 'species_name'] = resolved_name_formatted
-                                    print(f"  AphiaID {aphia_id} → {resolved_name_formatted}")
-
-                                    for trait_dict in traits:
-                                        if trait_dict.get('aphia_id') == aphia_id and trait_dict.get(
-                                                'species_name') is None:
-                                            trait_dict['species_name'] = resolved_name_formatted
-
-                                except Exception as e:
-                                    print(f"  Warning: Could not resolve AphiaID {aphia_id}: {e}")
+                        resolved_name = get_aphia(aphia_id)
+                        resolved_name_formatted = resolved_name.replace(' ', '_')
+                        traits_df.at[i, 'species_name'] = resolved_name_formatted
+                        print(f"  AphiaID {aphia_id} → {resolved_name_formatted}")
+                        for trait_dict in traits:
+                            if trait_dict.get('aphia_id') == aphia_id and trait_dict.get('species_name') is None:
+                                trait_dict['species_name'] = resolved_name_formatted
                     except Exception as e:
                         print(f"  Warning: Could not resolve AphiaID {aphia_id}: {e}")
             display_line("─")
@@ -5918,7 +5983,7 @@ def spp_occ(hydro_data, species_traits_path):
             print(f"{len(unmatched)} species in your occurrence data have no matching entry in your traits file:")
             for name in unmatched:
                 print(f"   - {display_species_name(name)}")
-            print("\nThese species can still be released, but Step 5 only post-processes species that have traits, so they will not be included in the final results.")
+            print("\nStep 5 only post-processes species that have traits, so they will not be included in the final results.")
             print("Names are matched after standardising spaces to underscores, so if a species is unexpectedly missing check the spelling across both the traits and occurrence data files.")
             if get_yes_no("\nDo you want to drop these species from the occurrence data before building the release grids?",
                           default='yes'):
@@ -5931,16 +5996,15 @@ def spp_occ(hydro_data, species_traits_path):
 
     # Validate species occurrences
     if spp_params.get('data_source') == 'gbif':
-        # Dynamic threshold based on grid resolution
-        n_grid_cells = len(grid_df_for_mapping) if 'grid_df_for_mapping' in dir() else 0
-        min_threshold = max(1, int(0.05 * n_grid_cells))
+        # Fixed low-sample threshold: flag species with fewer than 10 GBIF records (all species
+        # are still kept). This replaces an earlier grid-relative threshold that could not read the
+        # grid cell count at this point in the workflow, so it always collapsed to 1.
+        min_threshold = 10
         info_box([
             "Validating GBIF occurrence data for adequate sample sizes.",
             "",
             f"Species with fewer than {min_threshold} GBIF records may not adequately represent the species' true distribution.",
-            "When occurrence data is sparse, grid-mapping may assign the species to very few cells, potentially missing important habitat areas where the species actually occurs..",
-            f"",
-            f"Threshold: {min_threshold} records (5% of {n_grid_cells:,} grid cells).",
+            "When occurrence data is sparse, grid-mapping may assign the species to very few cells, potentially missing important habitat areas where the species actually occurs.",
             "",
             "All species will still be included regardless of sample size. It is an informational check only.",
         ])
@@ -5957,7 +6021,7 @@ def spp_occ(hydro_data, species_traits_path):
             n_sites = clean_spp['site_name'].nunique()
             print(f"\n  Site names detected: {n_sites} unique sites.")
             print()
-            print("  You are now running a site-based analysis: your sites become the labelled units and every figure and output table is reported by site name rather than by grid cell.")
+            print("  You are now running a site-based analysis: Your sites become the labelled units and every figure and output table is reported by site name rather than by grid cell.")
             print()
             print("  See 'Site-Based Analyses' in the User Guide for what this means and how to pick a suitable grid resolution.")
             spp_params['has_site_names'] = True
@@ -6011,12 +6075,9 @@ def spp_occ(hydro_data, species_traits_path):
     with open(params_file, 'w') as file:
         json.dump(spp_params, file, indent=4)
 
-    # Step 9: Create a before/after map of the filtered data.
-    # Skip when no filtering was applied (Option 3): the two panels would be identical.
-    if habitat_type != 'none':
-        plot_spp_occ(distributions, clean_spp, geojson_file_path, habitat_type, lonarray, latarray)
-    else:
-        print("\nNo habitat filtering was applied, so the before/after occurrence map is skipped.")
+    # Step 9: Create an occurrence map. For coastal/ocean filtering this is a before/after
+    # comparison; for 'none' a single occurrence map is shown (users may still want to see their data).
+    plot_spp_occ(distributions, clean_spp, geojson_file_path, habitat_type, lonarray, latarray)
 
     return clean_spp, spp_params, landmask, coastalmask, lonarray, latarray
 # endregion
@@ -6231,7 +6292,7 @@ def filter_by_polygon(grid, shapely_polygon):
     Filter grid cells to include only those within a geographic polygon.
 
     Applies spatial filtering to retain only grid cells that fall within the
-    specified polygon boundary. Useful for defining specific study areas or
+    specified polygon boundary. Useful for defining specific study extents or
     excluding regions from connectivity analyses.
 
     Parameters
@@ -6244,7 +6305,7 @@ def filter_by_polygon(grid, shapely_polygon):
             Cell latitude
         - Additional columns preserved in output
     shapely_polygon : shapely.geometry.Polygon
-        Polygon defining the study area boundary. Vertices should be in
+        Polygon defining the study extent boundary. Vertices should be in
         longitude-latitude coordinates (degrees)
 
     Returns
@@ -6277,7 +6338,7 @@ def save_grids(release_grids=None, settlement_grids=None, full_grid=None, grid_d
     Save grid dataframes to CSV files for reproducibility and inspection.
 
     Two prompts:
-    1. Export domain grids (full hydro domain + study area subset)
+    1. Export domain grids (full hydro domain + study extent subset)
     2. Export per-species release/settlement grids
     """
     global project_dirs
@@ -6288,7 +6349,7 @@ def save_grids(release_grids=None, settlement_grids=None, full_grid=None, grid_d
     else:
         default_dir = '.'
 
-    # Prompt 1: Domain and study area grids
+    # Prompt 1: Domain and study extent grids
     if grid_df_for_mapping is not None or full_grid_df is not None:
         print("\n  Two grid files are available for export:")
         if full_grid_df is not None:
@@ -6358,7 +6419,7 @@ def save_grids(release_grids=None, settlement_grids=None, full_grid=None, grid_d
 # endregion
 
 ## region Setup Particle Release and Settlement Strategy (wrapper function)
-def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonarray, latarray):
+def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonarray, latarray, traits=None):
     """
     Configure species-specific release and settlement grids for connectivity modelling.
 
@@ -6403,7 +6464,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
     coastal_grid_df : pandas.DataFrame
         Filtered grid within study extent polygon
     study_polygon : shapely.geometry.Polygon
-        Study area boundary polygon
+        study extent boundary polygon
 
     Workflow
     --------
@@ -6491,7 +6552,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
         for gid, names in name_acc.items():
             if len(names) > 1:
                 joined = "' and '".join(names)
-                print(f"   \nNote: sites '{joined}' fall in the same grid cell. Your outputs will report their results together.")
+                print(f"   \nNote: Sites '{joined}' fall in the same grid cell. Your outputs will report their results together.")
 
     # Step 4: Ask user to choose particle release strategy
     subsection_header("Propagule Release Strategy")
@@ -6499,6 +6560,9 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
     # Build release options
     data_source_text = "GBIF" if spp_params.get('data_source') == 'gbif' else "your uploaded data"
     release_lines = [
+        "Release and settlement sites are chosen independently in the next two steps.",
+        "Use Step 2 to choose your general study area and occurrence data for release with the option to use different occurrence data for settlement."
+        "",
         "Choose where particles are released from.",
         "",
         "Option 1: Everywhere in your study extent",
@@ -6530,6 +6594,18 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
 
     info_box(release_lines)
 
+    # Species to model for the release/settlement grids. Strategies that do NOT use per-species
+    # occurrence (all sites, pooled) key by the full set of TRAIT species, so every modelled species
+    # is released/settled even if it has no occurrence records - matching automatic mode. The
+    # species-specific strategy keys by occurrence species via map_spp_to_grid (unchanged). Falls
+    # back to occurrence species when traits are not provided (e.g. a manual call without traits).
+    if traits:
+        modelled_species = [standardise_species_name(t['species_name']) for t in traits]
+    elif len(clean_spp) > 0:
+        modelled_species = list(clean_spp['species'].unique())
+    else:
+        modelled_species = ['all_species']
+
     if len(clean_spp) > 0:
         release_valid = "1/2/3"
         release_default = '3'
@@ -6542,9 +6618,9 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
             f"\nChoose release strategy ({release_valid}) [default: {release_default}]: ").strip() or release_default
 
         if release_choice == '1':
-            # Release from all sites in the study area (does not use occurrence data)
+            # Release from all sites in the study extent (does not use occurrence data)
             meshgrid = all_sites_grid
-            species_names = clean_spp['species'].unique() if len(clean_spp) > 0 else ['all_species']
+            species_names = modelled_species
             study_area_df = study_area_df_filtered.copy()
             release_grids = {sp: study_area_df.copy() for sp in species_names}
             print(f"  Release from all {len(study_area_df)} study extent sites")
@@ -6555,7 +6631,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
             meshgrid, _per_species = map_spp_to_grid(grid_df_for_mapping, clean_spp)
             pooled_df = pd.concat(_per_species.values(), ignore_index=True)[
                 ['grid_id', 'longitude', 'latitude']].drop_duplicates(subset=['grid_id']).reset_index(drop=True)
-            species_names = clean_spp['species'].unique()
+            species_names = modelled_species
             release_grids = {sp: pooled_df.copy() for sp in species_names}
             print(f"  Pooled release from all {len(pooled_df):,} occurrence sites, applied to {len(species_names)} species")
             break
@@ -6626,8 +6702,8 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
             f"\nChoose settlement strategy ({settlement_valid}) [default: {settlement_default}]: ").strip() or settlement_default
 
         if settlement_choice == '1':
-            # Settle at all sites in the study area (does not use occurrence data)
-            species_names = clean_spp['species'].unique() if len(clean_spp) > 0 else ['all_species']
+            # Settle at all sites in the study extent (does not use occurrence data)
+            species_names = modelled_species
             study_area_df = study_area_df_filtered.copy()
             settlement_grids = {sp: study_area_df.copy() for sp in species_names}
             print(f"Settlement at all {len(study_area_df)} study extent sites")
@@ -6638,7 +6714,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
             _, _per_species = map_spp_to_grid(grid_df_for_mapping, clean_spp)
             pooled_df = pd.concat(_per_species.values(), ignore_index=True)[
                 ['grid_id', 'longitude', 'latitude']].drop_duplicates(subset=['grid_id']).reset_index(drop=True)
-            species_names = clean_spp['species'].unique()
+            species_names = modelled_species
             settlement_grids = {sp: pooled_df.copy() for sp in species_names}
             print(f"  Pooled settlement at all {len(pooled_df):,} occurrence sites, applied to {len(species_names)} species")
             break
@@ -6650,7 +6726,7 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
             break
 
         elif settlement_choice == '4':
-            print("\nSelected: a different occurrence dataset")
+            print("\nSelected: A different occurrence dataset")
             print("\nUpload your own species occurrence or habitat suitability data.")
             print("Required format: CSV with columns 'species', 'latitude', 'longitude'.")
 
@@ -6673,6 +6749,32 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
                         if not retry:
                             raise ValueError("Cannot proceed without valid settlement data.")
                         continue
+
+                    # Re-validate the uploaded settlement species against the traits file, exactly as the release dataset is validated, so a settlement CSV with species absent from the traits file does not silently build grids that Step 5 can never post-process.
+                    _traits_records = traits.to_dict('records') if isinstance(traits, pd.DataFrame) else traits
+                    _trait_names = {standardise_species_name(t['species_name']) for t in _traits_records}
+                    _settle_names = {standardise_species_name(n) for n in
+                                     custom_settlement_data['species'].unique().tolist()}
+                    _unmatched_settle = sorted(_settle_names - _trait_names)
+                    if _unmatched_settle:
+                        subsection_header("Settlement species without matching traits")
+                        print(
+                            f"{len(_unmatched_settle)} species in your settlement data have no matching entry in your traits file:")
+                        for _name in _unmatched_settle:
+                            print(f"   - {display_species_name(_name)}")
+                        print("\nStep 5 only post-processes species that have traits, so they will not be included in the final results.")
+                        print("Names are matched after standardising spaces to underscores, so if a species is unexpectedly missing check the spelling across both the traits and settlement occurrence data files.")
+                        if get_yes_no(
+                                "\nDo you want to drop these species from the settlement data before building the settlement grids?",
+                                default='yes'):
+                            custom_settlement_data = custom_settlement_data[
+                                custom_settlement_data['species'].apply(
+                                    lambda s: standardise_species_name(s) in _trait_names)].reset_index(drop=True)
+                            print(
+                                f"Dropped {len(_unmatched_settle)} species. Remaining: {custom_settlement_data['species'].nunique()} species across {len(custom_settlement_data):,} records.")
+                        else:
+                            print(
+                                "Keeping all species. The unmatched species get settlement grids but are never post-processed.")
 
                     species_names = clean_spp['species'].unique() if len(clean_spp) > 0 else ['all_species']
                     print("\nHow should this dataset be used?")
@@ -7052,7 +7154,7 @@ def create_pset(fieldset, meshgrid, runtime):
 
         if not release_interval:
             release_interval = 'weekly'
-            print("Using default: weekly")
+            print("Using default: Weekly")
             break
         elif release_interval in interval_mapping:
             break
@@ -7125,8 +7227,8 @@ def create_pset(fieldset, meshgrid, runtime):
         f"Interval: Every {interval.days} days",
         f"Release locations: {num_locations}",
         f"Particles per location per cohort: {npart}",
-        f"Total particles per location: {particles_per_location}",
-        f"Total particles: {total_particles}",
+        f"Total particles per location (all cohorts): {particles_per_location}",
+        f"Total particles released (all cohorts x locations): {total_particles}",
         f"Adjusted runtime: {adjusted_runtime.days} days",
         f"Horizontal diffusivity (kh): {kh} m²/s"
     ])
@@ -7781,7 +7883,10 @@ def execute_simulation(pset, kernels, adjusted_runtime, interval):
         ])
 
         # Memory estimate: will the output fit in RAM?
-        n_particles = len(pset)
+        # Particles are released once per cohort via repeatdt
+        # The initial pset is only the first cohort, so multiply by the cohort count to match total_particles in the Particle Setup box
+        _n_release_events = int(adjusted_runtime / interval) if interval else 1
+        n_particles = len(pset) * _n_release_events
         n_output_steps = int((adjusted_runtime * 24) / output_dt_hours) + 1
         estimated_rows = n_particles * n_output_steps
         bytes_per_row = 80  # ~10 columns × 8 bytes each
@@ -7798,10 +7903,10 @@ def execute_simulation(pset, kernels, adjusted_runtime, interval):
             print("\n  Warning: The estimated output may be too large for your system memory.")
             print(f"  Estimated size: {estimated_gb:.1f} GB | Available RAM: {available_gb:.1f} GB")
             print("\n  Options to reduce output size (re-run from indicated step):")
-            print(f"    - Increase output frequency: re-run Step 4 (current: {output_dt_hours}h → try 24h)")
-            print(f"    - Fewer particles per cell: re-run from Step 3")
-            print(f"    - Coarser grid resolution: re-run from Step 1")
-            print(f"    - Smaller study domain: re-run from Step 1\n")
+            print(f"    - Increase output frequency: Re-run Step 4 (current: {output_dt_hours}h → try 24h)")
+            print(f"    - Fewer particles per cell: Re-run from Step 3")
+            print(f"    - Coarser grid resolution: Re-run from Step 1")
+            print(f"    - Smaller study domain: Re-run from Step 1\n")
 
             proceed = get_yes_no("Continue with current settings?", default='no')
             if not proceed:
@@ -7965,6 +8070,57 @@ def spawning_filter(traj, traits):
     return spawning_dfs
 
 ### Planktonic larval duration filter and settlement habitat suitability filter
+def _build_buffer_to_site(species_settlement, grid_ids, buffer):
+    """
+    For every buffer cell surrounding each real settlement site, map the buffer cell
+    back to its nearest real settlement site using a cKDTree on grid positions.
+
+    Parameters
+    ----------
+    species_settlement : set of int
+        Grid IDs of the actual (non-buffered) settlement cells.
+    grid_ids : numpy.ndarray
+        2D array of grid IDs for the study extent.
+    buffer : int
+        Number of cells to expand outward from each settlement site.
+
+    Returns
+    -------
+    dict
+        {buffer_cell_grid_id: attributed_settlement_site_grid_id}
+        Empty dict when buffer == 0 or species_settlement is empty.
+    """
+    if buffer == 0 or not species_settlement:
+        return {}
+    _site_pos, _site_ids = [], []
+    for _sid in species_settlement:
+        _p = np.where(grid_ids == _sid)
+        if len(_p[0]) > 0:
+            _site_pos.append((int(_p[0][0]), int(_p[1][0])))
+            _site_ids.append(int(_sid))
+    if not _site_pos:
+        return {}
+    _tree = cKDTree(np.array(_site_pos))
+    buffer_to_site = {}
+    buffered = set()
+    for _sid in species_settlement:
+        _p = np.where(grid_ids == _sid)
+        if len(_p[0]) == 0:
+            continue
+        r, c = int(_p[0][0]), int(_p[1][0])
+        for i in range(-buffer, buffer + 1):
+            for j in range(-buffer, buffer + 1):
+                nr_, nc = r + i, c + j
+                if 0 <= nr_ < grid_ids.shape[0] and 0 <= nc < grid_ids.shape[1]:
+                    buffered.add(int(grid_ids[nr_, nc]))
+    for _cell in buffered:
+        _cp = np.where(grid_ids == _cell)
+        if len(_cp[0]) > 0:
+            _, _idx = _tree.query((int(_cp[0][0]), int(_cp[1][0])))
+            buffer_to_site[_cell] = _site_ids[_idx]
+    return buffer_to_site
+
+
 def pld_filter(spawning_dfs, traits, settlement_grids, grid_ids, buffer):
     """
     Filters trajectories based on planktonic larval duration (PLD) and settlement location.
@@ -7984,7 +8140,7 @@ def pld_filter(spawning_dfs, traits, settlement_grids, grid_ids, buffer):
         Dictionary mapping species names to settlement grid DataFrames.
         If None (all sites strategy), all coastal sites are valid.
     grid_ids : numpy.ndarray
-        2D array of grid IDs for the study area
+        2D array of grid IDs for the study extent
     buffer : int, default=1
         Settlement buffer in grid cells (creates 3×3 patch around each site)
 
@@ -8026,7 +8182,7 @@ def pld_filter(spawning_dfs, traits, settlement_grids, grid_ids, buffer):
         traits_df = traits
     else:
         # traits might be a string (file path) - load it
-        print(f"Warning: traits is {type(traits)}, attempting to load...")
+        print(f"Warning: Traits is {type(traits)}, attempting to load...")
         traits_df = pd.read_csv(traits)
 
     # Get all valid grid IDs for "all sites" strategy
@@ -8055,6 +8211,9 @@ def pld_filter(spawning_dfs, traits, settlement_grids, grid_ids, buffer):
         print(f"  PLD window: {min_pld} - {max_pld} days")
 
         # Get settlement grids for this species
+        # buffer_to_site maps each buffer cell to its nearest real settlement site (populated below when buffer > 0)
+        # empty means exact-cell, no remapping
+        buffer_to_site = {}
         if settlement_grids is None:
             print(f"  Using all {len(all_valid_grids)} sites for settlement (all sites strategy)")
             buffered_settlement = all_valid_grids
@@ -8072,8 +8231,10 @@ def pld_filter(spawning_dfs, traits, settlement_grids, grid_ids, buffer):
                 for gid in species_settlement:
                     buffered_settlement.update(get_adjacent_grids(gid, grid_ids, buffer))
                 print(f"  Settlement sites: {len(species_settlement)} (with buffer: {len(buffered_settlement)})")
+                # Build the buffer-cell -> nearest-real-site mapping via the shared helper
+                buffer_to_site = _build_buffer_to_site(species_settlement, grid_ids, buffer)
             else:
-                print(f"  Warning: No settlement data for {display_species_name(species_name_std)}, using all sites.")
+                print(f"Warning: '{display_species_name(species_name_std)}' not found in the settlement dataset. Using all valid sites for settlement.")
                 buffered_settlement = all_valid_grids
         valid_trajectories = []
         # Start from at least day 1 to prevent immediate settlement at release site
@@ -8111,8 +8272,10 @@ def pld_filter(spawning_dfs, traits, settlement_grids, grid_ids, buffer):
                         continue  # Skip to next day
 
                     if current_grid_id in buffered_settlement:
-                        # Crop trajectory at settlement time
+                        # Crop at settlement time, then credit settlement to the owning real site (collapse buffer cells into their parent site so the site count does not inflate
+                        owner_site = buffer_to_site.get(int(current_grid_id), int(current_grid_id))
                         settled_traj = traj_subset[traj_subset['time'] <= closest_obs['time']].copy()
+                        settled_traj.loc[settled_traj['obs'] == settled_traj['obs'].max(), 'grid_id'] = owner_site
                         settled_traj['settlement_day'] = day
                         valid_trajectories.append(settled_traj)
                         settlement_summary[day] += 1
@@ -8190,10 +8353,13 @@ def habitat_filter(pld_dfs, release_grids):
             if alt_name in release_grids:
                 release_sites = set(release_grids[alt_name]['grid_id'])
             else:
-                # No release constraint for this species - keep all
-                final_processed[species_name] = df
-                n_traj = df['trajectory'].nunique()
-                print(f"  {species_name}: {n_traj} trajectories (no release constraint)")
+                # release_grids is a dict (species-specific/pooled strategy) but this species has
+                # no release grid. That only happens for a trait species with no occurrence records
+                # under the species-specific strategy: it has no defined habitat, so it cannot be
+                # released from anywhere and is dropped (not kept). The all-sites strategy passes
+                # release_grids=None and is handled above, so it never reaches here.
+                final_processed[species_name] = pd.DataFrame()
+                print(f"  {species_name}: dropped (no occurrence records, so no release habitat)")
                 continue
 
         # Filter to trajectories starting from valid release sites
@@ -8218,12 +8384,11 @@ def habitat_filter(pld_dfs, release_grids):
 # endregion
 
 ## region Complete post-processing function (wrapper function)
-def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, grid_ids):
+def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, grid_ids, buffer=None):
     """
     Apply species-specific temporal and spatial filters to trajectory data to create species-specific connectivity data.
 
-    This is the main post-processing pipeline that transforms raw particle
-    trajectories into species-specific connectivity data by applying:
+    This is the main post-processing pipeline that transforms raw particle trajectories into species-specific connectivity data by applying:
     1. Spawning season filters (temporal)
     2. Planktonic larval duration filters (temporal)
     3. Habitat suitability filters (spatial)
@@ -8285,8 +8450,8 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
 
     Buffer Parameter
     ----------------
-    - buffer=0: Settlement only in exact settlement grid cells
-    - buffer=1: Settlement in grid cells or immediate neighbors (recommended)
+    - buffer=0: Settlement only in exact settlement grid cells (default)
+    - buffer=1: Settlement in grid cells or immediate neighbors
     - buffer=2: Settlement within 2-cell radius
     - Larger buffers account for sub-grid-scale habitat heterogeneity
     """
@@ -8301,34 +8466,37 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
             sample_cols = pd.read_parquet(sample_files[0], engine='pyarrow', columns=None).columns.tolist()
         else:
             print("\nError: No chunk files found.")
-            return {}
+            return {}, buffer
         required_columns = ['trajectory', 'time', 'obs', 'grid_id', 'lat', 'lon']
         missing = [col for col in required_columns if col not in sample_cols]
+    elif chunks_dir_or_traj is None or not hasattr(chunks_dir_or_traj, 'columns'):
+        print(
+            "\nError: No trajectory data available to post-process (expected a chunk directory or a trajectory DataFrame).")
+        return {}, buffer
     else:
         required_columns = ['trajectory', 'time', 'obs', 'grid_id', 'lat', 'lon']
         missing = [col for col in required_columns if col not in chunks_dir_or_traj.columns]
     if missing:
         print(f"\nError: Missing required columns: {missing}")
-        return {}
+        return {}, buffer
 
-    # Ensure traits is a list of dicts
+        # Ensure traits is a list of dicts
     if isinstance(traits, pd.DataFrame):
         traits_list = traits.to_dict('records')
     elif isinstance(traits, list):
         traits_list = traits
     else:
-        print(f"Error: traits must be list or DataFrame, got {type(traits)}")
-        return {}
+        print(f"Error: Traits must be list or DataFrame, got {type(traits)}")
+        return {}, buffer
 
-    # Settlement buffer removed
-    # Settlement is now exact-cell (a particle settles in whatever settlement cell it lands in)
-    # The settlement-cell resolution is the tolerance.
-    # The original prompt is preserved below (commented) in case the buffer is reinstated.
-    # buffer = get_positive_integer(
-    #     "Enter buffer size around settlement sites [default: 1 adjacent grid cell]: ",
-    #     default=1, min_val=0
-    # )
-    buffer = 0
+    # Settlement buffer: a propagule settles if it reaches a settlement cell or a cell within 'buffer' cells of it
+    # Buffer-cell settlements are credited to the nearest real settlement site (in pld_filter), so the buffer can never inflate the number of settlement sites
+    # Interactive passes buffer=None and is prompted here, automatic/manual pass their config value, so they never block on input
+    if buffer is None:
+        buffer = get_positive_integer(
+            "Enter buffer size around settlement sites [default: 0, exact cell only]: ",
+            default=0, min_val=0
+        )
 
     # Determine if we received a chunks_dir (str) or a DataFrame (backward compat)
     if isinstance(chunks_dir_or_traj, str) and os.path.isdir(chunks_dir_or_traj):
@@ -8399,9 +8567,9 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
             _out_spawning = max(0, n_input_traj - _n_spawning)
             _out_pld = max(0, _n_spawning - _n_pld)
             _out_habitat = max(0, _n_pld - _n_habitat)
-            print(f"    Spawning filter: {_n_spawning:,} trajectories retained  ({_out_spawning:,} filtered out)")
-            print(f"    PLD filter:      {_n_pld:,} retained trajectories ({_out_pld:,} filtered out)")
-            print(f"    Habitat filter:  {_n_habitat:,} retained trajectories ({_out_habitat:,} filtered out)")
+            print(f"Spawning filter: {_n_spawning:,} retained ({_out_spawning:,} filtered out: Released outside the spawning window)")
+            print(f"PLD filter: {_n_pld:,} retained ({_out_pld:,} filtered out: Exceeded their PLD before reaching suitable settlement habitat)")
+            print(f"Habitat filter: {_n_habitat:,} retained ({_out_habitat:,} filtered out: Not released from this species' habitat)")
 
             if species_survivors:
                 combined = pd.concat(species_survivors, ignore_index=True)
@@ -8429,7 +8597,7 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
 
         _n_spawning = sp_spawning[species_name]['trajectory'].nunique()
         _out_spawning = max(0, n_input_traj - _n_spawning)
-        print(f"    Spawning filter: {_n_spawning:,} retained  ({_out_spawning:,} filtered out, outside spawning window)")
+        print(f"Spawning filter: {_n_spawning:,} retained  ({_out_spawning:,} filtered out: Released outside the spawning window)")
 
         # PLD filter for this species only
         sp_pld = pld_filter(sp_spawning, [species_trait], settlement_grids, grid_ids, buffer)
@@ -8444,7 +8612,7 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
 
         _n_pld = sp_pld[species_name]['trajectory'].nunique()
         _out_pld = max(0, _n_spawning - _n_pld)
-        print(f"    PLD filter:      {_n_pld:,} retained  ({_out_pld:,} filtered out, no valid settlement within PLD)")
+        print(f"PLD filter: {_n_pld:,} retained ({_out_pld:,} filtered out: Exceeded their PLD before reaching suitable settlement habitat)")
 
         # Habitat filter for this species only
         sp_final = habitat_filter({species_name: sp_pld[species_name]}, release_grids)
@@ -8462,10 +8630,11 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
             summary_lines.append(
                 f"{display_species_name(species_name)}: {n_traj} successful trajectories from {n_releases} release cohorts"
             )
-            print(f"    Habitat filter:  {n_traj:,} retained  ({_out_habitat:,} filtered out, not released from valid habitat)")
-            print(f"    From {n_releases} release cohorts.")
+            print(
+                f"Habitat filter: {n_traj:,} retained ({_out_habitat:,} filtered out: Not released from this species' habitat)")
+            print(f"From {n_releases} release cohorts.")
         else:
-            print(f"    No trajectories survived habitat filter.")
+            print(f"No trajectories survived habitat filter.")
 
         del sp_final
         gc.collect()
@@ -8488,8 +8657,7 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
 # region Connectivity Analyses
 ## region Analysis Type 1: Connectivity Metrics
 def calculate_connectivity_metrics(final_processed, release_grids, settlement_grids,
-                                   traits, traj_raw=None, print_summary=True,
-                                   grid_ids=None, settlement_buffer=None):
+                                   traits, traj_raw=None, print_summary=True):
     """
     Calculate standard connectivity metrics for community and species.
 
@@ -8525,13 +8693,6 @@ def calculate_connectivity_metrics(final_processed, release_grids, settlement_gr
         Only these rows are used, to count how many particles were released, so the full trajectories are not needed.
         Required for accurate mortality calculation.
         If None, mortality cannot be calculated accurately.
-    grid_ids : numpy.ndarray, optional
-        2D grid ID array from setup_release_settlement().
-        Required for buffered self-recruitment calculation.
-        If None, falls back to module-level global (set automatically in Interactive Mode).
-    settlement_buffer : int, optional
-        Number of grid cells for settlement buffer.
-        If None, falls back to the value set during post-processing (default: 1).
 
     Returns
     -------
@@ -8543,14 +8704,14 @@ def calculate_connectivity_metrics(final_processed, release_grids, settlement_gr
     Notes
     -----
     Mortality Calculation:
-        If traj_raw is provided, mortality = 1 - (n_settled / n_released)
-        where n_released is counted from raw trajectories released during
-        the species' spawning window. If traj_raw is None, mortality cannot
-        be calculated accurately.
+        If traj_raw is provided, mortality = 1 - (n_settled / n_released).
+        n_released is counted from raw trajectories released during the species' spawning window.
+        If traj_raw is None, mortality cannot be calculated accurately.
 
     Self-recruitment:
-        Particles settling within the settlement buffer distance of their
-        release site. Uses the same buffer as settlement filtering.
+        Particles whose settlement site is their own release site:
+        an exact match on post-processed site IDs (the diagonal of the connectivity matrix).
+        The settlement buffer is resolved earlier in post-processing, so this is consistent with every other metric.
 
     Dispersal Distance:
         Great circle distance using Haversine formula with Earth radius
@@ -8577,6 +8738,11 @@ def calculate_connectivity_metrics(final_processed, release_grids, settlement_gr
     # Track if any species had calculable mortality
     any_mortality_calculable = False
 
+    # Mortality needs the raw released counts (traj_raw). If those aren't supplied
+    # it can't be estimated, so note it once here rather than once per species.
+    if traj_raw is None and print_summary:
+        print("  Note: Mortality estimate unavailable (raw release counts were not supplied for this run).")
+
     for species_name, df in final_processed.items():
         # Format species name for display
         display_name = display_species_name(species_name)
@@ -8599,93 +8765,56 @@ def calculate_connectivity_metrics(final_processed, release_grids, settlement_gr
         # Count settled trajectories
         n_trajectories = df['trajectory'].nunique()
 
-        # Buffer removed for self-recruitment is now exact-cell (a particle must return to its own release cell).
-        #  Original fallback preserved below (commented) in case the buffer is reinstated.
-        if settlement_buffer is None:
-            settlement_buffer = 0
-            # try:
-            #     settlement_buffer = buffer
-            # except NameError:
-            #     settlement_buffer = 1  # Default to 1-cell buffer
-
-        # Build lookup dictionary: for each release site, get its buffered neighbors
-        # This allows us to check if a particle returned to its own release site (+ buffer)
-        release_site_buffers = {}
-        if settlement_buffer > 0 and grid_ids is not None and isinstance(grid_ids, np.ndarray):
-            for rid in release_sites:
-                buffered_neighbors = set()
-                positions = np.where(grid_ids == rid)
-                if len(positions[0]) > 0:
-                    for pi in range(len(positions[0])):
-                        row, col = positions[0][pi], positions[1][pi]
-                        for dr in range(-settlement_buffer, settlement_buffer + 1):
-                            for dc in range(-settlement_buffer, settlement_buffer + 1):
-                                nr, nc = row + dr, col + dc
-                                if 0 <= nr < grid_ids.shape[0] and 0 <= nc < grid_ids.shape[1]:
-                                    neighbor_id = int(grid_ids[nr, nc])
-                                    if neighbor_id >= 0:  # Valid grid cell
-                                        buffered_neighbors.add(neighbor_id)
-                release_site_buffers[rid] = buffered_neighbors
-        else:
-            # No buffer - exact match only
-            for rid in release_sites:
-                release_site_buffers[rid] = {rid}
-
         # Calculate per-trajectory metrics
+        # Vectorised: each trajectory's first/last observation via one sort + drop_duplicates, instead of filtering the DataFrame once per trajectory (O(N^2), slow when many particles reach this step, e.g. passive).
         trajectory_plds = []
         trajectory_distances = []
         recruitment_count = 0
 
-        for traj_id in df['trajectory'].unique():
-            traj_subset = df[df['trajectory'] == traj_id].sort_values('obs')
+        df_sorted = df.sort_values(['trajectory', 'obs'])
+        traj_sizes = df_sorted.groupby('trajectory')['obs'].transform('size')
+        df_multi = df_sorted[traj_sizes >= 2]
 
-            if len(traj_subset) < 2:
-                continue
-
-            first_obs = traj_subset.iloc[0]
-            last_obs = traj_subset.iloc[-1]
+        if not df_multi.empty:
+            firsts = df_multi.drop_duplicates('trajectory', keep='first').set_index('trajectory')
+            lasts = df_multi.drop_duplicates('trajectory', keep='last').set_index('trajectory')
+            lasts = lasts.reindex(firsts.index)
 
             # Calculate realized PLD (days in plankton)
-            if 'time' in traj_subset.columns:
-                time_diff = pd.to_datetime(last_obs['time']) - pd.to_datetime(first_obs['time'])
-                pld_days = time_diff.total_seconds() / (24 * 3600)
-                trajectory_plds.append(pld_days)
-                all_plds.append(pld_days)
+            if 'time' in df_multi.columns:
+                pld_series = (pd.to_datetime(lasts['time']) - pd.to_datetime(
+                    firsts['time'])).dt.total_seconds() / (24 * 3600)
+                trajectory_plds = pld_series.tolist()
+                all_plds.extend(trajectory_plds)
 
             # Calculate net displacement (km) using Haversine formula
-            # This is the straight-line distance from release to settlement point,
-            # not the total path length travelled. Particles that self-recruit
-            # may show near-zero displacement despite having travelled some distance.
-            if 'lat' in traj_subset.columns and 'lon' in traj_subset.columns:
-                lat1, lon1 = first_obs['lat'], first_obs['lon']
-                lat2, lon2 = last_obs['lat'], last_obs['lon']
-
+            # This is the straight-line distance from release to settlement point, not the total path length travelled
+            # Particles that self-recruit may show near-zero displacement despite having travelled some distance
+            if 'lat' in df_multi.columns and 'lon' in df_multi.columns:
                 R = 6371  # Earth radius in km
-                dlat = np.radians(lat2 - lat1)
-                dlon = np.radians(lon2 - lon1)
-                a = np.sin(dlat / 2) ** 2 + np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) * np.sin(
-                    dlon / 2) ** 2
-                c = 2 * np.arcsin(np.sqrt(a))
-                distance = R * c
-                trajectory_distances.append(distance)
-                all_distances.append(distance)
+                lat1 = np.radians(firsts['lat'].to_numpy())
+                lon1 = np.radians(firsts['lon'].to_numpy())
+                lat2 = np.radians(lasts['lat'].to_numpy())
+                lon2 = np.radians(lasts['lon'].to_numpy())
+                dlat = lat2 - lat1
+                dlon = lon2 - lon1
+                a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
+                distances = R * 2 * np.arcsin(np.sqrt(a))
+                trajectory_distances = distances.tolist()
+                all_distances.extend(trajectory_distances)
 
-            # Self-recruitment: particle settles within buffer of ITS OWN release site
-            if 'grid_id' in first_obs.index and 'grid_id' in last_obs.index:
-                start_grid_id = int(first_obs['grid_id'])
-                end_grid_id = int(last_obs['grid_id'])
-
-                # Check if this particle's ending position is within buffer of where IT started
-                if start_grid_id in release_site_buffers:
-                    if end_grid_id in release_site_buffers[start_grid_id]:
-                        recruitment_count += 1
+            # Self-recruitment
+            if 'grid_id' in df_multi.columns:
+                start_ids = firsts['grid_id'].astype(int).to_numpy()
+                end_ids = lasts['grid_id'].astype(int).to_numpy()
+                recruitment_count += int(np.sum(start_ids == end_ids))
 
         # Calculate n_released from raw trajectory data
         n_released = n_trajectories  # Default: assume all settled came from released
         mortality_calculable = False
 
         if traj_raw is None:
-            print(f"Note: Mortality estimate unavailable")
+            pass  # mortality not calculable is already noted once before the loop
         else:
             std_name = standardise_species_name(species_name)
             trait_match = traits_df[traits_df['species_name_std'] == std_name]
@@ -8725,7 +8854,6 @@ def calculate_connectivity_metrics(final_processed, release_grids, settlement_gr
 
         # Distance statistics
         mean_distance = np.mean(trajectory_distances) if trajectory_distances else 0
-        std_distance = np.std(trajectory_distances) if trajectory_distances else 0
         min_distance = min(trajectory_distances) if trajectory_distances else 0
         max_distance = max(trajectory_distances) if trajectory_distances else 0
 
@@ -8733,7 +8861,6 @@ def calculate_connectivity_metrics(final_processed, release_grids, settlement_gr
         mean_pld = np.mean(trajectory_plds) if trajectory_plds else 0
         min_pld = min(trajectory_plds) if trajectory_plds else 0
         max_pld = max(trajectory_plds) if trajectory_plds else 0
-        std_pld = np.std(trajectory_plds) if trajectory_plds else 0
 
         # Store species results
         results['per_species'][display_name] = {
@@ -8743,18 +8870,15 @@ def calculate_connectivity_metrics(final_processed, release_grids, settlement_gr
             'n_recruited': recruitment_count,
             'mortality_rate': mortality_rate if mortality_calculable else None,
             'settlement_rate': settlement_rate,
-            'recruitment_rate': recruitment_rate,
+            'self_recruitment_rate': recruitment_rate,
             'mean_distance_km': mean_distance,
-            'std_distance_km': std_distance,
             'min_distance_km': min_distance,
             'max_distance_km': max_distance,
             'mean_pld_days': mean_pld,
             'min_pld_days': min_pld,
             'max_pld_days': max_pld,
-            'std_pld_days': std_pld,
             'n_release_sites': len(release_sites),
             'n_settlement_sites': len(settle_sites),
-            'mortality_calculable': mortality_calculable
         }
 
         # Update community totals
@@ -8770,7 +8894,7 @@ def calculate_connectivity_metrics(final_processed, release_grids, settlement_gr
             print(f"Settlement rate: {settlement_rate * 100:.1f}%")
             if mortality_calculable:
                 print(f"Mortality rate: {mortality_rate * 100:.1f}%")
-            print(f"Self-recruitment rate: {recruitment_rate * 100:.1f}%, within {settlement_buffer}-cell buffer of release site ({recruitment_count} trajectories)")
+            print(f"Self-recruitment rate: {recruitment_rate * 100:.1f}%, ({recruitment_count} trajectories)")
             print(f"Min net displacement: {min_distance:.1f} km")
             print(f"Mean net displacement: {mean_distance:.1f} km")
             print(f"Max net displacement: {max_distance:.1f} km")
@@ -8782,24 +8906,31 @@ def calculate_connectivity_metrics(final_processed, release_grids, settlement_gr
     community_mortality = 1 - (total_settled / total_released) if total_released > 0 else 0
     community_recruitment = total_retained / total_settled if total_settled > 0 else 0
 
+    # Community release/settlement site counts = the union of every species' release/settlement grid cells, so species sharing the same cells are not double counted
+    _comm_release_sites = {gid for _g in (release_grids or {}).values()
+                           if isinstance(_g, pd.DataFrame) and 'grid_id' in _g.columns
+                           for gid in _g['grid_id'].tolist()}
+    _comm_settle_sites = {gid for _g in (settlement_grids or {}).values()
+                          if isinstance(_g, pd.DataFrame) and 'grid_id' in _g.columns
+                          for gid in _g['grid_id'].tolist()}
+
     results['community'] = {
         'n_species': len([s for s in final_processed.values() if not s.empty]),
         'total_released': total_released,
         'total_settled': total_settled,
         'total_recruited': total_retained,
-        'community_mortality': community_mortality if any_mortality_calculable else None,
-        'community_settlement': 1 - community_mortality if any_mortality_calculable else total_settled / max(1,
-                                                                                                             total_released),
-        'community_recruitment': community_recruitment,
+        'mortality_rate': community_mortality if any_mortality_calculable else None,
+        'settlement_rate': 1 - community_mortality if any_mortality_calculable else total_settled / max(1,
+                                                                                                        total_released),
+        'self_recruitment_rate': community_recruitment,
         'mean_distance_km': round(np.mean(all_distances), 2) if all_distances else 0,
-        'std_distance_km': np.std(all_distances) if all_distances else 0,
         'min_distance_km': round(min(all_distances), 2) if all_distances else 0,
         'max_distance_km': round(max(all_distances), 2) if all_distances else 0,
         'mean_pld_days': np.mean(all_plds) if all_plds else 0,
         'min_pld_days': min(all_plds) if all_plds else 0,
         'max_pld_days': max(all_plds) if all_plds else 0,
-        'std_pld_days': np.std(all_plds) if all_plds else 0,
-        'mortality_calculable': any_mortality_calculable
+        'n_release_sites': len(_comm_release_sites),
+        'n_settlement_sites': len(_comm_settle_sites),
     }
     return results
 
@@ -8808,32 +8939,89 @@ def export_connectivity_metrics(results, output_dir=None):
     """
     Export connectivity metrics to CSV files.
 
+    Each label (community + per-species) gets its own subfolder under output_dir,
+    and the filename embeds the label: <label>_connectivity_summary.csv.
+
     Parameters
     ----------
     results : dict
         Output from calculate_connectivity_metrics()
     output_dir : str
-        Directory to save output files
+        Root results directory; subfolders are created automatically.
+
+    Returns
+    -------
+    list of str
+        Paths of all files written.
     """
     if output_dir is None:
         output_dir = get_default_dir('results')
 
-    os.makedirs(output_dir, exist_ok=True)
+    written = []
 
-    # Export per-species metrics
-    species_df = pd.DataFrame(results['per_species']).T
-    species_df.index.name = 'species'
-    species_file = os.path.join(output_dir, 'connectivity_metrics_per_species.csv')
-    species_df.to_csv(species_file)
-    print(f"\nPer-species metrics saved to: {species_file}")
+    def _drop_std(_df):
+        return _df.drop(columns=[c for c in _df.columns if c.endswith('_std') or c.startswith('std_')], errors='ignore')
 
-    # Export community metrics
-    community_df = pd.DataFrame([results['community']])
-    community_file = os.path.join(output_dir, 'connectivity_metrics_community.csv')
-    community_df.to_csv(community_file, index=False)
-    print(f"Community metrics saved to: {community_file}")
+    # Community-level summary
+    if 'community' in results:
+        comm_dir = os.path.join(output_dir, 'community')
+        os.makedirs(comm_dir, exist_ok=True)
+        comm_file = os.path.join(comm_dir, 'community_connectivity_summary.csv')
+        _drop_std(pd.DataFrame([results['community']])).to_csv(comm_file, index=False)
+        print(f"Community metrics saved to: {comm_file}")
+        written.append(comm_file)
 
-    return species_file, community_file
+    # Per-species summaries
+    for sp, sp_data in results.get('per_species', {}).items():
+        if 'community' in sp_data:
+            sp_dir = os.path.join(output_dir, sp)
+            os.makedirs(sp_dir, exist_ok=True)
+            sp_file = os.path.join(sp_dir, f'{sp}_connectivity_summary.csv')
+            _drop_std(pd.DataFrame([sp_data['community']])).to_csv(sp_file, index=False)
+            print(f"Species metrics saved to: {sp_file}")
+            written.append(sp_file)
+
+    return written
+
+
+def build_settlement_attribution(settlement_grids, grid_ids, buffer):
+    """
+    Build the buffer-cell-to-settlement-site mapping for every species and return
+    it as a dict of DataFrames ready for CSV export.
+
+    Uses the same cKDTree nearest-real-site logic as pld_filter but as a
+    standalone call so it can be invoked at export time without touching pld_filter.
+
+    Parameters
+    ----------
+    settlement_grids : dict or None
+        Mapping of species name to settlement grid DataFrame (must have 'grid_id' column).
+    grid_ids : numpy.ndarray
+        2D grid of cell IDs for the study extent.
+    buffer : int
+        Settlement buffer radius in cells (same value passed to pld_filter).
+
+    Returns
+    -------
+    dict
+        {species_name: DataFrame(buffer_cell_grid_id, attributed_settlement_site)}
+        Empty dict when settlement_grids is None, buffer == 0, or no mapping exists.
+    """
+    if settlement_grids is None or buffer == 0:
+        return {}
+    attribution = {}
+    for sp, sg in settlement_grids.items():
+        if sg is None or (hasattr(sg, 'empty') and sg.empty) or 'grid_id' not in sg.columns:
+            continue
+        species_settlement = set(sg['grid_id'].astype(int))
+        b2s = _build_buffer_to_site(species_settlement, grid_ids, buffer)
+        if b2s:
+            attribution[sp] = pd.DataFrame(
+                [{'buffer_cell_grid_id': k, 'attributed_settlement_site': v}
+                 for k, v in b2s.items() if k != v]
+            )
+    return attribution
+
 
 ## Displaying the analysis 1 results
 def display_metrics_table(results, show='both', max_species=3):
@@ -8858,9 +9046,9 @@ def display_metrics_table(results, show='both', max_species=3):
         print(f"{'Number of species':<35} {comm['n_species']:>15}")
         print(f"{'Total released':<35} {comm['total_released']:>15}")
         print(f"{'Total settled':<35} {comm['total_settled']:>15}")
-        print(f"{'Settlement rate':<35} {comm['community_settlement'] * 100:>14.1f}%")
-        print(f"{'Mortality rate':<35} {comm['community_mortality'] * 100:>14.1f}%")
-        print(f"{'Self-recruitment rate':<35} {comm['community_recruitment'] * 100:>14.1f}%")
+        print(f"{'Settlement rate':<35} {comm['settlement_rate'] * 100:>14.1f}%")
+        print(f"{'Mortality rate':<35} {comm['mortality_rate'] * 100:>14.1f}%")
+        print(f"{'Self-recruitment rate':<35} {comm['self_recruitment_rate'] * 100:>14.1f}%")
         print(f"{'Min net displacement (km)':<35} {comm['min_distance_km']:>15.1f}")
         print(f"{'Mean net displacement (km)':<35} {comm['mean_distance_km']:>15.1f}")
         print(f"{'Max net displacement (km)':<35} {comm['max_distance_km']:>15.1f}")
@@ -8889,7 +9077,7 @@ def display_metrics_table(results, show='both', max_species=3):
                 short_name = species[:24] if len(species) > 24 else species
                 print(f"{short_name:<25} {metrics['n_released']:>10} {metrics['n_settled']:>10} "
                       f"{metrics['settlement_rate'] * 100:>7.1f}% {metrics['mortality_rate'] * 100:>6.1f}% "
-                      f"{metrics['recruitment_rate'] * 100:>7.1f}% {metrics['mean_distance_km']:>10.1f}")
+                      f"{metrics['self_recruitment_rate'] * 100:>7.1f}% {metrics['mean_distance_km']:>10.1f}")
         else:
             # Show summary for large number of species
             print(f"\n{n_species} species analysed (showing summary to avoid clutter)")
@@ -8898,7 +9086,7 @@ def display_metrics_table(results, show='both', max_species=3):
             # Calculate summary statistics
             all_settlement = [m['settlement_rate'] for m in results['per_species'].values()]
             all_mortality = [m['mortality_rate'] for m in results['per_species'].values()]
-            all_recruitment = [m['recruitment_rate'] for m in results['per_species'].values()]
+            all_recruitment = [m['self_recruitment_rate'] for m in results['per_species'].values()]
             all_distance = [m['mean_distance_km'] for m in results['per_species'].values()]
 
             print(f"{'Metric':<25} {'Mean':>10} {'Min':>10} {'Max':>10}")
@@ -8940,7 +9128,7 @@ def network_analysis(final_processed, release_grids, settlement_grids,
     grid_ids : ndarray
        2D array of grid cell identifiers
     full_grid_df : DataFrame
-        Full study area grid information
+        Full study extent grid information
     null_scale : float
         Distance threshold in km for filtering connections.
     exclude_self_recruitment : bool
@@ -9038,15 +9226,19 @@ def network_analysis(final_processed, release_grids, settlement_grids,
     for species_name, df in final_processed.items():
         if df.empty:
             continue
-        for traj_id in df['trajectory'].unique():
-            traj_subset = df[df['trajectory'] == traj_id].sort_values('obs')
-            if len(traj_subset) >= 2:
-                start_obs = traj_subset[traj_subset['obs'] == 0]
-                if not start_obs.empty and 'grid_id' in start_obs.columns:
-                    start_grid_id = int(start_obs['grid_id'].iloc[0])
-                    end_grid_id = int(traj_subset.iloc[-1]['grid_id'])
-                    valid_sites.add(start_grid_id)
-                    valid_sites.add(end_grid_id)
+        # Vectorised: source = grid cell at obs == 0, destination = grid cell at the largest obs
+        # Only trajectories with >=2 observations and an obs == 0 row contribute
+        if not df.empty and 'grid_id' in df.columns:
+            _ds = df.sort_values(['trajectory', 'obs'])
+            _sizes = _ds.groupby('trajectory')['obs'].transform('size')
+            _multi = _ds[_sizes >= 2]
+            _starts = \
+            _multi[_multi['obs'] == 0].drop_duplicates('trajectory', keep='first').set_index('trajectory')[
+                'grid_id'].astype(int)
+            _lasts = _multi.drop_duplicates('trajectory', keep='last').set_index('trajectory')['grid_id']
+            _lasts = _lasts.reindex(_starts.index).dropna().astype(int)
+            valid_sites.update(_starts.tolist())
+            valid_sites.update(_lasts.tolist())
 
     # Filter to the valid study sites
     valid_sites = valid_sites.intersection(study_site_ids)
@@ -9066,7 +9258,13 @@ def network_analysis(final_processed, release_grids, settlement_grids,
         except Exception:
             site_name_lookup = {}
 
-    site_labels = [f'site_{int(sid)}' for sid in valid_sites]
+    # Build the labels and a label -> grid_id map together
+    site_labels = []
+    _label_to_gid = {}
+    for sid in valid_sites:
+        _lbl = site_name_lookup.get(int(sid), f'site_{int(sid)}') if site_name_lookup else f'site_{int(sid)}'
+        site_labels.append(_lbl)
+        _label_to_gid[_lbl] = int(sid)
     connectivity_matrix = pd.DataFrame(0, index=site_labels, columns=site_labels, dtype=float)
 
     # Track per-species connections
@@ -9080,28 +9278,31 @@ def network_analysis(final_processed, release_grids, settlement_grids,
         display_name = display_species_name(species_name)
         species_matrix = pd.DataFrame(0, index=site_labels, columns=site_labels, dtype=float)
 
-        for traj_id in df['trajectory'].unique():
-            traj_subset = df[df['trajectory'] == traj_id].sort_values('obs')
-            if len(traj_subset) < 2:
-                continue
-
-            start_obs = traj_subset[traj_subset['obs'] == 0]
-            if start_obs.empty or 'grid_id' not in start_obs.columns:
-                continue
-
-            source_id = int(start_obs['grid_id'].iloc[0])
-            dest_id = int(traj_subset.iloc[-1]['grid_id'])
-
-            if source_id in valid_sites and dest_id in valid_sites:
-                source_name = f'site_{source_id}'
-                dest_name = f'site_{dest_id}'
-                connectivity_matrix.loc[source_name, dest_name] += 1
-                species_matrix.loc[source_name, dest_name] += 1
+        # Vectorised: build (source, destination) once per trajectory instead of filtering the DataFrame N times
+        # Only pairs where both ends are valid_sites are counted
+        if not df.empty and 'grid_id' in df.columns:
+            _ds = df.sort_values(['trajectory', 'obs'])
+            _sizes = _ds.groupby('trajectory')['obs'].transform('size')
+            _multi = _ds[_sizes >= 2]
+            _src = _multi[_multi['obs'] == 0].drop_duplicates('trajectory', keep='first').set_index('trajectory')[
+                'grid_id']
+            _dst = _multi.drop_duplicates('trajectory', keep='last').set_index('trajectory')['grid_id'].reindex(
+                _src.index)
+            _valid_set = set(valid_sites)
+            for _s, _d in zip(_src.to_numpy(), _dst.to_numpy()):
+                if pd.isna(_s) or pd.isna(_d):
+                    continue
+                _s = int(_s);
+                _d = int(_d)
+                if _s in _valid_set and _d in _valid_set:
+                    _ls = site_name_lookup.get(_s, f'site_{_s}') if site_name_lookup else f'site_{_s}'
+                    _ld = site_name_lookup.get(_d, f'site_{_d}') if site_name_lookup else f'site_{_d}'
+                    connectivity_matrix.loc[_ls, _ld] += 1
+                    species_matrix.loc[_ls, _ld] += 1
 
         per_species_matrices[display_name] = species_matrix
 
     unique_connections = int(np.sum(connectivity_matrix.values > 0))
-    total_connections = int(connectivity_matrix.values.sum())
 
     # Print formatted summary table (suppressed when verbose=False. The dropdown viewer shows this instead)
     if verbose:
@@ -9112,10 +9313,9 @@ def network_analysis(final_processed, release_grids, settlement_grids,
         print(f"{'Potential connectivity sites':<35} {potential_sites:>15}")
         print(f"{'Realised connectivity sites':<35} {len(valid_sites):>15}")
         print(f"{'Unique connections':<35} {unique_connections:>15}")
-        print(f"{'Total particles exchanged':<35} {total_connections:>15}")
 
     # Get site coordinates
-    site_coords = study_coastal[study_coastal['grid_id'].astype(int).isin(valid_sites)][
+    site_coords = coastal_grid_df[coastal_grid_df['grid_id'].astype(int).isin(valid_sites)][
         ['grid_id', 'longitude', 'latitude']].drop_duplicates()
     site_coords['grid_id'] = site_coords['grid_id'].astype(int)
 
@@ -9127,29 +9327,45 @@ def network_analysis(final_processed, release_grids, settlement_grids,
             coords.append([site_data['longitude'].iloc[0], site_data['latitude'].iloc[0]])
     coords = np.array(coords)
 
-    # Convert to km (approximate: 1 degree ≈ 111 km)
-    distance_matrix = cdist(coords, coords) * 111
+    # Great-circle (haversine) distance in km between every pair of sites, so the scale thresholds
+    # (local/regional/seascape) are geographically accurate and consistent with the dispersal-distance
+    # metric. A flat "degrees x 111" would overestimate east-west distances by ~1/cos(lat) (~30% at
+    # mid-latitudes) and mis-bin mostly-longitudinal connections.
+    if len(coords) > 0:
+        _lon = np.radians(coords[:, 0])
+        _lat = np.radians(coords[:, 1])
+        _dlon = _lon[:, None] - _lon[None, :]
+        _dlat = _lat[:, None] - _lat[None, :]
+        _a = np.sin(_dlat / 2) ** 2 + np.cos(_lat[:, None]) * np.cos(_lat[None, :]) * np.sin(_dlon / 2) ** 2
+        distance_matrix = 6371.0 * 2 * np.arcsin(np.sqrt(_a))
+    else:
+        distance_matrix = np.zeros((0, 0))
 
     # Apply distance filtering (or skip if null_scale is None for full domain)
     if null_scale is None:
         connectivity_filtered = connectivity_matrix.copy()
     else:
-        print(f"\nApplying distance filter ({null_scale} km)...")
         connectivity_filtered = connectivity_matrix.copy()
         for i in range(len(connectivity_matrix)):
             for j in range(len(connectivity_matrix)):
                 if distance_matrix[i, j] > null_scale:
                     connectivity_filtered.iloc[i, j] = 0
 
-        connections_remaining = np.sum(connectivity_filtered.values > 0)
+        connections_remaining = int(np.sum(connectivity_filtered.values > 0))
         weight_remaining = int(connectivity_filtered.values.sum())
-        print(f"Connections after {null_scale}km filter: {connections_remaining} unique ({weight_remaining:,} total particles exchanged)")
+        if verbose:
+            _few = "  (few connections, so metrics may be unreliable at this scale)" if connections_remaining < 20 else ""
+            print(
+                f"  {null_scale} km filter: {connections_remaining} connections, {weight_remaining:,} particles exchanged{_few}")
 
-    # Warning if too few connections (only for filtered analysis)
-    if null_scale is not None and connections_remaining < 20:
-        print(f"\nWarning: Very few connections ({connections_remaining}) at {null_scale} km scale.")
-        print(f"Network metrics may not be meaningful at this scale.")
-        print(f"Consider using a larger distance threshold or multi-scale analysis.")
+    # Recompute the realised-network summary on the SCALE-FILTERED matrix so the network summary
+    # reflects the selected distance scale. For the full domain (null_scale is None) connectivity_filtered
+    # equals the unfiltered matrix, so these are unchanged. Previously both used the unfiltered matrix, so
+    # every scale reported the full-domain unique-connection and realised-site counts even though the
+    # graph, matrix and Louvain communities were scale-filtered.
+    _filt_vals = connectivity_filtered.values
+    unique_connections = int(np.sum(_filt_vals > 0))
+    realised_connectivity_sites = int(np.sum((_filt_vals.sum(axis=1) + _filt_vals.sum(axis=0)) > 0))
 
     # Create network graph
     G = nx.from_pandas_adjacency(connectivity_filtered, create_using=nx.DiGraph())
@@ -9171,18 +9387,29 @@ def network_analysis(final_processed, release_grids, settlement_grids,
     # Sink strength: total incoming connections (import potential)
     sink_strength = dict(G.in_degree(weight='weight'))
 
-    # Optionally remove the self-recruitment contribution from source/sink only.
-    # A self-loop counts toward both out- and in-degree, so it is subtracted from each. Self-recruitment is still reported as its own metric, and the centrality measures are unaffected.
+    # Optionally remove the self-recruitment contribution from source/sink only
+    # A self-loop counts toward both out- and in-degree, so it is subtracted from each. Self-recruitment is still reported as its own metric and the centrality measures are unaffected.
     if exclude_self_recruitment:
         source_strength = {n: source_strength.get(n, 0) - self_recruitment.get(n, 0) for n in G.nodes()}
         sink_strength = {n: sink_strength.get(n, 0) - self_recruitment.get(n, 0) for n in G.nodes()}
-        status_message("Self-recruitment excluded from source/sink metrics.", "info")
+        if verbose:
+            status_message("Self-recruitment excluded from source/sink metrics.", "info")
 
     # Betweenness: how often site lies on shortest paths between other sites
-    betweenness_cent = nx.betweenness_centrality(G, weight='weight', normalized=True)
+    # Betweenness and closeness are shortest-path measures: NetworkX treats the edge attribute as a
+    # DISTANCE (higher = longer, less-preferred path). Our edge 'weight' is connectivity STRENGTH
+    # (higher = more larval exchange), so we route shortest paths on an inverse-strength distance.
+    # This makes strong connections "short": sites bridging strong flows score high on betweenness,
+    # and well-connected sites score high on closeness - so higher = more connected, and the
+    # downstream ranking (higher value = better = lower rank number) reads correctly.
+    for _u, _v, _edata in G.edges(data=True):
+        _w = _edata.get('weight', 0)
+        _edata['distance'] = (1.0 / _w) if _w > 0 else float('inf')
 
-    # Closeness: how "close" site is to all other sites
-    closeness_cent = nx.closeness_centrality(G, distance='weight')
+    betweenness_cent = nx.betweenness_centrality(G, weight='distance', normalized=True)
+
+    # Closeness: how "close" (strongly connected) a site is to all others
+    closeness_cent = nx.closeness_centrality(G, distance='distance')
 
     # Degree: total number of connections (normalized)
     degree_cent = nx.degree_centrality(G)
@@ -9191,8 +9418,8 @@ def network_analysis(final_processed, release_grids, settlement_grids,
     site_metrics = pd.DataFrame({
         'site': list(G.nodes()),
         # Functional roles
-        'source': [source_strength.get(node, 0) for node in G.nodes()],
-        'sink': [sink_strength.get(node, 0) for node in G.nodes()],
+        'source_strength': [source_strength.get(node, 0) for node in G.nodes()],
+        'sink_strength': [sink_strength.get(node, 0) for node in G.nodes()],
         'self_recruitment': [self_recruitment.get(node, 0) for node in G.nodes()],
         # Centrality measures
         'betweenness': [betweenness_cent.get(node, 0) for node in G.nodes()],
@@ -9200,10 +9427,8 @@ def network_analysis(final_processed, release_grids, settlement_grids,
         'degree': [degree_cent.get(node, 0) for node in G.nodes()],
     })
 
-    # Add coordinates
-    site_metrics['grid_id'] = site_metrics['site'].apply(
-        lambda x: int(x.split('_')[1]) if '_' in str(x) else int(x)
-    )
+    # Add coordinates. Recover grid_id from the label map above so this is robust to human-readable site names; the old 'site'.split('_') parse crashed on any name that was not literally 'site_<int>'.
+    site_metrics['grid_id'] = site_metrics['site'].map(_label_to_gid).astype(int)
     site_metrics = pd.merge(site_metrics, site_coords, on='grid_id', how='left')
 
     # Attach human-readable site names as a display column. Internal 'site' labels stay
@@ -9215,7 +9440,7 @@ def network_analysis(final_processed, release_grids, settlement_grids,
         site_metrics['site_name'] = site_metrics['site']
 
     # Create rankings
-    functional_cols = ['source', 'sink', 'self_recruitment']
+    functional_cols = ['source_strength', 'sink_strength', 'self_recruitment']
     centrality_cols = ['betweenness', 'closeness', 'degree']
     all_metric_cols = functional_cols + centrality_cols
 
@@ -9227,7 +9452,7 @@ def network_analysis(final_processed, release_grids, settlement_grids,
         else:
             site_metrics[f'{metric}_norm'] = 0
         # Rank: 1 = highest value (best), ascending=False means highest gets rank 1
-        site_metrics[f'{metric}_rank'] = site_metrics[metric].rank(ascending=False, method='min')
+        site_metrics[f'{metric}_rank'] = site_metrics[metric].rank(ascending=False, method='dense')
 
     # Composite rankings (average of ranks - lower = better)
     # Method: Average of RANKS (not values) gives equal weight to each metric
@@ -9259,9 +9484,8 @@ def network_analysis(final_processed, release_grids, settlement_grids,
             'Number of species': n_species,
             'Study extent (sites)': study_extent,
             'Potential connectivity sites': potential_sites,
-            'Realised connectivity sites': len(valid_sites),
+            'Realised connectivity sites': realised_connectivity_sites,
             'Unique connections': unique_connections,
-            'Total particles exchanged': total_connections,
         },
         'site_metrics': site_metrics,
         'top10_overall': top10_overall,
@@ -9291,7 +9515,7 @@ def add_custom_composite(network_results, metrics, name='custom_composite', top_
     network_results : dict
         A single result from network_analysis() (must contain 'site_metrics').
     metrics : list of str
-        Any of: 'source', 'sink', 'self_recruitment', 'betweenness',
+        Any of: 'source_strength', 'sink_strength', 'self_recruitment', 'betweenness',
         'closeness', 'degree'. e.g. ['betweenness', 'closeness'].
     name : str
         Column name for the new composite (default 'custom_composite').
@@ -9304,7 +9528,7 @@ def add_custom_composite(network_results, metrics, name='custom_composite', top_
         The same network_results, with the new composite column added to 'site_metrics' and a 'top{top_n}_{name}' table added.
         Display it with create_network_map(..., composite_col=name) or create_matrix_with_map.
     """
-    valid = ['source', 'sink', 'self_recruitment', 'betweenness', 'closeness', 'degree']
+    valid = ['source_strength', 'sink_strength', 'self_recruitment', 'betweenness', 'closeness', 'degree']
     chosen = [m.strip().lower().replace(' ', '_') for m in metrics]
     chosen = [m for m in chosen if m in valid]
     if not chosen:
@@ -9322,14 +9546,21 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
                        composite_col='overall_composite', output_path=None,
                        zoom_extent=None, cmap='viridis_r',
                        output_format='png', dpi=300, show_figure=None,
-                       network_graph=None, top_n_edges=200, network_only=False):
+                       network_graph=None, top_n_edges=200, network_only=False,
+                       subtitle=None):
     """
-        Combined hotspot and directed connectivity network map
+        Hotspot/metric map (default) or network-only map.
 
-        All sites are drawn as nodes coloured by rank (rank 1 = best).
-        Top 10 sites are highlighted with larger dark-outlined circles and numbered labels.
-        The network structure of the top 200 highest connected sites are shown through arrow lines.
-        The opacity of the line indicates strenght/weight of connection.
+        Hotspot/metric map (network_only=False): all sites are drawn as nodes coloured
+        by rank (rank 1 = best); the top 10 are highlighted with larger dark-outlined
+        circles and numbered labels. No edges, arrows or self-recruitment rings are
+        drawn here, so the ranking stays legible.
+
+        Network-only map (network_only=True): neutral site dots plus the directed
+        connectivity structure , arrows (width/opacity by weight) for the strongest
+        site-to-site links and rings for the strongest self-recruiting sites. The
+        number of arrows/rings scales with the network so it works for small and large
+        datasets alike; a figure caption states how many of each are shown.
 
         Parameters
         ----------
@@ -9343,16 +9574,17 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
         cmap : str
             Matplotlib colormap name. Default `viridis_r` so low rank = yellow = best.
         network_graph : networkx.DiGraph, optional
-            If provided, the top `top_n_edges` edges (by weight) are overlaid.
+            Connectivity graph; its edges are overlaid only on the network-only map.
         top_n_edges : int
-            Maximum number of edges to draw when `network_graph` is provided.
+            Retained for backward compatibility. Edge counts are now chosen
+            adaptively from the network size on the network-only map.
         """
     lon_range = site_metrics['longitude'].max() - site_metrics['longitude'].min()
     lat_range = site_metrics['latitude'].max() - site_metrics['latitude'].min()
     fig_width, fig_height, _ = calculate_figure_dimensions(lon_range, lat_range, base_size=6, n_panels=1)
 
     if network_only:
-        fig = plt.figure(figsize=(12, 7))
+        fig = plt.figure(figsize=(12, 8.5))
         gs = GridSpec(1, 1, figure=fig)
     else:
         fig = plt.figure(figsize=(12, 10.5))
@@ -9366,92 +9598,132 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
     if zoom_extent:
         ax.set_extent(zoom_extent, crs=ccrs.PlateCarree())
     else:
-        buf = 0.08
+        _lon0, _lon1 = site_metrics['longitude'].min(), site_metrics['longitude'].max()
+        _lat0, _lat1 = site_metrics['latitude'].min(), site_metrics['latitude'].max()
+        # Border of ~5 grid cells (consistent across maps), inferred from the site spacing, so dots
+        # fill the frame and the numbered top-10 labels have room.
+        _lons_u = np.unique(np.round(site_metrics['longitude'].values, 4))
+        _lats_u = np.unique(np.round(site_metrics['latitude'].values, 4))
+        _cell_lon = float(np.min(np.diff(_lons_u))) if len(_lons_u) > 1 else 0.1
+        _cell_lat = float(np.min(np.diff(_lats_u))) if len(_lats_u) > 1 else 0.1
+        _buf_lon = 5 * _cell_lon
+        _buf_lat = 5 * _cell_lat
         ax.set_extent([
-            site_metrics['longitude'].min() - buf,
-            site_metrics['longitude'].max() + buf,
-            site_metrics['latitude'].min() - buf,
-            site_metrics['latitude'].max() + buf
+            _lon0 - _buf_lon, _lon1 + _buf_lon,
+            _lat0 - _buf_lat, _lat1 + _buf_lat
         ], crs=ccrs.PlateCarree())
 
     # Land only, softer outline, standardised across all maps (Fix 15)
     ax.add_feature(cfeature.LAND, facecolor='lightgray', edgecolor='none')
     ax.add_feature(cfeature.COASTLINE, linewidth=0.5, color='#555555')
 
-    # Overlay top-N directed edges
-    if network_graph is not None and len(network_graph.edges()) > 0:
+    # Directed edges and self-recruitment rings are drawn ONLY on the network-only
+    # map. Hotspot/metric maps stay clean (edges clutter the map and obscure the
+    # rank colouring), so they draw no arrows, rings or connection legend entries.
+    _n_between_total = _n_between_shown = 0
+    _n_loops_total = _n_loops_shown = 0
+    if network_only and network_graph is not None and len(network_graph.edges()) > 0:
         pos = {row['site']: (row['longitude'], row['latitude'])
                for _, row in site_metrics.iterrows()}
         edges_with_weight = [(u, v, d.get('weight', 1))
                              for u, v, d in network_graph.edges(data=True)
                              if u in pos and v in pos]
         edges_with_weight.sort(key=lambda e: e[2], reverse=True)
-        top_edges = edges_with_weight if top_n_edges is None else edges_with_weight[:top_n_edges]
+        # Separate self-recruitment (self-loops) from site-to-site edges and cap each
+        # stream on its own, so strong self-recruitment never crowds out the directed
+        # arrows. The caps scale with the network: small datasets show their whole
+        # structure, large ones show the strongest links without becoming a hairball.
+        _between = [e for e in edges_with_weight if e[0] != e[1]]
+        _loops = [e for e in edges_with_weight if e[0] == e[1]]
+        _arrow_cap = int(min(500, max(150, len(_between) * 0.05)))
+        _loop_cap = int(min(60, max(25, len(_loops) * 0.10)))
+        _shown_between = _between[:_arrow_cap]
+        _shown_loops = _loops[:_loop_cap]
+        _n_between_total, _n_between_shown = len(_between), len(_shown_between)
+        _n_loops_total, _n_loops_shown = len(_loops), len(_shown_loops)
 
-        # Scale arrow size to domain extent
-        lon_span = site_metrics['longitude'].max() - site_metrics['longitude'].min()
-        lat_span = site_metrics['latitude'].max() - site_metrics['latitude'].min()
-        extent = max(lon_span, lat_span, 0.5)
+        # Arrow-head size scales with the map extent so arrows look proportional at any zoom.
+        extent = max(lon_range, lat_range, 0.5)
         _arrow_scale = max(3, min(10, extent * 0.8))
 
-        if top_edges:
-            max_w = max(w for _, _, w in top_edges)
-            top10_site_keys = set(top_10['site']) if 'site' in top_10.columns else set(top_10['grid_id'])
-            # Loop offset sized relative to the map extent so it's visible at any zoom
-            lon_span = site_metrics['longitude'].max() - site_metrics['longitude'].min()
-            loop_offset = max(0.015, lon_span * 0.015)
-            for u, v, w in top_edges:
-                alpha = min(0.85, 0.15 + (w / max_w) * 0.7)
-                if u == v:
-                    x, y = pos[u]
-                    ring_size = 350
-                    ring_alpha = max(0.3, min(1.0, w / max_w))
-                    ax.scatter(x, y, s=ring_size, facecolors='none',
-                               edgecolors='#1f4e79', linewidths=2.5,
-                               alpha=ring_alpha,
-                               transform=ccrs.PlateCarree(), zorder=8)
-                    continue
+        # Directed arrows: width AND opacity proportional to weight, so the strongest
+        # connections dominate visually even on a large, densely-sampled domain.
+        if _shown_between:
+            _max_arrow_w = max(w for _, _, w in _shown_between)
+            for u, v, w in _shown_between:
+                _frac = w / _max_arrow_w
                 x1, y1 = pos[u]
                 x2, y2 = pos[v]
-                # Scale arrow size relative to map extent so arrows look proportional at any domain size
-                # Small domains get smaller arrows
-                lon_span = site_metrics['longitude'].max() - site_metrics['longitude'].min()
-                lat_span = site_metrics['latitude'].max() - site_metrics['latitude'].min()
-                extent = max(lon_span, lat_span, 0.5)
-                _arrow_scale = max(3, min(10, extent * 0.8))
-
                 arrow = FancyArrowPatch(
                     (x1, y1), (x2, y2),
                     arrowstyle='-|>',
                     color='#2166AC',
-                    alpha=alpha,
-                    linewidth=1.2,
+                    alpha=min(0.9, 0.2 + _frac * 0.7),
+                    linewidth=max(0.6, min(3.0, 0.6 + _frac * 2.4)),
                     mutation_scale=_arrow_scale,
-                    zorder=2,
+                    zorder=4,
                 )
                 ax.add_patch(arrow)
 
+        # Self-recruitment rings on top, opacity proportional to retention strength.
+        if _shown_loops:
+            _max_loop_w = max(w for _, _, w in _shown_loops)
+            for u, v, w in _shown_loops:
+                x, y = pos[u]
+                ax.scatter(x, y, s=320, facecolors='none', edgecolors='#1f4e79',
+                           linewidths=2.2, alpha=max(0.3, min(1.0, w / _max_loop_w)),
+                           transform=ccrs.PlateCarree(), zorder=5)
+
     # All sites as outlined circles, coloured by rank
     if network_only:
-        # No metric , all sites as small neutral dots. Prevents the 'Could not display metric map: None'
-        # crash that happened when composite_col was None by never referencing it (Fix 10).
+        # No metric , all sites as small neutral dots, drawn UNDER the edges so the
+        # connections stay visible even on large, densely-sampled domains. (Also
+        # never references composite_col, avoiding the old None-metric crash, Fix 10.)
         scatter = ax.scatter(
             site_metrics['longitude'], site_metrics['latitude'],
-            c='#444444', s=20, alpha=0.85,
+            c='#888888', s=10, alpha=0.55,
             transform=ccrs.PlateCarree(),
-            edgecolors='none', zorder=3,
+            edgecolors='none', zorder=2,
         )
         score_col = None
         score_min = score_max = None
     else:
-        score_col = composite_col
-        scores = site_metrics[score_col]
-        score_min, score_max = scores.min(), scores.max()
         base_size = 70
 
+        # Rank everywhere: per-metric maps colour by the metric's rank (1 = best), matching the heatmap, every per-site figure shares one scale
+        # zero are drawn grey ("metric absent") rather than at a misleading mid-rank colour
+        _raw_metrics = {'source_strength', 'sink_strength', 'self_recruitment',
+                        'betweenness', 'closeness', 'degree'}
+        # Accept either the raw metric name or its '<metric>_rank' column (the viewers pass the rank
+        # column). Either way, colour by rank and grey the sites whose RAW value is zero, so this map
+        # matches the heatmap (which greys value-zero cells). This is what fixes the self-recruitment
+        # map showing coloured dots where the heatmap correctly greyed them.
+        _base_metric = composite_col[:-5] if str(composite_col).endswith('_rank') else composite_col
+        if _base_metric in _raw_metrics and f'{_base_metric}_rank' in site_metrics.columns:
+            score_col = f'{_base_metric}_rank'
+            _zero_mask = site_metrics[_base_metric] == 0
+            cmap = plt.cm.viridis_r  # 1 = best = yellow, consistent with the heatmap
+        else:
+            score_col = composite_col
+            _zero_mask = pd.Series(False, index=site_metrics.index)
+
+        _vis = site_metrics.loc[~_zero_mask, score_col]
+        score_min, score_max = (_vis.min(), _vis.max()) if len(_vis) else (0, 1)
+
+        # Grey "metric absent" sites first, underneath the coloured sites
+        if _zero_mask.any():
+            ax.scatter(
+                site_metrics.loc[_zero_mask, 'longitude'],
+                site_metrics.loc[_zero_mask, 'latitude'],
+                c='#d9d9d9', s=base_size, alpha=0.85,
+                transform=ccrs.PlateCarree(),
+                edgecolors='#999999', linewidths=0.3, zorder=2,
+            )
+
         scatter = ax.scatter(
-            site_metrics['longitude'], site_metrics['latitude'],
-            c=site_metrics[score_col], cmap=cmap, s=base_size, alpha=0.85,
+            site_metrics.loc[~_zero_mask, 'longitude'],
+            site_metrics.loc[~_zero_mask, 'latitude'],
+            c=site_metrics.loc[~_zero_mask, score_col], cmap=cmap, s=base_size, alpha=0.85,
             transform=ccrs.PlateCarree(),
             edgecolors='#666666', linewidths=0.3,
             vmin=score_min, vmax=score_max, zorder=3,
@@ -9472,59 +9744,112 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
                 vmin=score_min, vmax=score_max, zorder=5,
             )
 
-        # Offset each hotspot number radially outward from the top-10 centroid, with a thin
-        # leader line, so numbers in a tight cluster fan apart instead of stacking on the markers.
-        _cx = top_10['longitude'].astype(float).mean()
-        _cy = top_10['latitude'].astype(float).mean()
-        _lon_span = site_metrics['longitude'].max() - site_metrics['longitude'].min()
-        _lat_span = site_metrics['latitude'].max() - site_metrics['latitude'].min()
-        _off = max(0.03, max(_lon_span, _lat_span) * 0.04)
-        for idx, (_, site) in enumerate(top_10.iterrows()):
-            _x0, _y0 = float(site['longitude']), float(site['latitude'])
-            _dx, _dy = _x0 - _cx, _y0 - _cy
-            _dist = (_dx ** 2 + _dy ** 2) ** 0.5
-            _ux, _uy = (_dx / _dist, _dy / _dist) if _dist > 1e-9 else (0.0, 1.0)
-            _xl, _yl = _x0 + _ux * _off, _y0 + _uy * _off
-            ax.plot([_x0, _xl], [_y0, _yl], color='#333333', linewidth=0.6, alpha=0.7,
-                    transform=ccrs.PlateCarree(), zorder=6)
-            ax.text(_xl, _yl, f"{idx + 1}",
-                    fontsize=9, fontweight='bold', ha='center', va='center', color='#000000',
+        # Numbered top-10 labels with collision avoidance: start from a radial offset
+        # off the top-10 centroid, then iteratively push each label away from every
+        # other label AND from every hotspot marker until none overlap, keeping each
+        # one clamped inside the axes. A thin leader line ties each number to its site.
+        _ext = ax.get_extent(crs=ccrs.PlateCarree())
+        _pad_x = (_ext[1] - _ext[0]) * 0.03
+        _pad_y = (_ext[3] - _ext[2]) * 0.03
+        _span = max(_ext[1] - _ext[0], _ext[3] - _ext[2])
+        _off = max(0.03, _span * 0.045)
+        _min_sep = _span * 0.05  # minimum spacing between labels and markers
+        _markers = [(float(s['longitude']), float(s['latitude'])) for _, s in top_10.iterrows()]
+        _cx = sum(m[0] for m in _markers) / len(_markers)
+        _cy = sum(m[1] for m in _markers) / len(_markers)
+        _labels = []
+        for (mx, my) in _markers:
+            _dx, _dy = mx - _cx, my - _cy
+            _d = (_dx ** 2 + _dy ** 2) ** 0.5
+            _ux, _uy = (_dx / _d, _dy / _d) if _d > 1e-9 else (0.0, 1.0)
+            _labels.append([mx + _ux * _off, my + _uy * _off])
+        for _ in range(80):
+            for i in range(len(_labels)):
+                _fx = _fy = 0.0
+                for _px, _py in ([(_l[0], _l[1]) for j, _l in enumerate(_labels) if j != i] + _markers):
+                    _dx = _labels[i][0] - _px
+                    _dy = _labels[i][1] - _py
+                    _dist = (_dx ** 2 + _dy ** 2) ** 0.5 or 1e-6
+                    if _dist < _min_sep:
+                        _push = (_min_sep - _dist) / _min_sep * _min_sep * 0.5
+                        _fx += (_dx / _dist) * _push
+                        _fy += (_dy / _dist) * _push
+                _labels[i][0] = min(max(_labels[i][0] + _fx, _ext[0] + _pad_x), _ext[1] - _pad_x)
+                _labels[i][1] = min(max(_labels[i][1] + _fy, _ext[2] + _pad_y), _ext[3] - _pad_y)
+        for idx, ((mx, my), (lx, ly)) in enumerate(zip(_markers, _labels)):
+            # Leader line + number sit above the markers and rings so labels stay readable.
+            ax.plot([mx, lx], [my, ly], color='#333333', linewidth=0.6, alpha=0.7,
+                    transform=ccrs.PlateCarree(), zorder=9)
+            ax.text(lx, ly, f"{idx + 1}",
+                    fontsize=11, fontweight='bold', fontname='Arial',
+                    ha='center', va='center', color='#000000',
                     bbox=dict(boxstyle='circle,pad=0.15', fc='white', ec='#333333', lw=0.6, alpha=0.9),
-                    transform=ccrs.PlateCarree(), zorder=7)
+                    transform=ccrs.PlateCarree(), zorder=10)
 
-    ax.set_title(title, fontsize=12, fontweight='bold', pad=10)
+    if network_only:
+        # Title + caption at the top (consistent with the matrix map). The legend
+        # sits at the bottom, so the caption can never overlap it.
+        fig.suptitle(title, fontsize=13, fontweight='bold', y=0.97)
+        if _n_between_total or _n_loops_total:
+            _cap_txt = f"Arrows: top {_n_between_shown} of {_n_between_total} site-to-site links"
+            if _n_loops_total:
+                _cap_txt += f"      Rings: top {_n_loops_shown} of {_n_loops_total} self-recruiting sites"
+            fig.text(0.5, 0.925, _cap_txt, ha='center', va='top',
+                     fontsize=9, style='italic', color='#444444')
+        fig.subplots_adjust(top=0.90, bottom=0.20)
+    else:
+        # Grey notes under the title: an optional caller-supplied subtitle (e.g. which metric the
+        # Type 3 comparison maps show) and/or the zero-value/grey-sites note. When any note is
+        # shown, push the title up so the note has its own space beneath it and never overlaps.
+        _notes = []
+        if subtitle:
+            _notes.append(subtitle)
+        if _zero_mask.any():
+            _notes.append('Grey sites have a value of zero for this metric (not included in the rank)')
+        if _notes:
+            ax.set_title(title, fontsize=12, fontweight='bold', pad=(28 if len(_notes) == 1 else 40))
+            ax.text(0.5, 1.01, '\n'.join(_notes),
+                    transform=ax.transAxes, ha='center', va='bottom',
+                    fontsize=9, style='italic', color='#666666')
+        else:
+            ax.set_title(title, fontsize=12, fontweight='bold', pad=10)
     # Dotted lighter gridlines, standardised (Fix 15)
     gl = ax.gridlines(draw_labels=True, linestyle=':', linewidth=0.5, color='gray', alpha=0.4)
     gl.top_labels = False
     gl.right_labels = False
 
-    # Legend
+    # Legend , entries depend on the map type.
     legend_handles = []
-    legend_handles.append(Line2D([0], [0], marker='o', color='w',
-                                 markerfacecolor='#440154', markeredgecolor='#666666',
-                                 markersize=10, markeredgewidth=0.3, label='Site (colour = rank)'))
-    legend_handles.append(Line2D([0], [0], marker='o', color='w',
-                                 markerfacecolor='#fde725', markeredgecolor='#1a1a1a',
-                                 markersize=13, markeredgewidth=1.5, label='Top 10 hotspot (numbered)'))
-    legend_handles.append(Line2D([0], [0], marker='o', color='w',
-                                 markerfacecolor='none', markeredgecolor='#1f4e79',
-                                 markersize=12, markeredgewidth=2.0, label='Self-recruitment'))
-    if network_graph is not None:
-        legend_handles.append(Line2D([0], [0], color='#2166AC',
-                                     linewidth=2.0, alpha=0.85, label='Strong connection'))
-    if network_graph is not None:
-        legend_handles.append(Line2D([0], [0], color='#2166AC',
-                                     linewidth=2.0, alpha=0.5, label='Medium connection'))
-    if network_graph is not None:
-        legend_handles.append(Line2D([0], [0], color='#2166AC',
-                                     linewidth=2.0, alpha=0.2, label='Weak connection'))
     if network_only:
-        # No colourbar in this layout, so the legend sits directly below the map.
-        ax.legend(handles=legend_handles,
-                  loc='upper center', bbox_to_anchor=(0.5, -0.06),
-                  ncol=2, fontsize=12,
-                  framealpha=0.9, handletextpad=0.5, columnspacing=2.0)
+        # Network-only map: neutral sites, self-recruitment rings and connection strengths.
+        legend_handles.append(Line2D([0], [0], marker='o', color='w',
+                                     markerfacecolor='#888888', markeredgecolor='none',
+                                     markersize=8, label='Site'))
+        legend_handles.append(Line2D([0], [0], marker='o', color='w',
+                                     markerfacecolor='none', markeredgecolor='#1f4e79',
+                                     markersize=12, markeredgewidth=2.0, label='Self-recruitment'))
+        legend_handles.append(Line2D([0], [0], color='#2166AC', linewidth=2.8, alpha=0.85, label='Strong connection'))
+        legend_handles.append(Line2D([0], [0], color='#2166AC', linewidth=1.8, alpha=0.5, label='Medium connection'))
+        legend_handles.append(Line2D([0], [0], color='#2166AC', linewidth=1.0, alpha=0.25, label='Weak connection'))
+        # Two columns: [Site, Self-recruitment] in the left column, [Strong, Medium, Weak
+        # connection] in the right column. matplotlib fills a multi-column legend COLUMN-major
+        # (top-to-bottom down the first column, then the second), so the handle order is simply
+        # left-column entries first, then right-column entries. A blank spacer pads the shorter
+        # left column so the two columns stay top-aligned.
+        _spacer = Line2D([0], [0], marker='', color='none', label=' ')
+        legend_handles = [legend_handles[0], legend_handles[1], _spacer,   # left column
+                          legend_handles[2], legend_handles[3], legend_handles[4]]  # right column
+        ax.legend(handles=legend_handles, loc='upper center', bbox_to_anchor=(0.5, -0.12),
+                  ncol=2, fontsize=10, framealpha=0.9, handletextpad=0.8, columnspacing=1.6)
     else:
+        # Hotspot/metric map: site rank and top-10 only. No edges are drawn here, so
+        # there are no connection or self-recruitment entries.
+        legend_handles.append(Line2D([0], [0], marker='o', color='w',
+                                     markerfacecolor='#440154', markeredgecolor='#666666',
+                                     markersize=10, markeredgewidth=0.3, label='Site (colour = rank)'))
+        legend_handles.append(Line2D([0], [0], marker='o', color='w',
+                                     markerfacecolor='#fde725', markeredgecolor='#1a1a1a',
+                                     markersize=13, markeredgewidth=1.5, label='Top 10 hotspot (numbered)'))
         # Legend goes in its own bottom slot (gs[2]) so it never overlaps the colourbar.
         legend_ax = fig.add_subplot(gs[2])
         legend_ax.axis('off')
@@ -9539,7 +9864,8 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
         if composite_col.endswith('_composite'):
             cbar_label_text = 'Average rank across metrics (1 = best, lower is better)'
         else:
-            cbar_label_text = 'Rank (1 = best, lower is better)'
+            # Single-metric and rank maps both colour by RANK now (1 = best); grey = value of zero, not included in the rank
+            cbar_label_text = 'Rank (1 = best, lower is better; grey = value of zero, not included in the rank)'
         cbar.set_label(cbar_label_text, fontsize=12, labelpad=6)
         cbar.ax.tick_params(labelsize=11)
 
@@ -9650,12 +9976,9 @@ def create_connectivity_matrix_plot(connectivity_matrix, title="Connectivity Mat
     ax.set_ylabel('Source Site', fontsize=14, labelpad=15)
     ax.set_title(title, fontsize=16, fontweight='bold', pad=15)
 
-    # Invert y-axis so site order matches (first site at top-left origin)
-    ax.invert_yaxis()
-
-    # Add diagonal line to show self-recruitment (self-recruitment cells)
-    # After invert_yaxis: y=0 is at bottom, y=n-1 is at top
-    # Line from (0,0) bottom-left to (n-1,n-1) top-right = self-recruitment diagonal
+    # Keep the default imshow orientation (first source at the top-left origin) so the
+    # self-recruitment diagonal runs top-left -> bottom-right, matching the combined
+    # matrix viewer. Do NOT invert the y-axis, or the two matrices would disagree.
     ax.plot([0, n_sites - 1], [0, n_sites - 1], 'k--', alpha=0.7, linewidth=1.2)
     plt.tight_layout()
 
@@ -9691,13 +10014,30 @@ def create_matrix_with_map(connectivity_matrix, site_metrics,
 
     n_sites = len(connectivity_matrix)
 
-    # Determine label frequency based on number of sites
-    if n_sites <= 30:
-        label_every = 1
-    elif n_sites <= 60:
-        label_every = 5
-    else:
-        label_every = 10
+    # Map matrix axis labels (site_<grid_id>) to display names: use the real
+    # site_name when one was supplied, otherwise fall back to site_<grid_id>.
+    # (site_name already equals site_<grid_id> when no real names were given.)
+    _name_by_gid = {}
+    if 'site_name' in site_metrics.columns and 'grid_id' in site_metrics.columns:
+        for _, _r in site_metrics.iterrows():
+            _name_by_gid[int(_r['grid_id'])] = str(_r['site_name'])
+
+    def _disp_label(_lbl):
+        _g = str(_lbl).replace('site_', '')
+        try:
+            return _name_by_gid.get(int(_g), str(_lbl))
+        except (TypeError, ValueError):
+            return str(_lbl)
+
+    def _wrap_label(_txt):
+        # Long combined site names (several sites sharing one grid cell, joined by ' / ')
+        # are stacked onto separate lines so rotated axis labels stay short and do not
+        # overlap the colourbar, and map labels stay compact.
+        return str(_txt).replace(' / ', '/\n')
+
+    # Cap the number of tick labels to a fixed target so the axes and the map stay readable at any site count
+    _max_tick_labels = 30
+    label_every = max(1, int(np.ceil(n_sites / _max_tick_labels)))
 
     # Standardised landscape aspect ratio across all four Type 2 viewers
     fig = plt.figure(figsize=(12, 8))
@@ -9719,8 +10059,8 @@ def create_matrix_with_map(connectivity_matrix, site_metrics,
 
     im = ax_matrix.imshow(masked_data, cmap=cmap_matrix, aspect='equal', interpolation='nearest')
 
-    # Colorbar full width below the figure
-    cbar_ax = fig.add_axes([0.08, 0.04, 0.84, 0.022])
+    # Colorbar full width at the very bottom, clear of the matrix x-axis label
+    cbar_ax = fig.add_axes([0.08, 0.02, 0.84, 0.02])
     cbar = fig.colorbar(im, cax=cbar_ax, orientation='horizontal')
     cbar.set_label(cbar_label, fontsize=13, labelpad=8)
     cbar.ax.tick_params(labelsize=11)
@@ -9729,8 +10069,8 @@ def create_matrix_with_map(connectivity_matrix, site_metrics,
     label_indices = list(range(0, n_sites, label_every))
     ax_matrix.set_xticks(label_indices)
     ax_matrix.set_yticks(label_indices)
-    ax_matrix.set_xticklabels([connectivity_matrix.columns[i] for i in label_indices], rotation=90, fontsize=10)
-    ax_matrix.set_yticklabels([connectivity_matrix.index[i] for i in label_indices], fontsize=10)
+    ax_matrix.set_xticklabels([_wrap_label(_disp_label(connectivity_matrix.columns[i])) for i in label_indices], rotation=90, fontsize=9.5)
+    ax_matrix.set_yticklabels([_wrap_label(_disp_label(connectivity_matrix.index[i])) for i in label_indices], fontsize=9.5)
 
     ax_matrix.set_xlabel('Sink Site', fontsize=13, labelpad=8)
     ax_matrix.set_ylabel('Source Site', fontsize=13, labelpad=8)
@@ -9749,7 +10089,10 @@ def create_matrix_with_map(connectivity_matrix, site_metrics,
         # Fallback: try matching differently
         map_sites = site_metrics.copy()
 
-    buffer = 0.2
+    _mlon = np.unique(np.round(map_sites['longitude'].values, 4))
+    _mlat = np.unique(np.round(map_sites['latitude'].values, 4))
+    buffer = 5 * min(float(np.min(np.diff(_mlon))) if len(_mlon) > 1 else 0.1,
+                     float(np.min(np.diff(_mlat))) if len(_mlat) > 1 else 0.1)
     ax_map.set_extent([
         map_sites['longitude'].min() - buffer,
         map_sites['longitude'].max() + buffer,
@@ -9769,19 +10112,40 @@ def create_matrix_with_map(connectivity_matrix, site_metrics,
         zorder=3
     )
 
-    # Label the same sites that are labelled on the matrix, using the matrix's row order as the anchor
-    # This means label_every sampling on the matrix picks grid_ids at positions 0, N, 2N... and the map labels those same grid_ids
-    matrix_order_grid_ids = [connectivity_matrix.index[i].replace('site_', '')
-                             for i in range(0, n_sites, label_every)]
-    for _, site in map_sites.iterrows():
-        grid_id_str = str(int(site['grid_id']))
-        if grid_id_str in matrix_order_grid_ids:
-            ax_map.text(
-                site['longitude'], site['latitude'],
-                grid_id_str, fontsize=6, ha='left', va='bottom',
-                transform=ccrs.PlateCarree(), zorder=4,
-                bbox=dict(boxstyle='round,pad=0.1', facecolor='white', alpha=0.85, edgecolor='none')
-            )
+    # Label the same sites that are labelled on the matrix axes
+    # The matrix index may be 'site_<grid_id>', a bare grid_id or a real site_name
+    # Resolve each labelled position back to a grid_id
+    _name_to_gid = {}
+    if 'grid_id' in site_metrics.columns:
+        for _c in ('site_name', 'site'):
+            if _c in site_metrics.columns:
+                for _, _r in site_metrics.iterrows():
+                    _name_to_gid[str(_r[_c])] = int(_r['grid_id'])
+
+    def _index_to_gid(_lbl):
+        _g = str(_lbl).replace('site_', '')
+        try:
+            return int(_g)
+        except (TypeError, ValueError):
+            return _name_to_gid.get(str(_lbl))
+
+    labelled_gids = set()
+    for i in range(0, n_sites, label_every):
+        _gid = _index_to_gid(connectivity_matrix.index[i])
+        if _gid is not None:
+            labelled_gids.add(_gid)
+
+    # Label the same sites that are labelled on the matrix axes, placed directly on their
+    # markers (no offset / leader lines) so this reference map matches the heatmap's exactly.
+    _lbl_sites = [s for _, s in map_sites.iterrows() if int(s['grid_id']) in labelled_gids]
+    for site in _lbl_sites:
+        mx, my = float(site['longitude']), float(site['latitude'])
+        ax_map.text(
+            mx, my,
+            _wrap_label(_disp_label('site_' + str(int(site['grid_id'])))), fontsize=6, ha='center', va='center',
+            transform=ccrs.PlateCarree(), zorder=4,
+            bbox=dict(boxstyle='round,pad=0.1', facecolor='white', alpha=0.85, edgecolor='none')
+        )
 
     ax_map.set_title('Site Reference Map', fontsize=12, fontweight='bold', pad=10)
     gl = ax_map.gridlines(draw_labels=True, linestyle=':', linewidth=0.5, color='gray', alpha=0.4)
@@ -9789,142 +10153,10 @@ def create_matrix_with_map(connectivity_matrix, site_metrics,
     gl.right_labels = False
 
     fig.suptitle(title, fontsize=15, fontweight='bold', y=0.99)
-    fig.subplots_adjust(top=0.95, bottom=0.12, left=0.08, right=0.97, wspace=0.35)
-
-    if output_path:
-        fig.savefig(output_path, format=output_format, dpi=dpi, bbox_inches='tight')
-        print(f"  Figure saved to: {output_path}")
-
-    if show_figure is None or show_figure:
-        plt.show()
-    else:
-        plt.close(fig)
-
-    return fig
-
-## Create a geographic directed network map with arrows showing site-to-site connectivity
-def create_directed_network_map(network_results, title="Directed Connectivity Network",
-                                output_path=None, output_format='png', dpi=300,
-                                show_figure=None, edge_scale=0.05, min_edge_width=0.3):
-    """
-    Create a geographic network map with directed edges (arrows) showing connectivity.
-
-    Based on Tony Knights' visualisation code. Edges are FancyArrowPatch with width
-    proportional to particle exchange count. Nodes coloured by betweenness centrality.
-
-    Parameters
-    ----------
-    network_results : dict
-        Output from network_analysis()
-    title : str
-        Map title
-    edge_scale : float
-        Multiplier for edge width (default 0.05; increase for sparse networks)
-    min_edge_width : float
-        Minimum edge width for visibility
-    """
-    G = network_results['network_graph']
-    site_metrics = network_results['site_metrics']
-
-    if len(G.nodes()) == 0:
-        print("  No nodes in network. Skipping directed network map.")
-        return None
-
-    # Build position dict: node_name -> (lon, lat)
-    pos = {}
-    for _, row in site_metrics.iterrows():
-        site_name = row['site']
-        pos[site_name] = (row['longitude'], row['latitude'])
-
-    # Filter to nodes that have positions
-    nodes_with_pos = [n for n in G.nodes() if n in pos]
-    if len(nodes_with_pos) == 0:
-        print("  No nodes with coordinates. Skipping directed network map.")
-        return None
-
-    # Figure setup with cartopy
-    lon_range = site_metrics['longitude'].max() - site_metrics['longitude'].min()
-    lat_range = site_metrics['latitude'].max() - site_metrics['latitude'].min()
-    fig_width, fig_height, _ = calculate_figure_dimensions(lon_range, lat_range, base_size=7, n_panels=1)
-
-    fig, ax = plt.subplots(figsize=(fig_width, fig_height),
-                           subplot_kw={'projection': ccrs.PlateCarree()})
-
-    buf = 0.2
-    ax.set_extent([
-        site_metrics['longitude'].min() - buf,
-        site_metrics['longitude'].max() + buf,
-        site_metrics['latitude'].min() - buf,
-        site_metrics['latitude'].max() + buf
-    ], crs=ccrs.PlateCarree())
-
-    ax.add_feature(cfeature.LAND, facecolor='lightgray')
-    ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
-
-    # Draw edges as directed arrows
-    max_weight = max((d.get('weight', 1) for _, _, d in G.edges(data=True)), default=1)
-
-    for u, v, d in G.edges(data=True):
-        if u not in pos or v not in pos:
-            continue
-        if u == v:
-            continue  # Skip self-loops
-
-        x1, y1 = pos[u]
-        x2, y2 = pos[v]
-        weight = d.get('weight', 1)
-
-        # Scale edge width
-        lw = max(min_edge_width, weight * edge_scale)
-        alpha = min(0.6, 0.1 + (weight / max_weight) * 0.5)
-
-        arrow = FancyArrowPatch(
-            (x1, y1), (x2, y2),
-            arrowstyle='-|>',
-            color='#2166AC',
-            alpha=alpha,
-            linewidth=lw,
-            mutation_scale=_arrow_scale,
-            zorder=1
-        )
-        ax.add_patch(arrow)
-
-    # Draw nodes coloured by betweenness centrality
-    node_lons = [pos[n][0] for n in nodes_with_pos]
-    node_lats = [pos[n][1] for n in nodes_with_pos]
-    betweenness = [site_metrics.loc[site_metrics['site'] == n, 'betweenness'].values[0]
-                   if n in site_metrics['site'].values else 0 for n in nodes_with_pos]
-
-    # Node size by degree
-    degrees = [G.degree(n) for n in nodes_with_pos]
-    max_degree = max(degrees) if degrees else 1
-    node_sizes = [30 + (d / max_degree) * 120 for d in degrees]
-
-    sc = ax.scatter(node_lons, node_lats, c=betweenness, cmap='viridis',
-                    s=node_sizes, alpha=0.9, edgecolors='#333333', linewidths=0.4,
-                    zorder=2, transform=ccrs.PlateCarree())
-
-    # Colorbar
-    cbar = fig.colorbar(sc, ax=ax, shrink=0.6, pad=0.02, orientation='horizontal',
-                        anchor=(0.5, 0.0))
-    cbar.set_label('Betweenness centrality', fontsize=10)
-
-    # Legend
-    legend_elements = [
-        Line2D([0], [0], color='#2166AC', linewidth=2, alpha=0.5,
-               label='Connectivity (width = strength)'),
-        Line2D([0], [0], marker='o', color='w', label='Node (colour = betweenness)',
-               markerfacecolor='#fde725', markeredgecolor='#333333',
-               markersize=8, markeredgewidth=0.4)
-    ]
-    ax.legend(handles=legend_elements, loc='lower left', fontsize=9, framealpha=0.9)
-
-    ax.set_title(title, fontsize=12, fontweight='bold', pad=10)
-    gl = ax.gridlines(draw_labels=True, linestyle='--', linewidth=0.5, color='gray', alpha=0.4)
-    gl.top_labels = False
-    gl.right_labels = False
-
-    plt.tight_layout()
+    _note = (f"Showing {n_sites} site{'s' if n_sites != 1 else ''} with at least one connection and "
+             f"sites with no imported or exported particles are hidden.")
+    fig.text(0.5, 0.935, _note, ha='center', va='top', fontsize=11, style='italic', color='#444444')
+    fig.subplots_adjust(top=0.91, bottom=0.24, left=0.08, right=0.97, wspace=0.35)
 
     if output_path:
         fig.savefig(output_path, format=output_format, dpi=dpi, bbox_inches='tight')
@@ -9982,95 +10214,66 @@ def create_community_map(network_results, title="Connectivity Communities (Louva
 
     num_communities = len(set(partition.values()))
 
-    # Colour map
-    cmap = plt.cm.get_cmap('tab20', max(num_communities, 2))
+    # Order communities by size (largest first) and give EACH a distinct colour, so no two share a
+    # colour even at 100+ communities. Up to 40 use the well-separated tab20/tab20b palettes; beyond
+    # that hues are spaced evenly around the colour wheel (with alternating shade) so every community
+    # is unique. No sites are greyed - every community keeps its own colour and dot size.
+    import matplotlib.colors as _mcol
+    _sizes = pd.Series([partition.get(n, 0) for n in nodes_with_pos]).value_counts()
+    _by_size = list(_sizes.index)                        # community ids, largest first
+    _size_rank = {c: i for i, c in enumerate(_by_size)}  # community id -> size rank (0 = largest)
+    if num_communities <= 40:
+        _base = list(plt.cm.tab20.colors) + list(plt.cm.tab20b.colors)
+        _colours = [_base[i] for i in range(num_communities)]
+    else:
+        _hsv = np.zeros((num_communities, 3))
+        _hsv[:, 0] = np.linspace(0.0, 1.0, num_communities, endpoint=False)
+        _hsv[:, 1] = np.where(np.arange(num_communities) % 2 == 0, 0.85, 0.60)
+        _hsv[:, 2] = np.where((np.arange(num_communities) // 2) % 2 == 0, 0.95, 0.75)
+        _colours = [tuple(c) for c in _mcol.hsv_to_rgb(_hsv)]
+
+    def _community_colour(c):
+        return _colours[_size_rank.get(int(c), 0)]
 
     # Standardised landscape aspect ratio across all four Type 2 viewers
     fig, ax = plt.subplots(figsize=(12, 8),
                            subplot_kw={'projection': ccrs.PlateCarree()})
     plt.rcParams['font.family'] = 'Arial'
 
-    # Reduced buffer , less wasted ocean (Fix 16)
-    buf = 0.08
+    # Border of ~5 grid cells (consistent with the other maps), inferred from the site spacing.
+    _lon0, _lon1 = site_metrics['longitude'].min(), site_metrics['longitude'].max()
+    _lat0, _lat1 = site_metrics['latitude'].min(), site_metrics['latitude'].max()
+    _lons_u = np.unique(np.round(site_metrics['longitude'].values, 4))
+    _lats_u = np.unique(np.round(site_metrics['latitude'].values, 4))
+    _buf_lon = 5 * (float(np.min(np.diff(_lons_u))) if len(_lons_u) > 1 else 0.1)
+    _buf_lat = 5 * (float(np.min(np.diff(_lats_u))) if len(_lats_u) > 1 else 0.1)
     ax.set_extent([
-        site_metrics['longitude'].min() - buf,
-        site_metrics['longitude'].max() + buf,
-        site_metrics['latitude'].min() - buf,
-        site_metrics['latitude'].max() + buf
+        _lon0 - _buf_lon, _lon1 + _buf_lon,
+        _lat0 - _buf_lat, _lat1 + _buf_lat
     ], crs=ccrs.PlateCarree())
 
     # Softer land outline, standardised with other maps (Fix 15)
     ax.add_feature(cfeature.LAND, facecolor='lightgray', edgecolor='none')
     ax.add_feature(cfeature.COASTLINE, linewidth=0.5, color='#555555')
 
-    # Draw edges
-    max_weight = max((d.get('weight', 1) for _, _, d in G.edges(data=True)), default=1)
-
-    lon_span_com = site_metrics['longitude'].max() - site_metrics['longitude'].min()
-    loop_offset_com = max(0.015, lon_span_com * 0.015)
-
-    # Only draw top 200 edges by weight
-    all_edges = [(u, v, d) for u, v, d in G.edges(data=True)
-                 if u in pos and v in pos]
-    all_edges.sort(key=lambda x: x[2].get('weight', 1), reverse=True)
-    top_edges_list = all_edges[:200]
-
-    for u, v, d in top_edges_list:
-        weight = d.get('weight', 1)
-        lw = min(3.0, max(0.2, weight * edge_scale))
-        alpha = min(0.4, 0.05 + (weight / max_weight) * 0.35)
-
-        # Colour edges by source community
-        source_comm = partition.get(u, 0)
-        edge_color = cmap(source_comm)
-
-        if u == v:
-            # Self-loop: small arc at the node, same community colour.
-            x, y = pos[u]
-            loop = FancyArrowPatch(
-                (x, y + loop_offset_com * 0.1),
-                (x + loop_offset_com, y + loop_offset_com),
-                arrowstyle='-|>',
-                connectionstyle='arc3,rad=2.5',
-                color=edge_color,
-                alpha=alpha,
-                linewidth=lw,
-                mutation_scale=6,
-                zorder=1,
-                transform=ccrs.PlateCarree(),
-            )
-            ax.add_patch(loop)
-            continue
-
-        x1, y1 = pos[u]
-        x2, y2 = pos[v]
-        arrow = FancyArrowPatch(
-            (x1, y1), (x2, y2),
-            arrowstyle='-|>',
-            color=edge_color,
-            alpha=alpha,
-            linewidth=lw,
-            mutation_scale=8,
-            zorder=1,
-        )
-        ax.add_patch(arrow)
-
     # Draw nodes coloured by community
     node_lons = [pos[n][0] for n in nodes_with_pos]
     node_lats = [pos[n][1] for n in nodes_with_pos]
-    node_colors = [cmap(partition.get(n, 0)) for n in nodes_with_pos]
+    node_colors = [_community_colour(partition.get(n, 0)) for n in nodes_with_pos]
 
     ax.scatter(node_lons, node_lats, c=node_colors, s=50, alpha=0.9,
                edgecolors='#333333', linewidths=0.4, zorder=2,
                transform=ccrs.PlateCarree())
 
-    # Legend for communities
+    # Legend: the biggest 20 communities (1 = largest), coloured to match the map. Any beyond 20 are
+    # still coloured on the map; a grey italic note under the title says so.
+    _n_legend = min(num_communities, 20)
     legend_elements = [
         Line2D([0], [0], marker='o', color='w',
                label=f'Community {i + 1}',
-               markerfacecolor=cmap(i), markeredgecolor='#333333',
+               markerfacecolor=_colours[i], markeredgecolor='#333333',
                markersize=11, markeredgewidth=0.4)
-        for i in range(min(num_communities, 10))
+        for i in range(_n_legend)
     ]
 
     n_legend_items = len(legend_elements)
@@ -10081,7 +10284,16 @@ def create_community_map(network_results, title="Connectivity Communities (Louva
               title='Communities', title_fontsize=12,
               ncol=n_cols, columnspacing=1.2, handletextpad=0.4)
 
-    ax.set_title(title, fontsize=12, fontweight='bold', pad=10)
+    # When the "biggest N of M communities" note is shown, push the title up so the note has
+    # its own space beneath it and never overlaps the title.
+    if num_communities > _n_legend:
+        ax.set_title(title, fontsize=12, fontweight='bold', pad=28)
+        ax.text(0.5, 1.01,
+                f'Biggest {_n_legend} of {num_communities} communities shown in the legend; all are coloured on the map',
+                transform=ax.transAxes, ha='center', va='bottom',
+                fontsize=9, style='italic', color='#666666')
+    else:
+        ax.set_title(title, fontsize=12, fontweight='bold', pad=10)
     gl = ax.gridlines(draw_labels=True, linestyle='--', linewidth=0.5, color='gray', alpha=0.4)
     gl.top_labels = False
     gl.right_labels = False
@@ -10100,7 +10312,7 @@ def create_community_map(network_results, title="Connectivity Communities (Louva
     # Store community assignments in site_metrics for export
     for node, comm in partition.items():
         mask = site_metrics['site'] == node
-        site_metrics.loc[mask, 'community'] = int(comm)
+        site_metrics.loc[mask, 'louvain_community'] = int(comm)
 
     return fig, partition
 
@@ -10204,6 +10416,47 @@ def _make_viewer_dropdowns(levels, scales):
     )
     return level_dd, scale_dd
 
+## Site name offset so labels don't overlap
+def _offset_point_labels(ax, markers):
+    """Return slightly-offset label positions for a set of marker coordinates.
+
+    This is the exact same gentle radial offset used for the numbered hotspot
+    labels: each label starts just off its marker (pointing away from the centre
+    of the cluster) and is nudged only enough to reduce overlap. `markers` is a
+    list of (lon, lat) tuples; returns matching [lon, lat] label positions.
+    """
+    if not markers:
+        return []
+    _ext = ax.get_extent(crs=ccrs.PlateCarree())
+    _pad_x = (_ext[1] - _ext[0]) * 0.03
+    _pad_y = (_ext[3] - _ext[2]) * 0.03
+    _span = max(_ext[1] - _ext[0], _ext[3] - _ext[2])
+    _off = max(0.03, _span * 0.045)
+    _min_sep = _span * 0.05
+    _cx = sum(m[0] for m in markers) / len(markers)
+    _cy = sum(m[1] for m in markers) / len(markers)
+    _labels = []
+    for (mx, my) in markers:
+        _dx, _dy = mx - _cx, my - _cy
+        _d = (_dx ** 2 + _dy ** 2) ** 0.5
+        _ux, _uy = (_dx / _d, _dy / _d) if _d > 1e-9 else (0.0, 1.0)
+        _labels.append([mx + _ux * _off, my + _uy * _off])
+    _mk = list(markers)
+    for _ in range(80):
+        for i in range(len(_labels)):
+            _fx = _fy = 0.0
+            for _px, _py in ([(_l[0], _l[1]) for j, _l in enumerate(_labels) if j != i] + _mk):
+                _dx = _labels[i][0] - _px
+                _dy = _labels[i][1] - _py
+                _dist = (_dx ** 2 + _dy ** 2) ** 0.5 or 1e-6
+                if _dist < _min_sep:
+                    _push = (_min_sep - _dist) / _min_sep * _min_sep * 0.5
+                    _fx += (_dx / _dist) * _push
+                    _fy += (_dy / _dist) * _push
+            _labels[i][0] = min(max(_labels[i][0] + _fx, _ext[0] + _pad_x), _ext[1] - _pad_x)
+            _labels[i][1] = min(max(_labels[i][1] + _fy, _ext[2] + _pad_y), _ext[3] - _pad_y)
+    return _labels
+
 ## Site × metric heatmap figure builder
 def build_heatmap_figure(network_results, title=None):
     """
@@ -10217,7 +10470,7 @@ def build_heatmap_figure(network_results, title=None):
     not present in `network_results['site_metrics']`.
     """
     site_metrics = network_results['site_metrics']
-    metric_cols = ['source', 'sink', 'self_recruitment',
+    metric_cols = ['source_strength', 'sink_strength', 'self_recruitment',
                    'betweenness', 'closeness', 'degree']
     metric_labels = ['Source', 'Sink', 'Self-recruit.',
                      'Betweenness', 'Closeness', 'Degree']
@@ -10239,51 +10492,76 @@ def build_heatmap_figure(network_results, title=None):
     top_sites = selected.sort_values('__gid_int').drop(columns='__gid_int')
 
     rank_matrix_t = top_sites[available].values.astype(float).T
-    site_labels = top_sites['site'].astype(str).values
+
+    # Rank colouring stays (consistent with the per-metric maps), but cells whose raw metric value is exactly zero are greyed out
+    # Zeros otherwise tie at a middling rank and read as "average" when they really mean "metric absent" (e.g. sites that never self-recruit)
+    value_cols = [c.replace('_rank', '') for c in available]
+    value_matrix_t = top_sites[value_cols].values.astype(float).T
+    rank_matrix_t = np.ma.masked_where(value_matrix_t == 0, rank_matrix_t)
+    # Use real site names on the axis when supplied (site_name already falls back
+    # to site_<grid_id> when no names were given).
+    if 'site_name' in top_sites.columns:
+        site_labels = top_sites['site_name'].astype(str).values
+    else:
+        site_labels = top_sites['site'].astype(str).values
 
     fig = plt.figure(figsize=(12, 10))
-    gs = GridSpec(2, 1, height_ratios=[1.2, 1.3], hspace=0.55)
+    gs = GridSpec(3, 1, height_ratios=[1.2, 0.05, 1.3], hspace=0.5)
 
     ax_hm = fig.add_subplot(gs[0])
-    im = ax_hm.imshow(rank_matrix_t, cmap='viridis_r', aspect='auto')
+    _hm_cmap = plt.cm.viridis_r.copy()
+    _hm_cmap.set_bad(color='#d9d9d9')  # raw-value-zero cells render grey
+    im = ax_hm.imshow(rank_matrix_t, cmap=_hm_cmap, aspect='auto')
 
     ax_hm.set_yticks(range(len(available)))
     ax_hm.set_yticklabels(
         [metric_labels[metric_cols.index(c.replace('_rank', ''))] for c in available],
         fontsize=11,
     )
-    ax_hm.set_xticks(range(cap))
-    ax_hm.set_xticklabels(site_labels, fontsize=7, rotation=90)
+    # Thin x-axis labels to the same set used on the inset map below, so the labelled sites are identical on the axis and the reference map (read a grid_id off either, find it on the other)
+    _label_target = 30  # number of labels shown on both the axis and the inset; matches the matrix
+    label_step = max(1, cap // _label_target)
+    _tick_pos = list(range(0, cap, label_step))
+    ax_hm.set_xticks(_tick_pos)
+    # Stack long combined site names (several sites in one grid cell, joined by ' / ') onto
+    # separate lines so the rotated labels stay short and do not overlap the colourbar below.
+    ax_hm.set_xticklabels([str(site_labels[i]).replace(' / ', '/\n') for i in _tick_pos], fontsize=7, rotation=90)
 
-    cbar = plt.colorbar(im, ax=ax_hm, orientation='horizontal',
-                        shrink=0.95, pad=0.25, aspect=50)
-    cbar.set_label('Rank (1 = best)', fontsize=12)
+    cbar_ax = fig.add_subplot(gs[1])
+    cbar = fig.colorbar(im, cax=cbar_ax, orientation='horizontal')
+    cbar.set_label('Rank (1 = best; grey = value of zero, not included in the rank)', fontsize=12)
     cbar.ax.tick_params(labelsize=10)
 
     heatmap_title = title or "Site × metric heatmap"
-    ax_hm.set_title(heatmap_title, fontsize=13, fontweight='bold', pad=10)
+    fig.suptitle(heatmap_title, fontsize=14, fontweight='bold', y=0.98)
+    # Always-shown descriptive caption (like the connectivity-matrix figure). The colour bar
+    # already explains the rank scale and grey cells, so this only describes what is shown.
+    _hm_caption = "Sites (columns) × network metrics (rows); cell colour = that site's rank for that metric."
     if n_sites > cap:
-        ax_hm.text(
-            0.5, -0.95,
-            f"Showing top {cap} of {n_sites} sites (selected by overall composite rank, "
-            f"displayed in grid_id order). Full rankings exported in per-dataset network_site_metrics.csv.",
-            transform=ax_hm.transAxes, ha='center', va='top',
-            fontsize=10, style='italic', wrap=True,
-        )
+        _hm_caption += (f" Showing the top {cap} of {n_sites} sites by overall composite rank, "
+                        f"in grid_id order (full rankings in the exported network_site_metrics.csv).")
+    else:
+        _hm_caption += " All sites shown, in grid_id order."
+    fig.text(0.5, 0.945, _hm_caption, ha='center', va='top',
+             fontsize=10, style='italic', color='#444444', wrap=True)
 
-    ax_map = fig.add_subplot(gs[1], projection=ccrs.PlateCarree())
+    ax_map = fig.add_subplot(gs[2], projection=ccrs.PlateCarree())
 
-    heatmap_site_ids = set(top_sites['grid_id'].astype(int))
-    map_sites = site_metrics[site_metrics['grid_id'].astype(int).isin(heatmap_site_ids)].copy()
+    # Plot all connected sites as dots so this map matches the reference map in create_matrix_with_map
+    # Labels stay thinned below
+    map_sites = site_metrics.copy()
     if len(map_sites) == 0:
         map_sites = top_sites.copy()
 
-    buffer = 0.2
+    _lon0, _lon1 = map_sites['longitude'].min(), map_sites['longitude'].max()
+    _lat0, _lat1 = map_sites['latitude'].min(), map_sites['latitude'].max()
+    _mlon = np.unique(np.round(map_sites['longitude'].values, 4))
+    _mlat = np.unique(np.round(map_sites['latitude'].values, 4))
+    _buf_lon = 5 * (float(np.min(np.diff(_mlon))) if len(_mlon) > 1 else 0.1)
+    _buf_lat = 5 * (float(np.min(np.diff(_mlat))) if len(_mlat) > 1 else 0.1)
     ax_map.set_extent([
-        map_sites['longitude'].min() - buffer,
-        map_sites['longitude'].max() + buffer,
-        map_sites['latitude'].min() - buffer,
-        map_sites['latitude'].max() + buffer
+        _lon0 - _buf_lon, _lon1 + _buf_lon,
+        _lat0 - _buf_lat, _lat1 + _buf_lat
     ], crs=ccrs.PlateCarree())
 
     ax_map.add_feature(cfeature.LAND, facecolor='lightgray', edgecolor='none')
@@ -10292,25 +10570,29 @@ def build_heatmap_figure(network_results, title=None):
 
     ax_map.scatter(
         map_sites['longitude'], map_sites['latitude'],
-        c='#7b9ec9', s=55,
+        c='#7b9ec9', s=40,
         transform=ccrs.PlateCarree(),
         edgecolors='#2a4a6b', linewidth=0.4,
         zorder=3,
     )
 
-    label_step = max(1, cap // 20)
+    # Reuse label_step from the x-axis above so the inset labels exactly the sites labelled on the heatmap axis
     axis_grid_ids = top_sites['grid_id'].astype(int).tolist()
     label_ids = set(axis_grid_ids[::label_step])
-    for _, site in map_sites.iterrows():
+    _name_by_gid = (dict(zip(map_sites['grid_id'].astype(int), map_sites['site_name'].astype(str)))
+                    if 'site_name' in map_sites.columns else {})
+    # Label the heatmap sites directly on their markers (no offset / leader lines).
+    _lbl_sites = [s for _, s in map_sites.iterrows() if int(s['grid_id']) in label_ids]
+    for site in _lbl_sites:
         gid_int = int(site['grid_id'])
-        if gid_int in label_ids:
-            ax_map.text(
-                site['longitude'], site['latitude'],
-                str(gid_int), fontsize=6, ha='left', va='bottom',
-                transform=ccrs.PlateCarree(), zorder=4,
-                bbox=dict(boxstyle='round,pad=0.1',
-                          facecolor='white', alpha=0.85, edgecolor='none'),
-            )
+        mx, my = float(site['longitude']), float(site['latitude'])
+        ax_map.text(
+            mx, my,
+            str(_name_by_gid.get(gid_int, gid_int)), fontsize=6, ha='center', va='center',
+            transform=ccrs.PlateCarree(), zorder=4,
+            bbox=dict(boxstyle='round,pad=0.1',
+                      facecolor='white', alpha=0.85, edgecolor='none'),
+        )
 
     ax_map.set_title('Site Reference Map', fontsize=13, fontweight='bold', pad=10)
     gl = ax_map.gridlines(draw_labels=True, linestyle=':', linewidth=0.5, color='gray', alpha=0.4)
@@ -10361,7 +10643,7 @@ def trait_matrix_viewer(all_network_results):
     level_dd.observe(update, names='value')
     scale_dd.observe(update, names='value')
     display(level_dd, scale_dd, output)
-    threading.Timer(0.5, update).start()
+    update()  # render immediately (synchronous; a Timer thread fails to draw into the Output)
 
 ## Louvain viewer
 def trait_community_viewer(all_network_results):
@@ -10467,6 +10749,10 @@ def trait_heatmap_viewer(all_network_results):
                           f"{level_dd.value} at {scale_dd.value}.")
                     return
                 clear_output(wait=True)
+                # Force a render before display so the first (synchronous) draw into the freshly
+                # created Output widget isn't blank. The heavier cartopy heatmap otherwise shows a
+                # white box until the dropdown is toggled; lighter viewers don't need this.
+                fig.canvas.draw()
                 display(fig)
                 plt.close(fig)
             except Exception as e:
@@ -10480,7 +10766,7 @@ def trait_heatmap_viewer(all_network_results):
     print("  The reference map below shows where the "
           "displayed sites are located.\n")
     display(level_dd, scale_dd, output)
-    threading.Timer(0.5, update).start()
+    update()  # render immediately (synchronous; a Timer thread fails to draw into the Output)
 
 ## Metric and network map viewer
 def trait_metric_viewer(all_network_results):
@@ -10501,8 +10787,8 @@ def trait_metric_viewer(all_network_results):
         'Overall composite': 'overall_composite',
         'Functional roles': 'functional_composite',
         'Centrality measures': 'centrality_composite',
-        'Source strength': 'source',
-        'Sink strength': 'sink',
+        'Source strength': 'source_strength',
+        'Sink strength': 'sink_strength',
         'Self-recruitment': 'self_recruitment',
         'Betweenness centrality': 'betweenness',
         'Closeness centrality': 'closeness',
@@ -10553,7 +10839,7 @@ def trait_metric_viewer(all_network_results):
                 top10 = site_metrics.head(0)
             elif col.endswith('_composite'):
                 score_col = col
-                # overall/functional/centrality use 'top10_overall' etc; custom uses 'top10_custom_composite'
+                # overall/functional/centrality use 'top10_overall' etc, custom uses 'top10_custom_composite'
                 top10 = nr.get('top10_' + col.replace('_composite', ''),
                                nr.get('top10_' + col, nr.get('top10_overall')))
             else:
@@ -10582,15 +10868,21 @@ def trait_metric_viewer(all_network_results):
                 display(fig)
                 plt.close(fig)
                 if not network_only and top10 is not None and len(top10) > 0:
+                    # Include a real site-name column when names were supplied
+                    # (site_name equals site_<grid_id> when no names were given).
+                    _has_names = ('site_name' in top10.columns and not
+                                  (top10['site_name'].astype(str)
+                                   == ('site_' + top10['grid_id'].astype(int).astype(str))).all())
                     table_rows = []
                     for idx, (_, site) in enumerate(top10.iterrows()):
-                        table_rows.append({
-                            '#': idx + 1,
-                            'Grid ID': int(site['grid_id']),
-                            'Latitude': round(site['latitude'], 2),
-                            'Longitude': round(site['longitude'], 2),
-                            'Rank': round(site[score_col], 1),
-                        })
+                        _row = {'#': idx + 1}
+                        if _has_names:
+                            _row['Site'] = str(site['site_name'])
+                        _row['Grid ID'] = int(site['grid_id'])
+                        _row['Latitude'] = round(site['latitude'], 2)
+                        _row['Longitude'] = round(site['longitude'], 2)
+                        _row['Rank'] = round(site[score_col], 1)
+                        table_rows.append(_row)
                     print()
                     print("Top 10 hotspots:")
                     top10_df = pd.DataFrame(table_rows)
@@ -10686,50 +10978,56 @@ def trait_metrics_viewer(type1_results):
         if not isinstance(metrics_dict, dict):
             return pd.DataFrame([['No data available', '']], columns=['Metric', 'Value'])
 
-        ## Format a single metric value as a percentage, integer, or float with optional units
-        def _fmt(v, units=''):
-            """Format a metric value as a percentage string, integer, or float with optional units suffix."""
+        ## Format a single metric value according to its explicit kind (never guess from magnitude:
+        ## a small distance like 0.08 km must not be shown as a percentage). Units live in the row
+        ## label (matching the Type 3 table), so no unit suffix is added to the value here.
+        def _fmt(v, kind):
+            """Format a metric value. kind: 'pct' (fraction 0-1 -> %), 'val' (1 dp number),
+            'int' (thousands-separated integer)."""
             if v is None:
                 return '-'
-            if isinstance(v, float):
-                if abs(v) < 1 and v != 0:
-                    return f"{v * 100:.1f}%"
-                return f"{v:.1f} {units}".strip()
-            return f"{int(v):,}" if isinstance(v, (int, np.integer)) else str(v)
+            try:
+                if kind == 'pct':
+                    return f"{float(v) * 100:.1f}%"
+                if kind == 'int':
+                    return f"{int(round(float(v))):,}"
+                if kind == 'val':
+                    return f"{float(v):.1f}"
+            except (TypeError, ValueError):
+                return str(v)
+            return str(v)
 
         rows = []
-        # Unified label map covering both community and species keys
+        # Unified label map covering both community and species keys. Each entry is
+        # (display label with units, format kind). Units are in the label to match the Type 3 table.
         label_map = {
-            'n_species': ('N species', ''),
-            'total_released': ('Total particles released', ''),
-            'n_released': ('Total particles released', ''),
-            'total_settled': ('Total particles settled', ''),
-            'n_settled': ('Total particles settled', ''),
-            'community_settlement': ('Settlement rate', ''),
-            'settlement_rate': ('Settlement rate', ''),
-            'community_mortality': ('Mortality rate', ''),
-            'mortality_rate': ('Mortality rate', ''),
-            'community_recruitment': ('Self-recruitment rate', ''),
-            'recruitment_rate': ('Self-recruitment rate', ''),
-            'total_recruited': ('Total recruited', ''),
-            'n_recruited': ('Total recruited', ''),
-            'mean_distance_km': ('Mean dispersal distance', ''),
-            'min_distance_km': ('Min dispersal distance', ''),
-            'max_distance_km': ('Max dispersal distance', ''),
-            'mean_pld_days': ('Mean realised PLD', 'days'),
-            'min_pld_days': ('Min realised PLD', ''),
-            'max_pld_days': ('Max realised PLD', 'days'),
-            'n_release_sites': ('N release sites', ''),
-            'n_settlement_sites': ('N settlement sites', ''),
+            'n_species': ('N species', 'int'),
+            'total_released': ('Total particles released', 'int'),
+            'n_released': ('Total particles released', 'int'),
+            'total_settled': ('Total particles settled', 'int'),
+            'n_settled': ('Total particles settled', 'int'),
+            'settlement_rate': ('Settlement rate', 'pct'),
+            'mortality_rate': ('Mortality rate', 'pct'),
+            'self_recruitment_rate': ('Self-recruitment rate', 'pct'),
+            'total_recruited': ('Particles recruited (community total)', 'int'),
+            'n_recruited': ('Particles recruited (per species)', 'int'),
+            'mean_distance_km': ('Mean dispersal distance (km)', 'val'),
+            'min_distance_km': ('Min dispersal distance (km)', 'val'),
+            'max_distance_km': ('Max dispersal distance (km)', 'val'),
+            'mean_pld_days': ('Mean PLD (days)', 'val'),
+            'min_pld_days': ('Min PLD (days)', 'val'),
+            'max_pld_days': ('Max PLD (days)', 'val'),
+            'n_release_sites': ('N release sites', 'int'),
+            'n_settlement_sites': ('N settlement sites', 'int'),
         }
 
         # Keys to skip entirely
         skip_keys = {'std_distance_km', 'std_pld_days', '_comcon_cleaned',
                      'species_name_std'}
 
-        for key, (label, units) in label_map.items():
+        for key, (label, kind) in label_map.items():
             if key in metrics_dict:
-                rows.append((label, _fmt(metrics_dict[key], units)))
+                rows.append((label, _fmt(metrics_dict[key], kind)))
 
         return pd.DataFrame(rows, columns=['Metric', 'Value']) if rows else pd.DataFrame()
 
@@ -10757,6 +11055,19 @@ def trait_metrics_viewer(type1_results):
         if not df.empty:
             display(df)
 
+## Shared: build the Type 2 network-level summary rows (used by the interactive AND passive viewers)
+def build_network_summary(network_results):
+    """Return (statistic, value) rows for the dataset-level network summary shown in its own viewer
+    ABOVE the matrix: number of species, study extent, potential/realised connectivity sites and
+    unique connections (from network_results['summary_stats']). The Louvain/graph parameters (nodes,
+    edges, density, communities, modularity) are a SEPARATE table shown beneath the Louvain map, not
+    here. Lives in interactive and is imported by passive so every mode shows the same summary."""
+    rows = []
+    for k, v in (network_results.get('summary_stats') or {}).items():
+        rows.append((k, f"{v:,}" if isinstance(v, (int, np.integer)) else str(v)))
+    return rows
+
+
 ## Interactive viewer for Type 2 network results: summary stats and per-site metrics table
 def network_metrics_viewer(all_network_results):
     """Interactive viewer for Type 2 network results (summary + per-site metrics).
@@ -10781,20 +11092,13 @@ def network_metrics_viewer(all_network_results):
             if not isinstance(nr, dict):
                 print(f"  No results for {level_dd.value} at {scale_dd.value}.")
                 return
-            stats = nr.get('summary_stats', {})
-            if stats:
-                rows = [(k, f"{v:,}" if isinstance(v, (int, np.integer)) else str(v)) for k, v in stats.items()]
-                print("Summary")
-                display(pd.DataFrame(rows, columns=['Metric', 'Value']))
-            sm = nr.get('site_metrics')
-            if sm is not None and len(sm) > 0:
-                cols = [c for c in ['site', 'grid_id', 'source', 'sink', 'self_recruitment',
-                                    'betweenness', 'closeness', 'degree',
-                                    'functional_composite', 'centrality_composite', 'overall_composite']
-                        if c in sm.columns]
-                print("\nPer-site metrics")
-                display(sm[cols].reset_index(drop=True))
-            elif not stats:
+            rows = build_network_summary(nr)   # shared helper: summary_stats + nodes/edges/density/communities/modularity
+            if rows:
+                print("Network summary")
+                _df = pd.DataFrame(rows, columns=['Network statistic', 'Value'])
+                _df.index = range(1, len(_df) + 1)
+                display(_df)
+            else:
                 print(f"  No data available for {level_dd.value} at {scale_dd.value}.")
 
     level_dd.observe(update, names='value')
@@ -10818,7 +11122,7 @@ def dispersal_animation(traj, output_path=None, fps=5, dpi=150, show_in_notebook
     fps : int
         Frames per second for the animation (default 5)
     dpi : int
-        Resolution (default 150; use 300 for publication quality but slower)
+        Resolution (default 150, use 300 for publication quality but slower)
     show_in_notebook : bool
         If True, display the animation inline in Jupyter
 
@@ -10832,6 +11136,20 @@ def dispersal_animation(traj, output_path=None, fps=5, dpi=150, show_in_notebook
     else:
         traj_sorted = traj.sort_values(['trajectory', 'obs'])
 
+    # Subsample particles (trajectories) only for very large simulations. The per-frame render
+    # cost scales with the number of particles drawn, so the hundreds of thousands produced by
+    # all-sites / GBIF runs make the animation take hours (or appear to hang). Runs at or below
+    # the cap are shown in full; only larger ones are thinned to a random subset, which still
+    # conveys the overall dispersal pattern at a fraction of the render time. Fixed seed for
+    # reproducibility. This only affects the animation, never any analysis.
+    max_particles = 25000
+    _all_traj_ids = traj_sorted['trajectory'].unique()
+    if len(_all_traj_ids) > max_particles:
+        _rng = np.random.default_rng(0)
+        _keep_ids = _rng.choice(_all_traj_ids, size=max_particles, replace=False)
+        traj_sorted = traj_sorted[traj_sorted['trajectory'].isin(_keep_ids)]
+        print(f"  Large particle set detected: Showing a random {max_particles:,} of {len(_all_traj_ids):,} particles to keep the animation fast.")
+
     # Get unique observation steps
     obs_values = sorted(traj_sorted['obs'].unique())
     n_frames = len(obs_values)
@@ -10843,7 +11161,7 @@ def dispersal_animation(traj, output_path=None, fps=5, dpi=150, show_in_notebook
         step = max(1, n_frames // max_frames)
         obs_values = obs_values[::step]
         n_frames = len(obs_values)
-        print(f"  Long simulation detected: showing every {step} day(s) ({n_frames} frames).")
+        print(f"  Long simulation detected: Showing every {step} day(s) ({n_frames} frames).")
 
     if n_frames < 2:
         print("  Not enough timesteps for animation.")
@@ -10858,7 +11176,7 @@ def dispersal_animation(traj, output_path=None, fps=5, dpi=150, show_in_notebook
     lon_range = (lon_max - lon_min) + 2 * buf
     lat_range = (lat_max - lat_min) + 2 * buf
     aspect = lon_range / lat_range if lat_range > 0 else 1.0
-    fig_width = 9
+    fig_width = 9.5
     fig_height = max(4.5, min(8, fig_width / aspect))
     fig = plt.figure(figsize=(fig_width, fig_height))
     ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
@@ -10890,8 +11208,9 @@ def dispersal_animation(traj, output_path=None, fps=5, dpi=150, show_in_notebook
     gl.top_labels = False
     gl.right_labels = False
 
-    # Tighten layout to remove excess whitespace above the title
-    fig.subplots_adjust(top=0.96, bottom=0.06, left=0.06, right=0.96)
+    # Leave room on the left and bottom for the latitude/longitude tick labels
+    # (a tight left margin clipped the latitude labels in passive and the other modes).
+    fig.subplots_adjust(top=0.95, bottom=0.10, left=0.12, right=0.97)
 
     ## Matplotlib FuncAnimation callback: update particle positions for each frame
     def animate(frame_idx):
@@ -10922,8 +11241,21 @@ def dispersal_animation(traj, output_path=None, fps=5, dpi=150, show_in_notebook
     if output_path:
         try:
             from matplotlib.animation import FFMpegWriter
+            import logging
             writer = FFMpegWriter(fps=fps, bitrate=1800)
-            anim.save(output_path, writer=writer, dpi=dpi)
+            # Silence the INFO chatter matplotlib/ffmpeg emit during the save (the
+            # alarming-looking "INFO:MovieWriter..." / "INFO:Animation.save..." lines)
+            # while still letting genuine warnings and errors through.
+            _anim_log = logging.getLogger('matplotlib.animation')
+            _mpl_log = logging.getLogger('matplotlib')
+            _prev_anim, _prev_mpl = _anim_log.level, _mpl_log.level
+            _anim_log.setLevel(logging.WARNING)
+            _mpl_log.setLevel(logging.WARNING)
+            try:
+                anim.save(output_path, writer=writer, dpi=dpi)
+            finally:
+                _anim_log.setLevel(_prev_anim)
+                _mpl_log.setLevel(_prev_mpl)
             print(f"  Animation saved to: {output_path}")
 
             # Also display in notebook if requested
@@ -10978,8 +11310,8 @@ def create_interactive_metric_viewer(network_results, composite_name="Overall"):
         'Overall composite': ('overall_composite', top10_overall),
         'Functional roles': ('functional_composite', network_results['top10_functional']),
         'Centrality measures': ('centrality_composite', network_results['top10_centrality']),
-        'Source strength': ('source', None),
-        'Sink strength': ('sink', None),
+        'Source strength': ('source_strength', None),
+        'Sink strength': ('sink_strength', None),
         'Self-recruitment': ('self_recruitment', None),
         'Betweenness centrality': ('betweenness', None),
         'Closeness centrality': ('closeness', None),
@@ -11012,7 +11344,7 @@ def create_interactive_metric_viewer(network_results, composite_name="Overall"):
                 top10 = top10_overall
 
         # Always display as ranks (rank 1 = best). Composites are already
-        # averages of ranks; raw metrics have a `{metric}_rank` column.
+        # averages of ranks. Raw metrics have a `{metric}_rank` column.
         if col.endswith('_composite'):
             score_col = col
         else:
@@ -11112,10 +11444,10 @@ def create_metrics_summary_table(network_results, output_path=None, show_styled=
     site_metrics = network_results['site_metrics']
 
     # Select display columns
-    # 'site' carries human-readable site names from spp_params['site_name_lookup'] when present; 'grid_id' is always there as a fallback
+    # 'site' carries human-readable site names from spp_params['site_name_lookup'] when present, and 'grid_id' is always there as a fallback
     # The "only include columns that exist" filter below keeps the column list valid regardless of which are populated
     display_cols = ['site', 'grid_id', 'latitude', 'longitude',
-                    'source', 'sink', 'self_recruitment',
+                    'source_strength', 'sink_strength', 'self_recruitment',
                     'betweenness', 'closeness', 'degree',
                     'overall_composite']
 
@@ -11123,8 +11455,8 @@ def create_metrics_summary_table(network_results, output_path=None, show_styled=
     display_cols = [c for c in display_cols if c in site_metrics.columns]
 
     # Add community if available
-    if 'community' in site_metrics.columns:
-        display_cols.append('community')
+    if 'louvain_community' in site_metrics.columns:
+        display_cols.append('louvain_community')
 
     summary = site_metrics[display_cols].copy()
     summary = summary.sort_values('overall_composite')
@@ -11138,14 +11470,14 @@ def create_metrics_summary_table(network_results, output_path=None, show_styled=
         'grid_id': 'Grid ID',
         'latitude': 'Lat',
         'longitude': 'Lon',
-        'source': 'Source',
-        'sink': 'Sink',
+        'source_strength': 'Source',
+        'sink_strength': 'Sink',
         'self_recruitment': 'Self-recruitment',
         'betweenness': 'Betweenness',
         'closeness': 'Closeness',
         'degree': 'Degree',
         'overall_composite': 'Overall Rank',
-        'community': 'Community'
+        'louvain_community': 'Community'
     }
     summary = summary.rename(columns={k: v for k, v in rename_map.items() if k in summary.columns})
 
@@ -11201,12 +11533,12 @@ def display_individual_metrics(network_results, metrics_to_show='all'):
         Output from network_analysis().
     metrics_to_show : str or list
         'all', 'functional', 'centrality', or list of specific metrics.
-        Available metrics: source, sink, self-recruitment, betweenness, closeness, degree.
+        Available metrics: source_strength, sink_strength, self-recruitment, betweenness, closeness, degree.
     """
     site_metrics = network_results['site_metrics']
 
     # Define metric groups
-    functional_metrics = ['source', 'sink', 'self_recruitment']
+    functional_metrics = ['source_strength', 'sink_strength', 'self_recruitment']
     centrality_metrics = ['betweenness', 'closeness', 'degree']
     all_metrics = functional_metrics + centrality_metrics
 
@@ -11241,14 +11573,38 @@ def display_individual_metrics(network_results, metrics_to_show='all'):
 
     return metrics
 
+## Export the Type 2 network summary scalars (one row per metric)
+def export_network_summary(network_results, output_dir, label):
+    """
+    Write the network-level summary scalars (network_results['summary_stats']) to
+    <label>_network_summary.csv as a tidy Metric | Value table.
+
+    These scalars (number of species, study extent, potential and realised connectivity
+    sites, unique connections) are otherwise only shown in the interactive viewer.
+    Returns the written path, or None if there are no summary stats.
+    """
+    stats = dict(network_results.get('summary_stats') or {})
+    # Also include the network-level graph statistics (previously display-only), so the exported
+    # summary matches the viewer table. Uses precomputed keys only (no re-running of Louvain).
+    for _label, _key in [('Nodes', 'network_nodes'), ('Edges', 'network_edges'),
+                         ('Density', 'network_density'), ('Communities', 'network_communities'),
+                         ('Modularity', 'network_modularity')]:
+        _v = network_results.get(_key)
+        if _v is not None:
+            stats[_label] = _v
+    if not stats:
+        return None
+    os.makedirs(output_dir, exist_ok=True)
+    path = os.path.join(output_dir, f"{label}_network_summary.csv")
+    pd.DataFrame(list(stats.items()), columns=['Metric', 'Value']).to_csv(path, index=False)
+    return path
+
 ## Export the network results
-def export_network_results(network_results, output_dir=None):
+def export_network_results(network_results, output_dir=None, prefix=''):
     """
     Export all network analysis results to CSV files.
 
-    Saves site-level network metrics, the full connectivity matrix, and
-    the top 10 ranked sites for each composite score (overall, centrality,
-    functional) as separate CSV files.
+    Saves site-level network metrics and the full connectivity matrix.
 
     Parameters
     ----------
@@ -11256,12 +11612,12 @@ def export_network_results(network_results, output_dir=None):
         Output from network_analysis(). Expected keys:
         - 'site_metrics': DataFrame with all site-level metrics
         - 'connectivity_matrix': DataFrame with pairwise connectivity values
-        - 'top10_overall': DataFrame with top 10 sites by overall composite
-        - 'top10_centrality': DataFrame with top 10 sites by centrality composite
-        - 'top10_functional': DataFrame with top 10 sites by functional composite
     output_dir : str, optional
         Directory to save output files. If None, uses the project results
         directory or falls back to './outputs'.
+    prefix : str, optional
+        Identifier embedded in each output filename, e.g. 'community_30_km'.
+        If empty, filenames are 'network_site_metrics.csv' and 'connectivity_matrix.csv'.
 
     Returns
     -------
@@ -11275,7 +11631,7 @@ def export_network_results(network_results, output_dir=None):
 
     # Reorder columns: identifiers first, then metrics
     sm = network_results['site_metrics'].copy()
-    id_cols = [c for c in ['grid_id', 'site', 'latitude', 'longitude', 'community'] if c in sm.columns]
+    id_cols = [c for c in ['grid_id', 'site', 'latitude', 'longitude', 'louvain_community'] if c in sm.columns]
     other_cols = [c for c in sm.columns if c not in id_cols]
     sm = sm[id_cols + other_cols]
 
@@ -11283,13 +11639,37 @@ def export_network_results(network_results, output_dir=None):
     norm_cols = [c for c in sm.columns if c.endswith('_norm')]
     sm = sm.drop(columns=norm_cols, errors='ignore')
 
+    # Drop the redundant 'site' column (it is just 'site_' + grid_id).
+    sm = sm.drop(columns=['site'], errors='ignore')
+    # Keep 'site_name' only when real names were supplied
+    # Otherwise it equals 'site_<grid_id>' for every row
+    if 'site_name' in sm.columns and 'grid_id' in sm.columns:
+        _auto_name = ('site_' + sm['grid_id'].astype(int).astype(str)) == sm['site_name'].astype(str)
+        if _auto_name.all():
+            sm = sm.drop(columns=['site_name'])
+    # Drop standard-deviation columns (removed from the Jupyter tables too).
+    sm = sm.drop(columns=[c for c in sm.columns if c.endswith('_std') or c.startswith('std_')], errors='ignore')
+
+    # Flag the composite columns as rank-based in the exported CSV header only.
+    # The in-memory dict keys are left unchanged because compare_models, the
+    # viewers and the figures reference them by their original names.
+    # top10_count is a count, not a rank, so it is deliberately left alone.
+    _composite_rank_rename = {
+        'functional_composite': 'functional_composite_rank',
+        'centrality_composite': 'centrality_composite_rank',
+        'overall_composite': 'overall_composite_rank',
+        'custom_composite': 'custom_composite_rank',
+    }
+    sm = sm.rename(columns={k: v for k, v in _composite_rank_rename.items() if k in sm.columns})
+
     # Export site metrics (all metrics for all sites)
-    metrics_file = os.path.join(output_dir, 'network_site_metrics.csv')
+    _pfx = f'{prefix}_' if prefix else ''
+    metrics_file = os.path.join(output_dir, f'{_pfx}network_site_metrics.csv')
     sm.to_csv(metrics_file, index=False)
     print(f"Site metrics saved: {metrics_file}")
 
     # Export connectivity matrix
-    conn_file = os.path.join(output_dir, 'connectivity_matrix.csv')
+    conn_file = os.path.join(output_dir, f'{_pfx}connectivity_matrix.csv')
     network_results['connectivity_matrix'].to_csv(conn_file)
     print(f"\nConnectivity matrix saved: {conn_file}")
 
@@ -11328,12 +11708,14 @@ def mantel_test(matrix1, matrix2, n_permutations=999, random_state=None):
     if hasattr(matrix2, 'values'):
         matrix2 = matrix2.values
 
-    # Flatten upper triangles (exclude diagonal)
+    # Connectivity matrices are DIRECTED (source -> sink) and therefore asymmetric, so compare ALL
+    # off-diagonal elements (both i->j and j->i), not just the upper triangle. Using one triangle
+    # would drop half the directed connections and make the result depend on arbitrary site ordering.
     n = matrix1.shape[0]
-    triu_indices = np.triu_indices(n, k=1)
+    offdiag = ~np.eye(n, dtype=bool)
 
-    x = matrix1[triu_indices]
-    y = matrix2[triu_indices]
+    x = matrix1[offdiag]
+    y = matrix2[offdiag]
 
     # Flatten full matrices for variance check
     flat1 = matrix1.flatten()
@@ -11347,7 +11729,7 @@ def mantel_test(matrix1, matrix2, n_permutations=999, random_state=None):
         print("  - All connection strengths are identical")
         print("  - The study extent is too small or simulation too short")
         print("The Mantel test cannot compute a meaningful correlation in this case.")
-        print("Consider: running with more particles, longer simulation, or larger area.\n")
+        print("Consider: Running with more particles, longer simulation, or larger area.\n")
         return np.nan, 1.0  # Return tuple, not dict
 
     # Observed correlation (Spearman for non-normal count data)
@@ -11364,7 +11746,7 @@ def mantel_test(matrix1, matrix2, n_permutations=999, random_state=None):
         # Permute rows and columns of matrix2 together
         perm = rng.permutation(n)
         matrix2_perm = matrix2[perm][:, perm]
-        y_perm = matrix2_perm[triu_indices]
+        y_perm = matrix2_perm[offdiag]
 
         r_perm, _ = spearmanr(x, y_perm)
         if abs(r_perm) >= abs(r_obs):
@@ -11404,9 +11786,16 @@ def compare_models(baseline_results, modified_results):
     baseline_unique = baseline_top10_ids - modified_top10_ids
     modified_unique = modified_top10_ids - baseline_top10_ids
 
+    # Denominator = the number of hotspots actually identified (the "top 10" holds
+    # fewer than 10 when there are fewer than 10 sites), so the percentage is out
+    # of the real hotspot count, capped at 10, not always out of 10.
+    n_possible = max(len(baseline_top10_ids), len(modified_top10_ids), 1)
+    n_possible = min(n_possible, 10)
+
     comparison['hotspot_overlap'] = {
         'shared_sites': len(overlap),
-        'overlap_percentage': len(overlap) * 10,
+        'n_possible': n_possible,
+        'overlap_percentage': round(len(overlap) / n_possible * 100),
         'baseline_unique': len(baseline_unique),
         'modified_unique': len(modified_unique),
         'shared_ids': list(overlap),
@@ -11429,7 +11818,7 @@ def compare_models(baseline_results, modified_results):
     # Find common sites
     common_sites = set(baseline_matrix.index).intersection(set(modified_matrix.index))
 
-    if len(common_sites) > 10:
+    if len(common_sites) > 2:
         common_sites = sorted(list(common_sites))
         baseline_aligned = baseline_matrix.loc[common_sites, common_sites].values
         modified_aligned = modified_matrix.loc[common_sites, common_sites].values
@@ -11491,9 +11880,9 @@ def display_sensitivity_comparison(original_metrics, modified_metrics, compariso
     # Extract all original model values
     orig_released = orig_comm.get('total_released', 0)
     orig_settled = orig_comm.get('total_settled', 0)
-    orig_settlement = orig_comm.get('community_settlement', 0)
-    orig_mortality = orig_comm.get('community_mortality', 0)
-    orig_recruitment = orig_comm.get('community_recruitment', 0)
+    orig_settlement = orig_comm.get('settlement_rate', 0)
+    orig_mortality = orig_comm.get('mortality_rate', 0)
+    orig_recruitment = orig_comm.get('self_recruitment_rate', 0)
     orig_mean_dist = orig_comm.get('mean_distance_km', 0)
     orig_min_dist = orig_comm.get('min_distance_km', 0)
     orig_max_dist = orig_comm.get('max_distance_km', 0)
@@ -11504,15 +11893,25 @@ def display_sensitivity_comparison(original_metrics, modified_metrics, compariso
     # Extract all modified model values
     mod_released = mod_comm.get('total_released', 0)
     mod_settled = mod_comm.get('total_settled', 0)
-    mod_settlement = mod_comm.get('community_settlement', 0)
-    mod_mortality = mod_comm.get('community_mortality', 0)
-    mod_recruitment = mod_comm.get('community_recruitment', 0)
+    mod_settlement = mod_comm.get('settlement_rate', 0)
+    mod_mortality = mod_comm.get('mortality_rate', 0)
+    mod_recruitment = mod_comm.get('self_recruitment_rate', 0)
     mod_mean_dist = mod_comm.get('mean_distance_km', 0)
     mod_min_dist = mod_comm.get('min_distance_km', 0)
     mod_max_dist = mod_comm.get('max_distance_km', 0)
     mod_mean_pld = mod_comm.get('mean_pld_days', 0)
     mod_min_pld = mod_comm.get('min_pld_days', 0)
     mod_max_pld = mod_comm.get('max_pld_days', 0)
+
+    # Mortality is None whenever it could not be estimated (no raw release counts)
+    # Track that so the row can say "unavailable" and coerce the remaining rate values so the formatting below can never hit None
+    mortality_available = (orig_mortality is not None) and (mod_mortality is not None)
+    orig_settlement = orig_settlement or 0
+    mod_settlement = mod_settlement or 0
+    orig_mortality = orig_mortality or 0
+    mod_mortality = mod_mortality or 0
+    orig_recruitment = orig_recruitment or 0
+    mod_recruitment = mod_recruitment or 0
 
     # Print single combined table
     print(f"\n{'Metric':<35} {'Original':>15} {'Modified':>15} {'Difference':>12}")
@@ -11526,9 +11925,14 @@ def display_sensitivity_comparison(original_metrics, modified_metrics, compariso
 
     # Rates
     settle_diff = (mod_settlement - orig_settlement) * 100
-    mort_diff = (mod_mortality - orig_mortality) * 100
-    print(f"{'Settlement rate':<35} {orig_settlement * 100:>14.1f}% {mod_settlement * 100:>14.1f}% {settle_diff:>+11.1f}%")
-    print(f"{'Mortality rate':<35} {orig_mortality * 100:>14.1f}% {mod_mortality * 100:>14.1f}% {mort_diff:>+11.1f}%")
+    print(
+        f"{'Settlement rate':<35} {orig_settlement * 100:>14.1f}% {mod_settlement * 100:>14.1f}% {settle_diff:>+11.1f}%")
+    if mortality_available:
+        mort_diff = (mod_mortality - orig_mortality) * 100
+        print(
+            f"{'Mortality rate':<35} {orig_mortality * 100:>14.1f}% {mod_mortality * 100:>14.1f}% {mort_diff:>+11.1f}%")
+    else:
+        print(f"{'Mortality rate':<35} {'unavailable':>15} {'unavailable':>15} {'-':>12}")
 
     # Self-recruitment
     recruitment_diff = (mod_recruitment - orig_recruitment) * 100
@@ -11570,7 +11974,7 @@ def display_sensitivity_comparison(original_metrics, modified_metrics, compariso
         if 'hotspot_overlap' in comparison:
             overlap = comparison['hotspot_overlap']
             print(f"\nHotspot Overlap Analysis:")
-            print(f"  Shared hotspots: {overlap['shared_sites']}/10 ({overlap['overlap_percentage']}%)")
+            print(f"  Shared hotspots: {overlap['shared_sites']}/{overlap.get('n_possible', 10)} ({overlap['overlap_percentage']}%)")
             print(f"  Unique to original: {overlap['baseline_unique']}")
             print(f"  Unique to modified: {overlap['modified_unique']}")
 
@@ -11583,144 +11987,62 @@ def display_sensitivity_comparison(original_metrics, modified_metrics, compariso
 
             if mantel['p_value'] < 0.05:
                 if mantel['r'] > 0.7:
-                    print("  Interpretation: Strong spatial correlation - connectivity patterns are similar")
+                    print("  Interpretation: Strong spatial correlation. Connectivity patterns are similar")
                 elif mantel['r'] > 0.4:
-                    print("  Interpretation: Moderate spatial correlation - some pattern preservation")
+                    print("  Interpretation: Moderate spatial correlation. Some pattern preservation")
                 else:
-                    print("  Interpretation: Weak spatial correlation - trait changes substantially alter patterns")
+                    print("  Interpretation: Weak spatial correlation. Trait changes substantially alter patterns")
             else:
                 print("  Interpretation: Not statistically significant")
 
         if 'spatial_agreement' in comparison:
             agreement_text = {
-                'high': 'High agreement (7+ shared hotspots) - Trait changes have minimal impact on hotspot identification',
-                'moderate': 'Moderate agreement (4-6 shared) - Trait changes alter some hotspot locations',
-                'low': 'Low agreement (<4 shared) - Trait changes substantially change which sites are hotspots'
+                'high': 'High agreement (7+ shared hotspots). Trait changes have minimal impact on hotspot identification',
+                'moderate': 'Moderate agreement (4-6 shared). Trait changes alter some hotspot locations',
+                'low': 'Low agreement (<4 shared). Trait changes substantially change which sites are hotspots'
             }
             print(f"\nSpatial Agreement: {agreement_text.get(comparison['spatial_agreement'], comparison['spatial_agreement'])}")
 
     return {
         'settlement_diff': settle_diff,
-        'mortality_diff': mort_diff,
+        'mortality_diff': (mod_mortality - orig_mortality) * 100 if mortality_available else None,
         'connectivity_effect': effect
     }
 
 ## Create comparison maps
 def create_comparison_map(baseline_results, modified_results, output_path=None,
                           output_format='png', dpi=300,
-                          title1='Original Model', title2='Modified Model'):
+                          title1='Original Traits', title2='Modified Traits'):
     """
-    Create vertically stacked comparison maps for two trait scenarios.
+    Render the two trait scenarios as two separate hotspot maps
+    Uses the same style as the main network hotspot map (create_network_map):
+    every site is coloured by overall composite rank and the top 10 hotspots are numbered.
 
-    Parameters
-    ----------
-    baseline_results : dict
-        Network results from the baseline trait scenario
-    modified_results : dict
-        Network results from the modified trait scenario
-    output_path : str, optional
-        Path to save figure (without extension)
-    output_format : str
-        Output format ('png', 'pdf', 'tif', 'jpeg', 'svg')
-    dpi : int
-        Resolution for raster formats
+    Returns
+    -------
+    list of matplotlib.figure.Figure
+        [baseline_figure, modified_figure]
     """
-    # Get common extent
-    all_lons = list(baseline_results['site_metrics']['longitude']) + \
-               list(modified_results['site_metrics']['longitude'])
-    all_lats = list(baseline_results['site_metrics']['latitude']) + \
-               list(modified_results['site_metrics']['latitude'])
-
-    lon_range = max(all_lons) - min(all_lons)
-    lat_range = max(all_lats) - min(all_lats)
-
-    # Dynamic figure sizing with auto layout
-    fig_width, fig_height, layout = calculate_figure_dimensions(lon_range, lat_range, base_size=7, n_panels=2, layout='auto')
-
-    # Create subplots based on optimal layout
-    if layout == 'horizontal':
-        fig, axes = plt.subplots(1, 2, figsize=(fig_width, fig_height),
-                                 subplot_kw={'projection': ccrs.PlateCarree()})
-    else:
-        fig, axes = plt.subplots(2, 1, figsize=(fig_width, fig_height),
-                                 subplot_kw={'projection': ccrs.PlateCarree()})
-
-    extent = [min(all_lons) - 0.15, max(all_lons) + 0.15,
-              min(all_lats) - 0.15, max(all_lats) + 0.15]
-
-    datasets = [
-        (axes[0], baseline_results, title1),
-        (axes[1], modified_results, title2)
-    ]
-
-    for ax, results, title in datasets:
-        ax.set_extent(extent, crs=ccrs.PlateCarree())
-        ax.add_feature(cfeature.LAND, facecolor='lightgray')
-        ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
-        ax.add_feature(cfeature.COASTLINE, linewidth=0.8)
-
-        metrics = results['site_metrics']
-        top10 = results['top10_overall']
-
-        # All sites
-        scatter = ax.scatter(
-            metrics['longitude'], metrics['latitude'],
-            c=metrics['overall_composite'], cmap='viridis_r',
-            s=50, alpha=0.6, transform=ccrs.PlateCarree(),
-            vmin=metrics['overall_composite'].min(),
-            vmax=metrics['overall_composite'].max()
+    figs = []
+    for _results, _title, _suffix in [
+        (baseline_results, title1, 'original'),
+        (modified_results, title2, 'modified'),
+    ]:
+        _sm = _results['site_metrics']
+        _t10 = _results.get('top10_overall', _sm.head(10))
+        _ng = _results.get('network_graph')
+        _out = f"{output_path}_{_suffix}.{output_format}" if output_path else None
+        fig = create_network_map(
+            _sm, _t10, title=_title,
+            composite_col='overall_composite', cmap='viridis_r',
+            output_path=_out, output_format=output_format, dpi=dpi,
+            show_figure=True, network_graph=_ng, top_n_edges=200,
+            subtitle='Sites coloured by overall composite hotspot rank (1 = best)',
         )
+        figs.append(fig)
+    return figs
 
-        # Top 10 numbered
-        for i, (_, site) in enumerate(top10.iterrows()):
-            ax.scatter(site['longitude'], site['latitude'], s=250, c='gold',
-                       edgecolors='black', linewidth=2, transform=ccrs.PlateCarree(),
-                       zorder=5)
-            ax.text(site['longitude'], site['latitude'], str(i + 1),
-                    ha='center', va='center', fontsize=9, fontweight='bold',
-                    transform=ccrs.PlateCarree(), zorder=6)
-
-        ax.set_title(title, fontsize=12, fontweight='bold', pad=10)
-        gl = ax.gridlines(draw_labels=True, alpha=0.3)
-        gl.top_labels = False
-        gl.right_labels = False
-
-    # Add overall title
-    fig.suptitle('Trait Sensitivity Analysis: Model Comparison',
-                 fontsize=16, fontweight='bold', y=0.98)
-
-    # Colorbar below the map
-    cbar_ax = fig.add_axes([0.25, 0.12, 0.5, 0.015])
-    cbar = fig.colorbar(scatter, cax=cbar_ax, orientation='horizontal')
-    cbar.set_label('Overall composite rank (lower = higher priority)', fontsize=11)
-
-    # Legend below colorbar
-    legend_elements = [
-        Line2D([0], [0], marker='o', color='w', label='Top 10 Priority Sites',
-               markerfacecolor='gold', markeredgecolor='black', markersize=12),
-        Line2D([0], [0], marker='o', color='w', label='Other Sites (colour = score)',
-               markerfacecolor='#fde725', markersize=8, alpha=0.7)
-    ]
-
-    fig.legend(handles=legend_elements,
-               loc='lower center',
-               ncol=2,
-               bbox_to_anchor=(0.5, 0.02),
-               framealpha=0.95,
-               fontsize=10)
-
-    # Tight layout with room for colorbar and legend at bottom
-    plt.tight_layout(rect=[0, 0.18, 1, 0.98])
-    plt.subplots_adjust(top=0.93, hspace=0.15)
-
-    # Save if output path provided
-    if output_path:
-        fig.savefig(output_path, format=output_format, dpi=dpi, bbox_inches='tight')
-        print(f"  Figure saved to: {output_path}")
-
-    plt.show()
-
-    return fig
+    # endregion
 
     # endregion
 
@@ -11789,9 +12111,9 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
              'Post-processed winter trajectory DataFrame (release grid_id, time, lat, lon).'),
 
             # figures (workflow-level)
-            ('figures', 'landmask_native.*',
+            ('grids', 'landmask_native.*',
              'Native-resolution land/ocean mask figure showing the full hydrodynamic grid extent.'),
-            ('figures', 'landmask_binned.*',
+            ('grids', 'landmask_binned.*',
              'Binned-resolution land/ocean mask figure used as the basis for the network analyses.'),
 
             # figures (per-dataset, one subfolder per dataset)
@@ -11818,27 +12140,41 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
             ('figures', '<dataset>/hotspot_degree_centrality.*',
              'Top 10 hotspots ranked by degree centrality (sites with the most connections).'),
 
-            # results (per-dataset)
-            ('results', '<dataset>/connectivity_summary.csv',
-             'Type 1 connectivity summary metrics for this dataset (mortality, dispersal, self-recruitment, PLD-equivalent).'),
-            ('results', '<dataset>/network_site_metrics.csv',
-             'Type 2 per-site network metrics for this dataset (degree, betweenness, closeness, hubness, authority, composites).'),
-            ('results', '<dataset>/connectivity_matrix.csv',
-             'Type 2 site × site connectivity matrix for this dataset (raw particle exchange values).'),
+            # animation (per-season)
+            ('animation', '<season>/dispersal_animation.mp4',
+             'Particle dispersal animation (MP4) for the season, built from the raw combined trajectory data for the run.'),
 
-            # results (workflow-level)
-            ('results', 'timing_log.txt',
-             'Optional timing log of runtime per processing step and per dataset for the full pathway.'),
+            # results (per-dataset)
+            ('results', '<dataset>/<dataset>_connectivity_summary.csv',
+             'Type 1 connectivity summary metrics for this dataset (dispersal distances and self-recruitment rate).'),
+            ('results', '<dataset>/<dataset>_network_site_metrics.csv',
+             'Type 2 per-site network metrics for this dataset (degree, betweenness, closeness, source/sink strength, composites).'),
+            ('results', '<dataset>/<dataset>_connectivity_matrix.csv',
+             'Type 2 site × site connectivity matrix for this dataset (raw particle exchange values).'),
+            ('results', '<dataset>/<dataset>_network_summary.csv',
+             'Type 2 network summary scalars for this dataset (number of species, study extent, potential & realised connectivity sites, unique connections).'),
+
+            # config (workflow-level)
+            ('config', 'analysis_timing.txt',
+             'Timing summary of total seconds per analysis step across all datasets, including the grand total and the slowest dataset per step.'),
         ]
     else:  # 'trait'
         reference = [
             # config
             ('config', 'comcon_outputs.xlsx',
              'This file, outputs reference catalogue (Sheet 1) and run configuration metadata (Sheet 2).'),
-            ('config', 'spp_params.json',
-             'Saved species parameters from Step 2 (data source, release/settlement strategy, habitat filtering, dispersal year).'),
-            ('config', 'hydro_params.json',
-             'Saved hydrodynamic data parameters from Step 1 (dataset ID, date range, spatial extent).'),
+            ('config', 'spp_occ_params.json',
+             'Saved species/occurrence parameters (data source, release/settlement strategy, habitat filtering, site-name lookup).'),
+            ('config', 'hydrodynamic_parameters.json',
+             'Saved hydrodynamic parameters (dataset ID, date range, spatial extent, resolution, traits).'),
+            ('config', 'pset_config.json',
+             'Saved particle-set parameters (release interval, particles per cell, horizontal diffusivity).'),
+            ('config', 'comcon_config.json',
+             'Saved full automatic-mode configuration (all auto-run settings).'),
+            ('config', 'comcon_session*.pkl',
+             'Saved interactive session state, used to reload/restore a run.'),
+            ('config', 'comcon_session_final_processed_*.parquet',
+             'Saved post-processed trajectory data per species, used to restore a session.'),
 
             # hydro_data
             ('hydro_data', '*.nc',
@@ -11869,30 +12205,46 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
              'Per-chunk parquet files with assigned release IDs (memory-efficient post-processing intermediate).'),
 
             # figures
-            ('figures', '*landmask*',
+            ('grids', '*landmask*',
              'Land/ocean mask visualisation of the hydrodynamic data extent and coastal mask.'),
             ('figures', '*distribution*',
              'Species occurrence distribution map showing cleaned records on the hydro extent.'),
-            ('figures', '*matrix*',
+            ('figures', 'dispersal_domain.*',
+             'Map of the simulation domain showing the release/settlement extent.'),
+            ('figures', '<dataset>/*matrix*',
              'Connectivity matrix figures (site x site particle exchange), per species and/or community.'),
-            ('figures', '*network*',
+            ('figures', '<dataset>/*network*',
              'Directed connectivity network maps with arrows showing pairwise particle exchange.'),
-            ('figures', '*communities*',
+            ('figures', '<dataset>/*communities*',
              'Louvain community detection maps, sites coloured by community membership.'),
-            ('figures', '*heatmap*',
+            ('figures', '<dataset>/*heatmap*',
              'Site x metric heatmaps, rows are network metrics, columns are top sites by overall rank.'),
-            ('figures', '*hotspot*',
+            ('figures', '<dataset>/*hotspot*',
              'Top 10 hotspot maps coloured by composite or single-metric rank.'),
+            ('figures', 'trait_sensitivity_*_original.*',
+             'Type 3 hotspot map under the original (baseline) traits.'),
+            ('figures', 'trait_sensitivity_*_modified.*',
+             'Type 3 hotspot map under the modified-trait scenario.'),
 
-            # results
-            ('results', 'connectivity_metrics_community.csv',
+            # animation
+            ('animation', 'dispersal_animation.mp4',
+             'Particle dispersal animation (MP4), built from the raw combined trajectory data for the run.'),
+
+            # results (per-label subfolders)
+            ('results', 'community/community_connectivity_summary.csv',
              'Type 1 community-level connectivity metrics (mortality, self-recruitment, mean dispersal, mean PLD).'),
-            ('results', 'connectivity_metrics_*.csv',
+            ('results', '<species>/<species>_connectivity_summary.csv',
              'Type 1 per-species connectivity metrics (mortality, self-recruitment, mean dispersal, mean PLD).'),
-            ('results', 'network_site_metrics.csv',
-             'Type 2 per-site network metrics (degree, betweenness, closeness, hubness, authority, composites).'),
-            ('results', 'connectivity_matrix.csv',
+            ('results', '<species>/<species>_settlement_attribution.csv',
+             'Buffer-cell to real settlement site mapping for each species (columns: species, buffer_cell_grid_id, attributed_settlement_site).'),
+            ('results', '<species>/<species>_<scale>_network_site_metrics.csv',
+             'Type 2 per-site network metrics (degree, betweenness, closeness, source/sink strength, composites).'),
+            ('results', '<species>/<species>_<scale>_connectivity_matrix.csv',
              'Type 2 site × site connectivity matrix (raw particle exchange values).'),
+            ('results', '<species>/<species>_network_summary.csv',
+             'Type 2 network summary scalars (number of species, study extent, potential & realised connectivity sites, unique connections).'),
+            ('results', 'community/community_trait_sensitivity_*.csv',
+             'Type 3 trait-sensitivity comparison table (original vs modified community metrics, Mantel test, hotspot overlap, spatial agreement).'),
         ]
 
     # =====================================================================
@@ -11930,23 +12282,35 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
 
         found = []  # list of (display_subfolder_or_None, basename, abs_path)
 
-        # Pattern with '<dataset>/' prefix -> match any one-level subfolder
-        if '<dataset>/' in pattern:
-            file_pattern = pattern.split('<dataset>/', 1)[1]
-            for entry in sorted(os.listdir(folder_path)):
-                sub_path = os.path.join(folder_path, entry)
-                if not os.path.isdir(sub_path):
-                    continue
-                for f in sorted(os.listdir(sub_path)):
-                    if fnmatch.fnmatch(f, file_pattern):
-                        found.append((entry, f, os.path.join(sub_path, f)))
         # Pattern ending with '/' -> match a subfolder
-        elif pattern.endswith('/'):
+        if pattern.endswith('/'):
             dir_pattern = pattern.rstrip('/')
             for entry in sorted(os.listdir(folder_path)):
                 full_path = os.path.join(folder_path, entry)
                 if os.path.isdir(full_path) and fnmatch.fnmatch(entry, dir_pattern):
                     found.append((None, entry + '/', full_path))
+        # Pattern with a subfolder part (placeholder <dataset>/<species>/<season>/ or a literal
+        # community/) -> match files inside one-level subfolders. A placeholder subfolder matches
+        # any subfolder and is bound into the file pattern; any remaining placeholders (<scale>,
+        # ...) expand to '*'. This recognises the real <species>_<scale> / <species>/<scale>
+        # naming as standard output rather than letting it fall through to "user-added".
+        elif '/' in pattern:
+            sub_pat, file_pat = pattern.split('/', 1)
+            sub_is_ph = sub_pat.startswith('<') and sub_pat.endswith('>')
+            for entry in sorted(os.listdir(folder_path)):
+                sub_path = os.path.join(folder_path, entry)
+                if not os.path.isdir(sub_path):
+                    continue
+                if not sub_is_ph and not fnmatch.fnmatch(entry, sub_pat):
+                    continue
+                fp = file_pat.replace(sub_pat, entry) if sub_is_ph else file_pat
+                fp = re.sub(r'<[^>]+>', '*', fp)
+                for f in sorted(os.listdir(sub_path)):
+                    abs_f = os.path.join(sub_path, f)
+                    if os.path.abspath(abs_f) in matched_paths:
+                        continue
+                    if fnmatch.fnmatch(f, fp):
+                        found.append((entry, f, abs_f))
         # Plain filename pattern -> match files at top level
         else:
             for f in sorted(os.listdir(folder_path)):
@@ -11982,9 +12346,13 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
         if role == 'root' or not folder_path or not os.path.isdir(folder_path):
             continue
         for walk_root, dirs, files in os.walk(folder_path):
-            # Don't recurse into .zarr stores or chunks_ subdirectories
-            dirs[:] = [d for d in dirs if not d.endswith('.zarr') and not d.startswith('chunks_')]
+            # Don't recurse into .zarr stores or chunk intermediates
+            dirs[:] = [d for d in dirs if not d.endswith('.zarr')
+                       and not d.startswith('chunks_') and d != '_temp_chunks']
             for f in files:
+                # Skip transient Office lock / temp files (e.g. ~$comcon_outputs.xlsx)
+                if f.startswith('~$') or f.startswith('.~'):
+                    continue
                 full_path = os.path.abspath(os.path.join(walk_root, f))
                 if full_path in matched_paths:
                     continue
@@ -11994,7 +12362,7 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
                 rows.append({
                     'Folder': display_folder,
                     'File / Subfolder': os.path.basename(rel),
-                    'Description': '(User-added file, not part of the standard ComCon output catalogue.)',
+                    'Description': 'User-added file, not part of the standard ComCon output catalogue.',
                     'Saved': 'YES',
                 })
 
@@ -12012,10 +12380,10 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
             if isinstance(v, dict):
                 out.extend(_flatten(v, key))
             elif isinstance(v, (list, tuple)):
-                # List of dicts: expand each item with [i] index
+                # List of dicts: expand each item with a 1-based [i] index (display label only)
                 if v and all(isinstance(x, dict) for x in v):
                     for i, x in enumerate(v):
-                        out.extend(_flatten(x, f"{key}[{i}]"))
+                        out.extend(_flatten(x, f"{key}[{i + 1}]"))
                 else:
                     out.append((key, ', '.join(str(x) for x in v)))
             else:
@@ -12038,8 +12406,8 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
          'count of particles (source -> sink)',
          'particles'),
         ('Connectivity strength (displayed)',
-         'The value shown on connectivity-matrix figures. Log-scaled for display only; '
-         'the exported connectivity_matrix.csv holds the raw counts.',
+         'The value shown on connectivity-matrix figures. Log-scaled for display only. '
+         'The exported connectivity_matrix.csv holds the raw counts.',
          'log10(particles + 1)',
          'log10 particles'),
         ('Settlement rate',
@@ -12048,7 +12416,7 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
          'proportion (0-1)'),
         ('Mortality rate',
          'Proportion of released particles that did not settle (reached maximum PLD without '
-         'settling). Requires release counts; left blank if these are unavailable.',
+         'settling). Requires release counts. Left blank if these are unavailable.',
          '1 - (n_settled / n_released)',
          'proportion (0-1)'),
         ('Self-recruitment',
@@ -12068,17 +12436,18 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
          'NetworkX degree_centrality (normalised)',
          'proportion (0-1)'),
         ('Betweenness centrality',
-         'How often a site lies on shortest paths between other site pairs, identifies '
-         'stepping-stone sites.',
-         'NetworkX betweenness_centrality (weighted, normalised)',
+         'How often a site lies on the strongest-connection shortest paths between other site '
+         'pairs, identifies stepping-stone sites. Higher = more central.',
+         'betweenness(v) = sum over s!=v!=t of sigma_st(v)/sigma_st (fraction of shortest paths through v); shortest paths minimise edge distance = 1/exchange, so strong connections are short; NetworkX betweenness_centrality, normalised',
          'proportion (0-1)'),
         ('Closeness centrality',
-         'How close a site is to all other sites in the network (reachability).',
-         'NetworkX closeness_centrality (weighted by distance)',
+         'How strongly connected a site is to all others (reachability via strong connections). '
+         'Higher = more connected.',
+         'closeness(v) = (n-1) / sum over u of d(v,u), where d = shortest-path distance using edge distance = 1/exchange (strong = short); NetworkX closeness_centrality',
          'proportion (0-1)'),
         ('Overall composite (hotspot rank)',
          'Combined ranking used to identify overall hotspots. Each of the six metrics is ranked '
-         '(rank 1 = highest value); the composite is the mean of those six ranks, so a LOWER '
+         '(rank 1 = highest value). The composite is the mean of those six ranks, so a lower '
          'composite means a higher-priority site.',
          'mean of ranks of [source, sink, self-recruitment, betweenness, closeness, degree]',
          'mean rank (lower = better)'),
@@ -12101,18 +12470,333 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
          'edges / (n_sites * (n_sites - 1))',
          'proportion (0-1)'),
         ('Modularity',
-         'Strength of the community structure found by Louvain, higher means communities are '
-         'more clearly separated.',
-         'Louvain modularity of the undirected, weighted graph',
+         'Strength of the community structure found by Louvain: higher means communities are more '
+         'clearly separated. It is a property of the network (a structureless network cannot reach '
+         'a high value no matter how it is partitioned), which Louvain maximises.',
+         'Q = (1/2m) sum_ij [A_ij - k_i*k_j/(2m)] * delta(c_i,c_j); A = weighted adjacency, m = total edge weight, k = node strength, c = community; maximised by Louvain',
          'score (-0.5 to 1)'),
         ('Communities',
          'Number of distinct communities (clusters of strongly inter-connected sites) detected '
          'by the Louvain algorithm.',
          'count of Louvain communities',
          'count'),
+        ('Study extent (sites)',
+         'Number of sites the user defined as valid release or settlement locations under the chosen grid strategies.',
+         'count of valid user-defined sites',
+         'count'),
+        ('Potential connectivity sites',
+         'The number of grid cells where connectivity could occur. If using species-specific release/settlement, this is the count of cells with at least one species occurrence datapoint. If using "all sites", this equals the total number of coastal/ocean cells in your study extent.',
+         'intersection of occurrence sites and study-extent sites',
+         'count'),
+        ('Realised connectivity sites',
+         'The number of sites that actually contribute to overall network connectivity (i.e., at least one successfully settled particle arrived at or departed from the site in the simulation results). This is always less than or equal to potential connectivity sites.',
+         'count of sites with at least one non-zero matrix entry',
+         'count'),
+        ('Unique connections',
+         'Number of distinct directed site-to-site links that carried at least one particle (the network edge count, independent of particle volume).',
+         'count of non-zero cells in the connectivity matrix',
+         'count'),
     ]
     metrics_df = pd.DataFrame(
         metric_definitions, columns=['Metric', 'Definition', 'Formula / method', 'Units']
+    )
+
+    # =====================================================================
+    # Sheet 4: column definitions for each result CSV file.
+    # Every column that appears in connectivity_summary.csv,
+    # network_site_metrics.csv, connectivity_matrix.csv, and
+    # settlement_attribution.csv is listed with: file, column name,
+    # one-sentence definition, units, formula (where one applies), and a
+    # short worked example.
+    # Notes:
+    #   - The community connectivity_summary uses total_released / total_settled /
+    #     total_recruited; the per-species file uses n_released / n_settled / n_recruited
+    #     for the same quantities.  Both variants are listed here.
+    #   - The passive pathway writes a subset of connectivity_summary columns:
+    #     total_released, self_recruitment_rate, mean_distance_km,
+    #     min_distance_km, max_distance_km only.
+    #   - louvain_community and site_name are optional columns in
+    #     network_site_metrics.csv (present only when community analysis was
+    #     run, or when the user supplied named sites, respectively).
+    #   - custom_composite is optional in network_site_metrics.csv (present
+    #     only when add_custom_composite() was called).
+    # =====================================================================
+    column_definitions = [
+        # ---- connectivity_summary.csv (community level) ----
+        ('connectivity_summary.csv', 'n_species',
+         'Number of species with at least one successfully settled trajectory.',
+         'count', '—',
+         '3  (three species had data; a fourth was present but all trajectories failed to settle)'),
+        ('connectivity_summary.csv', 'total_released',
+         'Total particles released across all species and release sites combined (community file only; '
+         'per-species file uses n_released for the same quantity).',
+         'count', '—',
+         '15000  (5000 particles per species × 3 species)'),
+        ('connectivity_summary.csv', 'n_released',
+         'Particles released for this species (per-species file only; '
+         'community file uses total_released for the equivalent quantity).',
+         'count', '—',
+         '5000'),
+        ('connectivity_summary.csv', 'total_settled',
+         'Particles that settled at any valid habitat cell within the PLD window, summed across all '
+         'species (community file only; per-species file uses n_settled).',
+         'count', '—',
+         '8742'),
+        ('connectivity_summary.csv', 'n_settled',
+         'Particles that settled for this species (per-species file only; '
+         'community file uses total_settled).',
+         'count', '—',
+         '2914'),
+        ('connectivity_summary.csv', 'total_recruited',
+         'Particles that settled at their own release site (the diagonal of the connectivity matrix), across all species (community file only; per-species file uses n_recruited).'
+         'count', '—',
+         '312'),
+        ('connectivity_summary.csv', 'n_recruited',
+         'Self-recruited particles for this species (per-species file only; '
+         'community file uses total_recruited).',
+         'count', '—',
+         '104'),
+        ('connectivity_summary.csv', 'settlement_rate',
+         'Fraction of released particles that settled successfully at any valid habitat cell.',
+         'proportion [0–1]',
+         'n_settled / n_released  (or total_settled / total_released for the community file)',
+         '0.583  (8742 settled out of 15000 released)'),
+        ('connectivity_summary.csv', 'mortality_rate',
+         'Fraction of released particles that failed to settle (exceeded maximum PLD without '
+         'reaching suitable habitat). Null when release counts are unavailable.',
+         'proportion [0–1]',
+         '1 − settlement_rate  =  1 − (n_settled / n_released)',
+         '0.417  (6258 particles out of 15000 did not settle)'),
+        ('connectivity_summary.csv', 'self_recruitment_rate',
+         'Fraction of settled particles whose settlement site is their own release site (the diagonal '
+         'of the connectivity matrix). The settlement buffer is resolved during post-processing, so this '
+         'is an exact match consistent with every other metric.',
+         'proportion [0–1]',
+         'n_recruited / n_settled  (or total_recruited / total_settled for the community file)',
+         '0.036  (312 out of 8742 settled particles were self-recruited)'),
+        ('connectivity_summary.csv', 'mean_distance_km',
+         'Mean net straight-line displacement from release to final settlement location across '
+         'all successfully settled trajectories.',
+         'km', 'mean of great-circle distances between release and settlement cell centroids',
+         '47.3  (average across all settled particles)'),
+        ('connectivity_summary.csv', 'min_distance_km',
+         'Minimum net displacement across all settled trajectories.',
+         'km', 'min of per-trajectory great-circle displacements',
+         '0.0  (particle settled in its own cell)'),
+        ('connectivity_summary.csv', 'max_distance_km',
+         'Maximum net displacement across all settled trajectories.',
+         'km', 'max of per-trajectory great-circle displacements',
+         '312.8'),
+        ('connectivity_summary.csv', 'mean_pld_days',
+         'Mean realised planktonic larval duration: average number of days between release and '
+         'settlement across all settled trajectories.',
+         'days', 'mean of settlement_day values recorded in pld_filter',
+         '11.2'),
+        ('connectivity_summary.csv', 'min_pld_days',
+         'Minimum realised PLD across all settled trajectories.',
+         'days', 'min of settlement_day values',
+         '3'),
+        ('connectivity_summary.csv', 'max_pld_days',
+         'Maximum realised PLD across all settled trajectories.',
+         'days', 'max of settlement_day values',
+         '28'),
+        ('connectivity_summary.csv', 'n_release_sites',
+         'Number of distinct grid cells from which particles were released '
+         '(union across species for the community file; exact species count for the per-species file).',
+         'count', '—',
+         '84'),
+        ('connectivity_summary.csv', 'n_settlement_sites',
+         'Number of distinct grid cells designated as valid settlement habitat '
+         '(union across species for the community file; per-species count otherwise).',
+         'count', '—',
+         '1247'),
+
+        # ---- network_site_metrics.csv ----
+        ('network_site_metrics.csv', 'grid_id',
+         'Unique integer identifier of the ocean grid cell; matches the row/column labels '
+         'in connectivity_matrix.csv and the grid_id column in the grids/ CSV files.',
+         'integer', '—',
+         '42'),
+        ('network_site_metrics.csv', 'latitude',
+         'Latitude of the grid cell centroid, in decimal degrees north.',
+         'degrees N', '—',
+         '50.25'),
+        ('network_site_metrics.csv', 'longitude',
+         'Longitude of the grid cell centroid, in decimal degrees east.',
+         'degrees E', '—',
+         '−4.12'),
+        ('network_site_metrics.csv', 'louvain_community',
+         'Integer community membership label assigned by the Louvain algorithm '
+         '(sites with the same integer belong to the same community). '
+         'Optional — present only when community detection was run.',
+         'integer category', 'Louvain best_partition on the undirected weighted graph',
+         '2  (this site belongs to community 2)'),
+        ('network_site_metrics.csv', 'site_name',
+         'Human-readable name supplied via a site_name column in the occurrence data. '
+         'Optional — absent when only grid-based (site_<grid_id>) labels were available.',
+         'string', '—',
+         'Plymouth Sound'),
+        ('network_site_metrics.csv', 'source_strength',
+         'Total number of particles that left this site and settled at any other site '
+         '(weighted out-degree). Self-recruitment is excluded when exclude_self_recruitment=True.',
+         'particles', 'sum of row entries in connectivity_matrix for this site, '
+         'excluding the diagonal if self-recruitment is excluded',
+         '847  (847 particles exported to other sites)'),
+        ('network_site_metrics.csv', 'sink_strength',
+         'Total number of particles that arrived at this site from any other site '
+         '(weighted in-degree). Self-recruitment is excluded when exclude_self_recruitment=True.',
+         'particles', 'sum of column entries in connectivity_matrix for this site, '
+         'excluding the diagonal if self-recruitment is excluded',
+         '1203'),
+        ('network_site_metrics.csv', 'self_recruitment',
+         'Number of particles released from this site that settled at this site '
+         '(the diagonal entry of the connectivity matrix for this site).',
+         'particles', 'connectivity_matrix[site, site]',
+         '23'),
+        ('network_site_metrics.csv', 'betweenness',
+         'Betweenness centrality: fraction of all strongest-connection shortest paths between other '
+         'site pairs that pass through this site. High values identify stepping-stone sites.',
+         'proportion [0–1]',
+         'NetworkX betweenness_centrality(G, weight="distance", normalized=True), distance = 1/exchange',
+         '0.041  (this site lies on 4.1 % of the strongest-path routes)'),
+        ('network_site_metrics.csv', 'closeness',
+         'Closeness centrality: how strongly connected this site is to all others '
+         '(inverse of mean inverse-strength shortest path length; higher = more connected).',
+         'proportion [0–1]',
+         'NetworkX closeness_centrality(G, distance="distance"), distance = 1/exchange',
+         '0.219'),
+        ('network_site_metrics.csv', 'degree',
+         'Degree centrality: proportion of other sites this site is directly connected to '
+         '(in- and out-edges combined, normalised by 2×(n−1) for directed graphs).',
+         'proportion [0–1]',
+         'NetworkX degree_centrality(G)',
+         '0.083  (connected to 8.3 % of all possible partners)'),
+        ('network_site_metrics.csv', 'source_strength_rank',
+         'Integer rank of this site by source_strength (rank 1 = highest source strength = '
+         'best exporter). Ties share the lowest rank number (pandas method="min").',
+         'integer [1–n_sites]',
+         'source_strength.rank(ascending=False, method="dense")',
+         '7  (7th strongest exporter in the network)'),
+        ('network_site_metrics.csv', 'sink_strength_rank',
+         'Integer rank of this site by sink_strength (rank 1 = highest sink strength).',
+         'integer [1–n_sites]',
+         'sink_strength.rank(ascending=False, method="dense")',
+         '3'),
+        ('network_site_metrics.csv', 'self_recruitment_rank',
+         'Integer rank of this site by self_recruitment (rank 1 = most self-recruited).',
+         'integer [1–n_sites]',
+         'self_recruitment.rank(ascending=False, method="dense")',
+         '12'),
+        ('network_site_metrics.csv', 'betweenness_rank',
+         'Integer rank of this site by betweenness centrality (rank 1 = highest betweenness).',
+         'integer [1–n_sites]',
+         'betweenness.rank(ascending=False, method="dense")',
+         '4'),
+        ('network_site_metrics.csv', 'closeness_rank',
+         'Integer rank of this site by closeness centrality (rank 1 = highest closeness).',
+         'integer [1–n_sites]',
+         'closeness.rank(ascending=False, method="dense")',
+         '15'),
+        ('network_site_metrics.csv', 'degree_rank',
+         'Integer rank of this site by degree centrality (rank 1 = highest degree).',
+         'integer [1–n_sites]',
+         'degree.rank(ascending=False, method="dense")',
+         '9'),
+        ('network_site_metrics.csv', 'functional_composite_rank',
+         'Mean of the three functional metric ranks (source_strength_rank, sink_strength_rank, '
+         'self_recruitment_rank). Lower value = higher priority site. Ties in any component '
+         'rank propagate into the composite.',
+         'mean rank (lower = higher priority)',
+         'mean(source_strength_rank, sink_strength_rank, self_recruitment_rank)',
+         '7.33  (mean of ranks 7, 3, 12)'),
+        ('network_site_metrics.csv', 'centrality_composite_rank',
+         'Mean of the three centrality metric ranks (betweenness_rank, closeness_rank, '
+         'degree_rank). Lower value = higher priority site.',
+         'mean rank (lower = higher priority)',
+         'mean(betweenness_rank, closeness_rank, degree_rank)',
+         '9.33  (mean of ranks 4, 15, 9)'),
+        ('network_site_metrics.csv', 'overall_composite_rank',
+         'Mean of all six metric ranks. The primary sorting column in the exported file and '
+         'the default hotspot-map metric. Lower value = higher overall priority.',
+         'mean rank (lower = higher priority)',
+         'mean(source_strength_rank, sink_strength_rank, self_recruitment_rank, '
+         'betweenness_rank, closeness_rank, degree_rank)',
+         '8.33  (mean of 7, 3, 12, 4, 15, 9)'),
+        ('network_site_metrics.csv', 'top10_count',
+         'Number of the six individual metrics for which this site ranks in the top 10. '
+         'A quick tally of how consistently high-ranking a site is across different metric types.',
+         'integer [0–6]',
+         'sum of (rank <= 10) across the six metric rank columns',
+         '3  (top 10 for source_strength, betweenness, and degree)'),
+        ('network_site_metrics.csv', 'custom_composite_rank',
+         'Optional user-defined composite built by add_custom_composite(). Mean of the ranks '
+         'of whichever subset of the six metrics the user selected. Same scale as the other '
+         'composites. Present only when this function was called. Exported as '
+         'custom_composite_rank; the in-memory column is named custom_composite.',
+         'mean rank (lower = higher priority)',
+         'mean of user-chosen metric ranks',
+         '9.5  (user selected betweenness and closeness; mean of ranks 4, 15)'),
+
+        # ---- connectivity_matrix.csv ----
+        ('connectivity_matrix.csv', 'Row index (unlabelled first column)',
+         'Source site label in the form site_<grid_id>. Each row represents one release site.',
+         'string', '—',
+         'site_42'),
+        ('connectivity_matrix.csv', 'Column headers (one per sink site)',
+         'Sink site labels in the form site_<grid_id>, one column per site. '
+         'The value at row i, column j is the number of particles released from site i '
+         'that settled at site j. The diagonal (i == j) is the self-recruitment count.',
+         'string (header); integer particle count (cell value)',
+         'connectivity_matrix[source_site, sink_site]',
+         'Row site_42, column site_77 = 14  '
+         '(14 particles from site 42 settled at site 77). '
+         'Row site_42, column site_42 = 23  (23 self-recruited).'),
+
+        # ---- settlement_attribution.csv ----
+        ('settlement_attribution.csv', 'species',
+         'Species name matching the subfolder and connectivity_summary filename for this species.',
+         'string', '—',
+         'Semibalanus balanoides'),
+        ('settlement_attribution.csv', 'buffer_cell_grid_id',
+         'Grid ID of a cell that falls within the settlement buffer around at least one real '
+         'settlement site. Particles landing here are credited to the attributed_settlement_site.',
+         'integer', '—',
+         '43  (a cell one step away from real site 42)'),
+        ('settlement_attribution.csv', 'attributed_settlement_site',
+         'Grid ID of the real (non-buffered) settlement site nearest to this buffer cell, '
+         'found by cKDTree nearest-neighbour search on 2-D grid position.',
+         'integer',
+         'cKDTree.query on grid (row, col) positions of all real settlement sites',
+         '42  (site 42 is the closest real settlement site to buffer cell 43)'),
+
+        # ---- network_summary.csv (Type 2 network-level scalars) ----
+        ('network_summary.csv', 'Metric',
+         'Name of the network-level summary statistic (e.g. number of species, study extent, '
+         'potential connectivity sites, realised connectivity sites, unique connections).',
+         'text', '—', 'unique_connections'),
+        ('network_summary.csv', 'Value',
+         'Value of the corresponding network-level statistic for this dataset/scale.',
+         'varies', '—', '128'),
+
+        # ---- community_trait_sensitivity_<scenario>.csv (Type 3 trait sensitivity) ----
+        ('community_trait_sensitivity_<scenario>.csv', 'Metric',
+         'Connectivity metric or comparison statistic (e.g. mean_distance_km, Mantel correlation (r), '
+         'Hotspot overlap (%)) compared between the original and trait-modified scenario.',
+         'text', '—', 'mean_distance_km'),
+        ('community_trait_sensitivity_<scenario>.csv', 'Original',
+         'Metric value under the original (unmodified) traits. Blank for statistics that only exist '
+         'for the comparison (e.g. Mantel r, hotspot overlap).',
+         'varies', '—', '84.2'),
+        ('community_trait_sensitivity_<scenario>.csv', 'Modified',
+         'Metric value under the trait-modified scenario.',
+         'varies', '—', '91.7'),
+        ('community_trait_sensitivity_<scenario>.csv', 'Change',
+         'Modified minus Original. Blank where Original is not defined.',
+         'varies', 'Modified - Original', '+7.5'),
+    ]
+    col_defs_df = pd.DataFrame(
+        column_definitions,
+        columns=['File', 'Column', 'Definition', 'Units', 'Formula', 'Example']
     )
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
@@ -12121,11 +12805,13 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
             outputs_df.to_excel(writer, sheet_name='Outputs Reference', index=False)
             config_df.to_excel(writer, sheet_name='Run Configuration', index=False)
             metrics_df.to_excel(writer, sheet_name='Metric Definitions', index=False)
+            col_defs_df.to_excel(writer, sheet_name='Column Definitions', index=False)
 
             # Tidy column widths for readability
             for sheet_name, df in [('Outputs Reference', outputs_df),
                                    ('Run Configuration', config_df),
-                                   ('Metric Definitions', metrics_df)]:
+                                   ('Metric Definitions', metrics_df),
+                                   ('Column Definitions', col_defs_df)]:
                 ws = writer.sheets[sheet_name]
                 for i, col in enumerate(df.columns):
                     max_len = max(
@@ -12135,14 +12821,56 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
                     col_letter = chr(ord('A') + i)
                     ws.column_dimensions[col_letter].width = min(max_len + 2, 80)
     except Exception as e:
-        print(f"  Warning: could not write Excel metadata file ({e}).")
+        print(f"  Warning: Could not write Excel metadata file ({e}).")
         return None
 
     return output_path
 
+## Build the Type 3 (trait sensitivity) original-vs-modified comparison table
+def build_trait_sensitivity_table(type3):
+    """Build the Type 3 original-vs-modified comparison table as a tidy DataFrame.
+
+    Returns columns: Metric, Original, Modified, Change. Change is (modified - original)
+    for paired numeric community metrics; comparison-only statistics (Mantel test, hotspot
+    overlap, spatial agreement) carry their single value in the Modified column with Change
+    left blank.
+    """
+    orig = (type3.get('original_metrics', {}) or {}).get('community', {}) or {}
+    mod = (type3.get('modified_metrics', {}) or {}).get('community', {}) or {}
+    cmp_ = type3.get('comparison', {}) or {}
+    mt = cmp_.get('mantel_test', {}) or {}
+    ov = cmp_.get('hotspot_overlap', {}) or {}
+
+    rows = []
+    paired = [
+        ('Self-recruitment rate', 'self_recruitment_rate'),
+        ('Settlement rate', 'settlement_rate'),
+        ('Mortality rate', 'mortality_rate'),
+        ('Mean realised PLD (days)', 'mean_pld_days'),
+        ('Mean dispersal distance (km)', 'mean_distance_km'),
+    ]
+    for label, key in paired:
+        o, m = orig.get(key), mod.get(key)
+        change = (m - o) if isinstance(o, (int, float)) and isinstance(m, (int, float)) else None
+        if o is not None or m is not None:
+            rows.append({'Metric': label, 'Original': o, 'Modified': m, 'Change': change})
+
+    if mt:
+        rows.append({'Metric': 'Mantel correlation (r)', 'Original': None, 'Modified': mt.get('r'), 'Change': None})
+        rows.append({'Metric': 'Mantel p-value', 'Original': None, 'Modified': mt.get('p_value'), 'Change': None})
+        rows.append({'Metric': 'Mantel sites compared', 'Original': None, 'Modified': mt.get('n_sites'), 'Change': None})
+    if ov:
+        rows.append({'Metric': 'Shared hotspots', 'Original': None, 'Modified': ov.get('shared_sites'), 'Change': None})
+        rows.append({'Metric': 'Hotspots possible', 'Original': None, 'Modified': ov.get('n_possible'), 'Change': None})
+        rows.append({'Metric': 'Hotspot overlap (%)', 'Original': None, 'Modified': ov.get('overlap_percentage'), 'Change': None})
+    if cmp_.get('spatial_agreement') is not None:
+        rows.append({'Metric': 'Spatial agreement', 'Original': None, 'Modified': cmp_.get('spatial_agreement'), 'Change': None})
+
+    return pd.DataFrame(rows, columns=['Metric', 'Original', 'Modified', 'Change'])
+
 ## Build the run-configuration dict for the trait-defined pathway metadata export
 def trait_metadata(spp_params, traits, hydro_params, runtime, adjusted_runtime,
-                   interval, release_grids, settlement_grids):
+                   interval, release_grids, settlement_grids, type3=None, extra=None):
     """
     Build the run-configuration dictionary for the trait-defined pathway.
 
@@ -12186,6 +12914,17 @@ def trait_metadata(spp_params, traits, hydro_params, runtime, adjusted_runtime,
             'n_release_sites': n_release,
         })
 
+    # Coerce runtimes to a float number of days. They may arrive as a timedelta (e.g. from a datetime subtraction), which float() cannot convert directly.
+    def _coerce_days(v):
+        if v is None:
+            return None
+        if isinstance(v, timedelta):
+            return float(v.days + v.seconds / 86400)
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
     metadata = {
         'comcon_version': '1.0.0',
         'pathway': 'trait_defined',
@@ -12195,9 +12934,9 @@ def trait_metadata(spp_params, traits, hydro_params, runtime, adjusted_runtime,
         },
         'species': species_summary,
         'simulation_parameters': {
-            'runtime_days': float(runtime) if runtime else None,
-            'adjusted_runtime_days': float(adjusted_runtime) if adjusted_runtime else None,
-            'release_interval_days': float(interval) if interval else None,
+            'runtime_days': _coerce_days(runtime),
+            'adjusted_runtime_days': _coerce_days(adjusted_runtime),
+            'release_interval_days': _coerce_days(interval),
             'release_strategy': spp_params.get('release_strategy', 'unknown'),
             'settlement_strategy': spp_params.get('settlement_strategy', 'unknown'),
             'habitat_filtering': spp_params.get('habitat_filtering', 'unknown'),
@@ -12207,6 +12946,27 @@ def trait_metadata(spp_params, traits, hydro_params, runtime, adjusted_runtime,
         'n_species': len(species_summary),
         'total_release_sites': sum(s['n_release_sites'] for s in species_summary),
     }
+
+    # Type 3 trait sensitivity: only the user-chosen scenario belongs in Run Configuration.
+    # The numeric comparison results live in the Type 3 results CSV
+    # (<dataset>_trait_sensitivity_<scenario>.csv); the comparison maps are listed in the
+    # Outputs Reference catalogue, not here.
+    if type3:
+        metadata['trait_sensitivity'] = {
+            'scenario': type3.get('scenario', 'unknown'),
+        }
+
+    # Merge any extra user-chosen settings (diffusivity, domain bounds, timestep, particles,
+    # scales, which analyses ran, exclude_self_recruitment, ...). Dict sections are merged into
+    # the matching metadata section; scalars are set directly. Rule: only config, never results.
+    if extra:
+        for _section, _vals in extra.items():
+            if isinstance(_vals, dict) and isinstance(metadata.get(_section), dict):
+                metadata[_section].update({k: v for k, v in _vals.items() if v is not None})
+            elif isinstance(_vals, dict):
+                metadata[_section] = {k: v for k, v in _vals.items() if v is not None}
+            elif _vals is not None:
+                metadata[_section] = _vals
 
     return metadata
 
@@ -12278,7 +13038,7 @@ def post_analysis(final_processed):
     print("  4. Custom species selection")
 
     while True:
-        scope_choice = input("\nSelect option (1-4) [default: 1]: ").strip() or '1'
+        scope_choice = input("\nSelect option (1-4) [default: 3]: ").strip() or '3'
         if scope_choice in ['1', '2', '3', '4']:
             break
         print("  Invalid input. Please enter 1, 2, 3 or 4.")
@@ -12390,25 +13150,43 @@ def post_analysis(final_processed):
             if get_yes_no("\nSave Type 1 results to CSV?", default='yes'):
                 default_dir = get_default_dir('results')
                 output_dir = get_valid_dir("Output directory", default=default_dir)
-                os.makedirs(output_dir, exist_ok=True)
+
+                def _clean_trait_summary(_df):
+                    return _df.drop(columns=[c for c in _df.columns if c.endswith('_std') or c.startswith('std_')], errors='ignore')
 
                 for key, result_data in type1_results.items():
                     if key == 'per_species':
                         for sp, sp_data in result_data.items():
                             if 'community' in sp_data:
-                                sp_df = pd.DataFrame([sp_data['community']])
-                                sp_df.to_csv(os.path.join(output_dir, f'connectivity_metrics_{sp}.csv'),
-                                             index=False)
+                                sp_dir = os.path.join(output_dir, sp)
+                                os.makedirs(sp_dir, exist_ok=True)
+                                _clean_trait_summary(pd.DataFrame([sp_data['community']])).to_csv(
+                                    os.path.join(sp_dir, f'{sp}_connectivity_summary.csv'), index=False)
                     elif 'community' in result_data:
-                        comm_df = pd.DataFrame([result_data['community']])
-                        comm_df.to_csv(os.path.join(output_dir, f'connectivity_metrics_{key}.csv'), index=False)
+                        comm_dir = os.path.join(output_dir, key)
+                        os.makedirs(comm_dir, exist_ok=True)
+                        _clean_trait_summary(pd.DataFrame([result_data['community']])).to_csv(
+                            os.path.join(comm_dir, f'{key}_connectivity_summary.csv'), index=False)
+
+                # Settlement attribution: buffer-cell → real settlement site, per species
+                _gids = globals().get('grid_ids')
+                _buf = globals().get('buffer', 0)
+                if settlement_grids is not None and _gids is not None and _buf > 0:
+                    _attr = build_settlement_attribution(settlement_grids, _gids, _buf)
+                    for sp, attr_df in _attr.items():
+                        sp_dir = os.path.join(output_dir, sp)
+                        os.makedirs(sp_dir, exist_ok=True)
+                        attr_df.insert(0, 'species', sp)
+                        attr_df.to_csv(os.path.join(sp_dir, f'{sp}_settlement_attribution.csv'), index=False)
+
                 print(f"Results saved to: {output_dir}")
 
             # Offer dispersal animation
-            subsection_header("Dispersal Animation")
-            if get_yes_no("\nCreate particle dispersal animation?", default='yes'):
+                # NEW
                 subsection_header("Dispersal Animation")
-                print("\n  This creates an animated map showing particles moving over time.")
+                if get_yes_no("\nCreate particle dispersal animation?", default='yes'):
+                    print("\n  This creates an animated map showing particles moving over time.")
+                    print("  The animation uses the raw, combined trajectory data (all particles pooled across species), not the filtered per-species connectivity data used for the matrices and metrics.")
 
                 save_anim = get_yes_no("Save animation as MP4 file?", default='yes')
 
@@ -12424,7 +13202,7 @@ def post_analysis(final_processed):
                     print("  Warning: No trajectory data available for animation. Skipping.")
                 else:
                     if save_anim:
-                        default_dir = get_default_dir('figures')
+                        default_dir = get_default_dir('animation')
                         anim_path = os.path.join(default_dir, 'dispersal_animation.mp4')
                         anim_path = get_save_path("Output path", default=anim_path, extensions=['.mp4']) or anim_path
                         os.makedirs(os.path.dirname(anim_path), exist_ok=True)
@@ -12503,7 +13281,8 @@ def post_analysis(final_processed):
 
                 # Community-level network analysis
                 if analysis_scope['run_community']:
-                    subsection_header(f"Community Level ({len(analysis_scope['selected_species'])} species combined)")
+                    _nsp = len(analysis_scope['selected_species'])
+                    print(f"  community ({_nsp} species) ... ", end="", flush=True)
                     community_network = network_analysis(
                         selected_processed, release_grids, settlement_grids,
                         grid_df_for_mapping, grid_ids, full_grid_df, scale_km,
@@ -12512,18 +13291,23 @@ def post_analysis(final_processed):
                     if community_network:
                         _compute_network_stats(community_network)
                         scale_results['community'] = community_network
+                        _nc = community_network.get('summary_stats', {}).get('Unique connections', 0)
+                        _note = "  (few connections, so metrics may be unreliable at this scale)" if (
+                                    scale_km is not None and _nc < 20) else ""
+                        print(f"{_nc} connections{_note}")
+                    else:
+                        print("no result")
 
                 # Per-species network analysis
                 if analysis_scope['run_per_species']:
                     scale_results['per_species'] = {}
                     for i, sp in enumerate(analysis_scope['selected_species'], 1):
-                        subsection_header(
-                            f"Species: {display_species_name(sp)} ({i}/{len(analysis_scope['selected_species'])})")
+                        print(f"  {display_species_name(sp)} ... ", end="", flush=True)
                         sp_data = {sp: final_processed[sp]}
                         sp_settle = {
                             sp: settlement_grids[sp]} if settlement_grids and sp in settlement_grids else None
 
-                        # Pass FULL release_grids to maintain consistent study extent across all species
+                        # Pass full release_grids to maintain consistent study extent across all species
                         sp_network = network_analysis(
                             sp_data, release_grids, sp_settle,
                             grid_df_for_mapping, grid_ids, full_grid_df, scale_km,
@@ -12532,6 +13316,12 @@ def post_analysis(final_processed):
                         if sp_network:
                             _compute_network_stats(sp_network)
                             scale_results['per_species'][sp] = sp_network
+                            _nc = sp_network.get('summary_stats', {}).get('Unique connections', 0)
+                            _note = "  (few connections, so metrics may be unreliable at this scale)" if (
+                                        scale_km is not None and _nc < 20) else ""
+                            print(f"{_nc} connections{_note}")
+                        else:
+                            print("no result")
 
                 if scale_results:
                     all_network_results[scale_name] = scale_results
@@ -12539,9 +13329,11 @@ def post_analysis(final_processed):
             results['type2'] = all_network_results
 
             # Optional: build a custom composite (combine specific metrics for ranking)
+            if all_network_results:
+                print("\n  All six individual metrics (source, sink, self-recruitment, betweenness, closeness, degree) are always computed. A composite only adds an extra hotspot-ranking layer built from them.")
             if all_network_results and get_yes_no(
                     "\nBuild a custom composite?", default='no'):
-                _metric_options = ['source', 'sink', 'self_recruitment', 'betweenness', 'closeness', 'degree']
+                _metric_options = ['source_strength', 'sink_strength', 'self_recruitment', 'betweenness', 'closeness', 'degree']
                 print("  Available metrics:")
                 for _i, _m in enumerate(_metric_options, 1):
                     print(f"    {_i}. {_m}")
@@ -12572,15 +13364,20 @@ def post_analysis(final_processed):
                 if ok:
                     print(f"  Custom composite created from: {', '.join(chosen)}. Select custom_composite in the network metric viewer dropdown to view it, or use the 'custom_composite' column in the exported CSVs.")
 
+            # Optional: whether to include the combined composite hotspot ranking figure at all.
+            _build_composite_fig = (get_yes_no("\nInclude the composite hotspot ranking figure?", default='yes')
+                                    if all_network_results else True)
+
             # Step 2c: Save figures (optional)
             save_figs = get_yes_no("\nSave Type 2 figures to file?", default='yes')
             output_dir = None
             if save_figs:
-                default_dir = get_default_dir('figures')
+                default_dir = get_default_dir('grids')
                 output_dir = get_valid_dir("Output directory", default=default_dir)
                 os.makedirs(output_dir, exist_ok=True)
 
                 subsection_header("Saving figures")
+                _summary_done = set()  # write the network summary scalars once per dataset
                 for s_name, scale_data in all_network_results.items():
                     # Collect all (level_label, network_results) pairs for this scale
                     pairs = []
@@ -12624,8 +13421,8 @@ def post_analysis(final_processed):
 
                             # Per-metric hotspot maps
                             for metric_col, metric_label in [
-                                ('source', 'source_strength'),
-                                ('sink', 'sink_strength'),
+                                ('source_strength', 'source_strength'),
+                                ('sink_strength', 'sink_strength'),
                                 ('self_recruitment', 'self_recruitment'),
                                 ('betweenness', 'betweenness_centrality'),
                                 ('closeness', 'closeness_centrality'),
@@ -12642,6 +13439,10 @@ def post_analysis(final_processed):
                                         )
                                     ))
 
+                            # Skip the combined composite hotspot ranking figure if not wanted.
+                            if not _build_composite_fig:
+                                save_list = [x for x in save_list if x[0] != 'hotspot_overall']
+
                             for fn, make_fig in save_list:
                                 try:
                                     fig = make_fig()
@@ -12651,15 +13452,22 @@ def post_analysis(final_processed):
                                 except Exception:
                                     pass
 
-                                # Save result CSVs to the results folder (kept separate from figures)
+                                # Save result CSVs: results/<level>/<level>_<scale>_*.csv
                             results_root = get_default_dir('results')
-                            csv_subdir = os.path.join(results_root, f'{level_label}_{s_name}')
+                            csv_subdir = os.path.join(results_root, level_label)
                             os.makedirs(csv_subdir, exist_ok=True)
+                            _csv_prefix = f'{level_label}_{s_name}'
                             try:
                                 with contextlib.redirect_stdout(io.StringIO()):
-                                    export_network_results(nr, output_dir=csv_subdir)
+                                    export_network_results(nr, output_dir=csv_subdir, prefix=_csv_prefix)
                             except Exception:
                                 pass
+                            if level_label not in _summary_done:
+                                try:
+                                    export_network_summary(nr, csv_subdir, level_label)
+                                except Exception:
+                                    pass
+                                _summary_done.add(level_label)
 
                 print(f"\n  Figures saved to: {output_dir}")
                 print(f"  Result CSVs saved to: {get_default_dir('results')}")
@@ -12671,71 +13479,71 @@ def post_analysis(final_processed):
                 info_box([
                     "Type 2 treats the connectivity data as a directed weighted network.",
                     "In this network nodes = sites, edges = counts of particles moving between sites.",
-                    "Four complementary outputs are generated:",
+                    "Five complementary outputs are generated:",
                     "",
-                    "1. Connectivity matrix: ",
-                    "   - Source-sink heatmap of particle exchanges",
+                    "1. Network analysis summary: ",
+                    "   - Number of species"
+                    "   - Study extent"
+                    "   - Potential connectivity sites"
+                    "   - Realised connectivity sites"
+                    "   - Unique connections",
                     "",
-                    "2. Directed network with hotspots: ",
+                    "2. Connectivity matrix: ",
+                    "   - Source-sink matrix of particle exchanges",
+                    "",
+                    "3. Directed network with hotspots: ",
                     "   - All sites are coloured by the selected network metric (rank 1 = best)",
-                    "   - The top 200 strongest site-to-site connections drawn as arrows on top",
                     "   - The top 10 connectivity hotspots are indicated",
+                    "   - Select 'Network only (no metric)' to see the directed structure: arrows for the strongest site-to-site links and rings for self-recruitment",
                     "",
-                    "3. Site × metric heatmap: ",
+                    "4. Site × metric heatmap: ",
                     "   - Compact overview of rank across all metrics for every site in the dataset",
                     "",
-                    "4. Louvain communities: ",
+                    "5. Louvain communities: ",
                     "   - Sites are grouped by shared connectivity patterns",
-                    "   - One colour per community",
-                    "   - Network-level summary stats: ",
-                    "       - Density: ",
-                    "           - The percentage of possible connections that exist (0-1)",
-                    "           - Low (<0.5) = Most sites unconnected",
-                    "           - High (>0.5) = Most sites connected",
-                    "       - Modularity: ",
-                    "           - How cleanly the network separates into communities (-1 to 1)",
-                    "           - High (>=0.3) = well-separated communities ",
-                    "           - Low (<0.3) = weak partition",
-                    "       - Number of communities detected by the Louvain algorithm",
+                    "   - A distinct colour per community (the biggest communities are labelled in the legend)",
+                    "   - A table beneath the map gives the Louvain/graph parameters (nodes, edges, communities, and):",
+                    "       - Density: percentage of possible site-to-site connections that exist (0-1). Low (<0.5) = most sites unconnected; high (>0.5) = most connected",
+                    "       - Modularity: how cleanly the network separates into communities (-0.5 to 1). High (>=0.3) = well-separated communities; low (<0.3) = weak partition",
                     "",
                     "Use the dropdowns below each viewer to switch between analysis levels, spatial scales and (for the hotspot map) network metrics.",
                     "",
                 ])
 
                 print()
-                subsection_header("Connectivity matrix")
-                try:
-                    trait_matrix_viewer(all_network_results)
-                except Exception as e:
-                    print(f"  Note: matrix viewer could not be displayed: {e}")
-
-                print()
-                subsection_header("Network Analysis Summary")
+                subsection_header("Network summary")
                 try:
                     network_metrics_viewer(all_network_results)
                     time.sleep(0.3)
                 except Exception as e:
-                    print(f"  Note: network viewer could not be displayed: {e}")
+                    print(f"  Note: Network viewer could not be displayed: {e}")
+
+                print()
+                subsection_header("Connectivity matrix")
+                try:
+                    trait_matrix_viewer(all_network_results)
+                except Exception as e:
+                    print(f"  Note: Matrix viewer could not be displayed: {e}")
 
                 print()
                 subsection_header("Directed connectivity network with hotspots")
                 try:
                     trait_metric_viewer(all_network_results)
                 except Exception as e:
-                    print(f"  Note: metric viewer could not be displayed: {e}")
+                    print(f"  Note: Metric viewer could not be displayed: {e}")
                 subsection_header("Site × metric heatmap")
                 try:
                     trait_heatmap_viewer(all_network_results)
                     time.sleep(0.5)  # Allow widget to render before continuing
                 except Exception as e:
-                    print(f"  Note: heatmap viewer could not be displayed: {e}")
+                    print(f"  Note: Heatmap viewer could not be displayed: {e}")
 
                 print()
                 subsection_header("Louvain communities")
                 try:
                     trait_community_viewer(all_network_results)
                 except Exception as e:
-                    print(f"  Note: community viewer could not be displayed: {e}")
+                    print(f"  Note: Community viewer could not be displayed: {e}")
 
             print("\n Type 2 analysis complete")
 
@@ -12746,176 +13554,236 @@ def post_analysis(final_processed):
 
     # Type 3: Trait Sensitivity Analysis
     if run_type3:
-        section_header("Type 3: Trait Sensitivity Analysis")
-        print("\nThis tests how connectivity changes with different trait values.")
-        # Ask about self-recruitment for Type 3 (if not already set by Type 2)
-        if not run_type2:
-            exclude_lr = get_yes_no(
-                "Do you want to exclude self-recruitment (particles returning to their release site) from the source/sink metrics?",
-                default='yes')
+        try:
+            section_header("Type 3: Trait Sensitivity Analysis")
+            print("\nThis tests how connectivity changes with different trait values.")
+            # Ask about self-recruitment for Type 3 (if not already set by Type 2)
+            if not run_type2:
+                exclude_lr = get_yes_no(
+                    "Do you want to exclude self-recruitment (particles returning to their release site) from the source/sink metrics?",
+                    default='yes')
 
-        if not buffer_used:
-            print("\nTrait sensitivity analysis requires a temporal buffer in the simulation.")
-            print("To use this feature, re-run workflow_step(1) with:")
-            print("  buffer_before > 0  or  buffer_after > 0")
-            print("\nSkipping Type 3.")
-        else:
-            # Trait sensitivity (the only Type 3 option in V1)
-            print(f"Your temporal buffer: {buffer_before} days before, {buffer_after} days after")
-
-            # Get scale
-            if 'type2' in results and scales:
-                sensitivity_scale = scales[scale_idx]
-                print(f"\nUsing {sensitivity_scale} km threshold from Type 2")
+            if not buffer_used:
+                print("\nTrait sensitivity analysis requires a temporal buffer in the simulation.")
+                print("To use this feature, re-run workflow_step(1) with:")
+                print("  buffer_before > 0  or  buffer_after > 0")
+                print("\nSkipping Type 3.")
             else:
-                sensitivity_scale = get_positive_integer("Distance threshold in km", default=30, min_val=1, max_val=500)
+                # Trait sensitivity (the only Type 3 option in V1)
+                print(f"Your temporal buffer: {buffer_before} days before, {buffer_after} days after")
 
-            # Get original network
-            if 'type2' in results:
-                first_key = list(results['type2'].keys())[0]
-                if 'community' in results['type2'][first_key]:
-                    original_network = results['type2'][first_key]['community']
+                if 'type2' in results and scales:
+                    if len(scales) == 1:
+                        sensitivity_scale = scales[0]
+                    else:
+                        # Several Type 2 scales , let the user pick which to reuse.
+                        # None is the full domain (no distance filter); keep it sortable (placed last).
+                        _ordered = sorted(scales, key=lambda s: (s is None, s if s is not None else 0))
+                        print("\nType 2 was run at several distance thresholds, so choose which one the sensitivity analysis should use.")
+                        for _i, _s in enumerate(_ordered, start=1):
+                            _lbl = "full domain (no distance filter)" if _s is None else f"{_s} km"
+                            print(f"  {_i}. {_lbl}")
+                        _choice = get_positive_integer(
+                            f"Select a scale (1-{len(_ordered)}) [default: {len(_ordered)}]",
+                            default=len(_ordered), min_val=1, max_val=len(_ordered)
+                        )
+                        sensitivity_scale = _ordered[_choice - 1]
+                    if sensitivity_scale is None:
+                        print("\nUsing the full domain (no distance filter) from Type 2.")
+                    else:
+                        print(f"\nUsing the {sensitivity_scale} km threshold from Type 2.")
                 else:
-                    first_sp = list(results['type2'][first_key]['per_species'].keys())[0]
-                    original_network = results['type2'][first_key]['per_species'][first_sp]
-            else:
-                print("\nRunning network analysis first...")
-                original_network = network_analysis(
-                    selected_processed, release_grids, settlement_grids,
-                    grid_df_for_mapping, grid_ids, full_grid_df, sensitivity_scale,
-                    exclude_self_recruitment=exclude_lr)
+                    # No Type 2 scale to reuse , ask with the same style as Type 2 (not a bare km default).
+                    print("\nNo Type 2 scale to reuse. Choose a distance scale for the sensitivity analysis:")
+                    print("  1. Full domain (include all connections regardless of distance)")
+                    print("  2. Single scale (set one distance threshold)")
+                    _sc = input("\nSelect option (1/2) [default: 1]: ").strip() or '1'
+                    if _sc == '2':
+                        sensitivity_scale = get_positive_integer("Distance threshold in km", default=30, min_val=1, max_val=500)
+                    else:
+                        sensitivity_scale = None
 
-            print("\nSelect trait modification scenario:")
-            print("  1. Modify PLD (pelagic larval duration)")
-            print("  2. Shift spawning window")
-
-            while True:
-                mod_choice = input("\nSelect scenario (1/2) [default: 1]: ").strip() or '1'
-                if mod_choice in ['1', '2']:
-                    break
-                print("  Invalid input. Please enter 1 or 2.")
-
-            modified_traits = None
-            scenario_name = ""
-
-            if mod_choice == '1':
-                # PLD modification
-                print("\nPLD Modification (in days):")
-                print("  - You can modify min_PLD and max_PLD separately")
-                print("  - Enter a positive value to increase, or a negative value to decrease")
-                print("  - Example: +5 adds 5 days, -3 removes 3 days")
-
-                print("\nOptions:")
-                print("  1. Same change to both min and max PLD")
-                print("  2. Different changes to min and max PLD")
-                pld_option = input("\nSelect (1/2) [default: 1]: ").strip() or '1'
-
-                if pld_option == '2':
-                    min_change = int(input("Days to add/subtract from min_PLD [default: 7]: ").strip() or '0')
-                    max_change = int(input("Days to add/subtract from max_PLD [default: 7]: ").strip() or '7')
-                    scenario_name = f"PLD min{'+' if min_change >= 0 else ''}{min_change}, max{'+' if max_change >= 0 else ''}{max_change}"
+                # Get original network
+                if 'type2' in results:
+                    first_key = list(results['type2'].keys())[0]
+                    if 'community' in results['type2'][first_key]:
+                        original_network = results['type2'][first_key]['community']
+                    else:
+                        first_sp = list(results['type2'][first_key]['per_species'].keys())[0]
+                        original_network = results['type2'][first_key]['per_species'][first_sp]
                 else:
-                    days = int(input("Days to add/subtract from both [default: 7]: ").strip() or '7')
-                    min_change = days
-                    max_change = days
-                    scenario_name = f"PLD {'+' if days > 0 else ''}{days} days"
-
-                modified_traits = []
-                for t in traits:
-                    new_t = t.copy() if isinstance(t, dict) else t.to_dict()
-                    new_t['min_PLD'] = max(1, t['min_PLD'] + min_change)
-                    new_t['max_PLD'] = max(1, t['max_PLD'] + max_change)
-                    modified_traits.append(new_t)
-
-            else:
-                # Spawning window modification
-                print("\nSpawning Window Modification (in days):")
-                print("  - You can modify the start and end dates separately")
-                print("  - Positive = later, Negative = earlier")
-                print("  - Example: Start -3, End +5 = spawning starts 3 days earlier, ends 5 days later")
-
-                print("\nOptions:")
-                print("  1. Shift entire window (same change to start and end)")
-                print("  2. Modify start and end separately")
-                spawn_option = input("\nSelect (1/2) [default: 1]: ").strip() or '1'
-
-                if spawn_option == '2':
-                    start_change = int(
-                        input("Days to shift spawning start (negative = earlier) [default: -7]: ").strip() or '-7')
-                    end_change = int(
-                        input("Days to shift spawning end (positive = later) [default: 7]: ").strip() or '7')
-                    scenario_name = f"Spawn start{'+' if start_change >= 0 else ''}{start_change}, end{'+' if end_change >= 0 else ''}{end_change}"
-                else:
-                    shift_days = int(
-                        input("Days to shift entire window (positive = later) [default: 7]: ").strip() or '7')
-                    start_change = shift_days
-                    end_change = shift_days
-                    scenario_name = f"Spawn {'+' if shift_days > 0 else ''}{shift_days} days"
-
-                modified_traits = []
-                for t in traits:
-                    new_t = t.copy() if isinstance(t, dict) else t.to_dict()
-                    spawn_start = pd.to_datetime(t['spawning_start'], dayfirst=True)
-                    spawn_end = pd.to_datetime(t['spawning_end'], dayfirst=True)
-                    new_t['spawning_start'] = (spawn_start + pd.Timedelta(days=start_change)).strftime('%d/%m/%Y')
-                    new_t['spawning_end'] = (spawn_end + pd.Timedelta(days=end_change)).strftime('%d/%m/%Y')
-                    modified_traits.append(new_t)
-
-            if modified_traits:
-                print(f"\nScenario: {scenario_name}")
-                print("Re-running post-processing with modified traits...")
-
-                try:
-                    modified_processed, _ = post_process(
-                        traj, modified_traits, release_grids, settlement_grids, grid_ids
-                    )
-
-                    print("\nRunning network analysis on modified scenario...")
-                    modified_network = network_analysis(
-                        modified_processed, release_grids, settlement_grids,
+                    print("\nRunning network analysis first...")
+                    original_network = network_analysis(
+                        selected_processed, release_grids, settlement_grids,
                         grid_df_for_mapping, grid_ids, full_grid_df, sensitivity_scale,
-                        exclude_self_recruitment=exclude_lr)
+                        exclude_self_recruitment=exclude_lr, verbose=False)
 
-                    if modified_network:
-                        comparison = compare_models(original_network, modified_network)
+                print("\nSelect trait modification scenario:")
+                print("  1. Modify PLD (pelagic larval duration)")
+                print("  2. Shift spawning window")
 
-                        # Calculate connectivity metrics for both models for the comparison table
-                        print("\nCalculating comparison metrics...")
-                        original_type1 = calculate_connectivity_metrics(
-                            selected_processed, release_grids, settlement_grids, traits, _traj_raw,
+                while True:
+                    mod_choice = input("\nSelect scenario (1/2) [default: 1]: ").strip() or '1'
+                    if mod_choice in ['1', '2']:
+                        break
+                    print("  Invalid input. Please enter 1 or 2.")
+
+                modified_traits = None
+                scenario_name = ""
+
+                if mod_choice == '1':
+                    # PLD modification
+                    print("\nPLD Modification (in days):")
+                    print("  - You can modify min_PLD and max_PLD separately")
+                    print("  - Enter a positive value to increase, or a negative value to decrease")
+                    print("  - Example: +5 adds 5 days, -3 removes 3 days")
+
+                    print("\nOptions:")
+                    print("  1. Same change to both min and max PLD")
+                    print("  2. Different changes to min and max PLD")
+                    pld_option = input("\nSelect (1/2) [default: 1]: ").strip() or '1'
+
+                    if pld_option == '2':
+                        min_change = int(input("Days to add/subtract from min_PLD (e.g. enter -4 to subtract 4 days) [default: 7]: ").strip() or '0')
+                        max_change = int(input("Days to add/subtract from max_PLD (e.g. enter -4 to subtract 4 days) [default: 7]: ").strip() or '7')
+                        scenario_name = f"PLD min{'+' if min_change >= 0 else ''}{min_change}, max{'+' if max_change >= 0 else ''}{max_change}"
+                    else:
+                        days = int(input("Days to add/subtract from both (e.g. enter -4 to subtract 4 days) [default: 7]: ").strip() or '7')
+                        min_change = days
+                        max_change = days
+                        scenario_name = f"PLD {'+' if days > 0 else ''}{days} days"
+
+                    modified_traits = []
+                    for t in traits:
+                        new_t = t.copy() if isinstance(t, dict) else t.to_dict()
+                        new_t['min_PLD'] = max(1, t['min_PLD'] + min_change)
+                        new_t['max_PLD'] = max(1, t['max_PLD'] + max_change)
+                        modified_traits.append(new_t)
+
+                else:
+                    # Spawning window modification
+                    print("\nSpawning Window Modification (in days):")
+                    print("  - You can modify the start and end dates separately")
+                    print("  - Positive = later, Negative = earlier")
+                    print("  - Example: Start -3, End +5 = spawning starts 3 days earlier, ends 5 days later")
+
+                    print("\nOptions:")
+                    print("  1. Shift entire window (same change to start and end)")
+                    print("  2. Modify start and end separately")
+                    spawn_option = input("\nSelect (1/2) [default: 1]: ").strip() or '1'
+
+                    if spawn_option == '2':
+                        start_change = int(
+                            input("Days to shift spawning start (negative = earlier) [default: -7]: ").strip() or '-7')
+                        end_change = int(
+                            input("Days to shift spawning end (positive = later) [default: 7]: ").strip() or '7')
+                        scenario_name = f"Spawn start {'+' if start_change >= 0 else ''}{start_change}, end{'+' if end_change >= 0 else ''}{end_change}"
+                    else:
+                        shift_days = int(
+                            input("Days to shift entire window (positive = later) [default: 7]: ").strip() or '7')
+                        start_change = shift_days
+                        end_change = shift_days
+                        scenario_name = f"Spawn {'+' if shift_days > 0 else ''}{shift_days} days"
+
+                    modified_traits = []
+                    for t in traits:
+                        new_t = t.copy() if isinstance(t, dict) else t.to_dict()
+                        spawn_start = pd.to_datetime(t['spawning_start'], dayfirst=True)
+                        spawn_end = pd.to_datetime(t['spawning_end'], dayfirst=True)
+                        new_t['spawning_start'] = (spawn_start + pd.Timedelta(days=start_change)).strftime('%d/%m/%Y')
+                        new_t['spawning_end'] = (spawn_end + pd.Timedelta(days=end_change)).strftime('%d/%m/%Y')
+                        modified_traits.append(new_t)
+
+                if modified_traits:
+                    print(f"\nScenario: {scenario_name}")
+                    print("Starting post-processing for the trait sensitivity analysis...")
+
+                    try:
+                        if 'traj' in globals() and isinstance(traj, pd.DataFrame) and not traj.empty:
+                            _traj_source = traj
+                        elif 'chunks_dir' in globals() and chunks_dir and os.path.isdir(str(chunks_dir)):
+                            _traj_source = chunks_dir
+                        else:
+                            _traj_source = traj
+
+                        modified_processed, _ = post_process(
+                            _traj_source, modified_traits, release_grids, settlement_grids,
+                            grid_ids, buffer=globals().get('buffer', 0)
                         )
-                        modified_type1 = calculate_connectivity_metrics(
-                            modified_processed, release_grids, settlement_grids, modified_traits, _traj_raw
-                        )
 
-                        # Display comparison table
-                        display_sensitivity_comparison(
-                            original_type1, modified_type1, comparison,
-                            title=f"Original vs {scenario_name}"
-                        )
+                        if not modified_processed:
+                            print(
+                                "\nNote: The modified scenario produced no successful trajectories, so the sensitivity comparison was skipped.")
+                            modified_network = None
+                        else:
+                            print("\nRunning network analysis on modified scenario...")
+                            modified_network = network_analysis(
+                                modified_processed, release_grids, settlement_grids,
+                                grid_df_for_mapping, grid_ids, full_grid_df, sensitivity_scale,
+                                exclude_self_recruitment=exclude_lr)
 
-                        results['type3_sensitivity'] = {
-                            'scenario': scenario_name,
-                            'comparison': comparison,
-                            'original_network': original_network,
-                            'modified_network': modified_network,
-                            'original_metrics': original_type1,
-                            'modified_metrics': modified_type1
-                        }
+                        if modified_network:
+                            comparison = compare_models(original_network, modified_network)
 
-                        if get_yes_no("\nCreate comparison map?", default='yes'):
-                            create_comparison_map(
-                                original_network, modified_network,
-                                title1='Original Traits',
-                                title2=scenario_name
+                            # Calculate connectivity metrics for both models for the comparison table
+                            print("\nCalculating comparison metrics...")
+                            original_type1 = calculate_connectivity_metrics(
+                                selected_processed, release_grids, settlement_grids, traits, _traj_raw,
+                                print_summary=False
+                            )
+                            modified_type1 = calculate_connectivity_metrics(
+                                modified_processed, release_grids, settlement_grids, modified_traits, _traj_raw,
+                                print_summary=False
                             )
 
-                    print("\n Type 3 sensitivity analysis complete")
+                            # Display comparison table
+                            display_sensitivity_comparison(
+                                original_type1, modified_type1, comparison,
+                                title=f"Original vs {scenario_name}"
+                            )
 
-                except Exception as e:
-                    print(f"\nError in trait sensitivity: {e}")
-                    traceback.print_exc()
+                            results['type3_sensitivity'] = {
+                                'scenario': scenario_name,
+                                'comparison': comparison,
+                                'original_network': original_network,
+                                'modified_network': modified_network,
+                                'original_metrics': original_type1,
+                                'modified_metrics': modified_type1
+                            }
 
+                            _safe_scn = (scenario_name.replace(' ', '_')
+                                         .replace('/', '-').replace(',', ''))
+
+                            if get_yes_no("\nSave Type 3 results to CSV?", default='yes'):
+                                _t3_root = get_valid_dir(
+                                    "  Output directory",
+                                    default=globals().get('project_dirs', {}).get('results', '.'))
+                                _t3_dir = os.path.join(_t3_root, 'community')
+                                os.makedirs(_t3_dir, exist_ok=True)
+                                _t3_path = os.path.join(_t3_dir, f"community_trait_sensitivity_{_safe_scn}.csv")
+                                build_trait_sensitivity_table(results['type3_sensitivity']).to_csv(_t3_path, index=False)
+                                print(f"  Type 3 results saved to: {_t3_path}")
+
+                            if get_yes_no("\nCreate comparison map?", default='yes'):
+                                _fig_dir = globals().get('project_dirs', {}).get('figures', '.')
+                                _safe_scn = (scenario_name.replace(' ', '_')
+                                             .replace('/', '-').replace(',', ''))
+                                create_comparison_map(
+                                    original_network, modified_network,
+                                    title1='Original Traits',
+                                    title2=scenario_name,
+                                    output_path=os.path.join(_fig_dir, f"trait_sensitivity_{_safe_scn}")
+                                )
+
+                        print("\n Type 3 sensitivity analysis complete")
+
+                    except Exception as e:
+                        print(f"\nError in trait sensitivity: {e}")
+                        traceback.print_exc()
+
+        except Exception as e:
+            print(f"\nError in Type 3 analysis: {e}")
+            print("Continuing to the final summary.")
     # Final Summary
     section_header("Analyses Complete")
 
@@ -12931,6 +13799,47 @@ def post_analysis(final_processed):
     try:
         default_dir = get_default_dir('config')
         metadata_path = os.path.join(default_dir, 'comcon_outputs.xlsx')
+
+        # Gather extra user-chosen settings for Run Configuration from the saved config JSONs
+        # (written earlier in the workflow) plus which analyses were run.
+        _extra_meta = {}
+        try:
+            def _load_cfg(_name):
+                _p = os.path.join(default_dir, _name)
+                if os.path.exists(_p):
+                    with open(_p) as _f:
+                        return json.load(_f)
+                return {}
+            _pset = _load_cfg('pset_config.json')
+            _hyd = _load_cfg('hydrodynamic_parameters.json')
+            _lonr = _hyd.get('longitude_range') or [None, None]
+            _latr = _hyd.get('latitude_range') or [None, None]
+            _timr = _hyd.get('time_range') or [None, None]
+            _hydro_src = {'1': 'Copernicus download', '2': 'local file'}.get(
+                str(_hyd.get('hydro_source')), _hyd.get('hydro_source'))
+            _extra_meta = {
+                'domain': {
+                    'min_lat': _latr[0], 'max_lat': _latr[1],
+                    'min_lon': _lonr[0], 'max_lon': _lonr[1],
+                    'date_range': (f"{_timr[0]} to {_timr[1]}" if _timr[0] else None),
+                    'hydro_source': _hydro_src,
+                },
+                'simulation_parameters': {
+                    'horizontal_diffusivity_kh': _pset.get('kh'),
+                    'particles_per_release_site': _pset.get('npart'),
+                    'grid_resolution_km': _hyd.get('selected_resolution_km'),
+                    'grid_binned': _hyd.get('needs_binning'),
+                },
+                'analysis': {
+                    'run_type1': 'type1' in results,
+                    'run_type2': 'type2' in results,
+                    'run_type3': ('type3' in results) or ('type3_sensitivity' in results),
+                    'type2_scales': (list(results.get('type2', {}).keys()) if 'type2' in results else None),
+                },
+            }
+        except Exception:
+            _extra_meta = {}
+
         metadata_dict = trait_metadata(
             spp_params, traits,
             globals().get('hydro_params', {}),
@@ -12938,6 +13847,8 @@ def post_analysis(final_processed):
             globals().get('adjusted_runtime', None),
             globals().get('interval', None),
             release_grids, settlement_grids,
+            type3=results.get('type3') or results.get('type3_sensitivity'),
+            extra=_extra_meta,
         )
         # Resolve project_dirs , set up by setup_project_directory(), may be a global
         _proj_dirs = globals().get('project_dirs', None)
@@ -12947,10 +13858,42 @@ def post_analysis(final_processed):
                 role: get_default_dir(role)
                 for role in ('config', 'data', 'occurrence', 'grids', 'simulation', 'figures', 'results')
             }
-        write_project_metadata(_proj_dirs, metadata_dict, 'trait', metadata_path)
-        print(f"  Metadata saved: {metadata_path}")
+        _meta_ok = write_project_metadata(_proj_dirs, metadata_dict, 'trait', metadata_path)
+        if not _meta_ok:
+            print("  Metadata file was not written (run: pip install openpyxl).")
     except Exception as e:
         print(f"  Note: Could not save metadata file: {e}")
+
+    # End-of-run summary (mirrors automatic/passive): analyses run, output folders, metadata path.
+    try:
+        _completed = []
+        if 'type1' in results:
+            _completed.append("Type 1: Connectivity Metrics")
+        if 'type2' in results:
+            _completed.append("Type 2: Network Analysis")
+        if ('type3' in results) or ('type3_sensitivity' in results):
+            _completed.append("Type 3: Trait Sensitivity")
+        section_header("Workflow Complete")
+        _lines = ["Run summary:"]
+        try:
+            _lines.append(f"  Species analysed:    {len(traits)}")
+            _lines.append(f"  Total release sites: {sum(len(v) for v in release_grids.values())}")
+        except Exception:
+            pass
+        _lines.append(f"  Analyses completed:  {', '.join(_completed) if _completed else 'none'}")
+        _pd = globals().get('project_dirs', {}) or {}
+        _lines += [
+            "",
+            "Output files:",
+            f"  Project folder:  {_pd.get('root', get_default_dir('config'))}",
+            f"  Simulation data: {_pd.get('simulation', get_default_dir('simulation'))}",
+            f"  Results:         {_pd.get('results', get_default_dir('results'))}",
+            f"  Figures:         {_pd.get('figures', get_default_dir('figures'))}",
+            f"  Metadata:        {os.path.join(get_default_dir('config'), 'comcon_outputs.xlsx')}",
+        ]
+        info_box(_lines)
+    except Exception:
+        pass
 
     return results
 
@@ -13044,7 +13987,7 @@ def workflow_step(step_number):
                 "",
                 "This keeps your work organised and prevents files being overwritten between different analyses.",
             ])
-            project_dirs = setup_project_directory()
+            project_dirs = setup_project_directory(mode_tag='int')
         else:
             subsection_header("Project Directory")
             print(f"\n  Using existing project directory: {project_dirs['root']}\n")
@@ -13101,13 +14044,20 @@ def workflow_step(step_number):
                     _saved_hydro_source = json.load(_f).get('hydro_source')
             except Exception:
                 _saved_hydro_source = None
-        _default_source = _saved_hydro_source if _saved_hydro_source in ['1', '2'] else '1'
-        while True:
-            hydro_source = input(
-                f"\nSelect data source (1/2) [default: {_default_source}]: ").strip() or _default_source
-            if hydro_source in ['1', '2']:
-                break
-            print("Please enter 1 or 2.")
+        if _saved_hydro_source in ['1', '2']:
+            # This project already saved a data-source choice, so reuse it silently instead of
+            # re-asking. (To change it, delete or edit hydrodynamic_parameters.json in the config folder.)
+            hydro_source = _saved_hydro_source
+            _src_label = ('Download from Copernicus Marine Service' if hydro_source == '1'
+                          else 'Load from a local file')
+            print(f"\nUsing your saved data source: {_src_label}.")
+        else:
+            while True:
+                hydro_source = input(
+                    "\nSelect data source (1/2) [default: 1]: ").strip() or '1'
+                if hydro_source in ['1', '2']:
+                    break
+                print("Please enter 1 or 2.")
 
         if hydro_source == '2':
             # Load from local file
@@ -13179,17 +14129,18 @@ def workflow_step(step_number):
                 longitude_range=hydro_params.get('longitude_range'),
                 latitude_range=hydro_params.get('latitude_range'),
             )
-            subsection_header("Dataset Coverage Check")
-            print(f"Dataset available:  {_avail_start.date()} to {_avail_end.date()}")
-            print(f"Dispersal period:  {pd.Timestamp(hydro_params['time_range'][0]).date()} to {pd.Timestamp(hydro_params['time_range'][1]).date()}")
+            # Only surface this pre-download catalogue check when there is a problem.
+            # When coverage is fine, the post-download "Data Coverage Check" below reports
+            # the same thing against the actual streamed data, so printing both is redundant.
             if not _cov_ok:
+                subsection_header("Dataset Coverage Check")
+                print(f"Dataset available:  {_avail_start.date()} to {_avail_end.date()}")
+                print(f"Dispersal period:  {pd.Timestamp(hydro_params['time_range'][0]).date()} to {pd.Timestamp(hydro_params['time_range'][1]).date()}")
                 print("This dataset does not fully cover your dispersal period.")
                 print("Pick a different year, choose another dataset or adjust your spawning window, then re-run Step 1.")
                 _go = input("Continue with this dataset anyway? (yes/no) [default: no]: ").strip().lower()
                 if _go not in ['yes', 'y']:
                     return
-            else:
-                print("Dataset coverage is suitable.")
 
             # Download Hydrodynamic Data
             hydro_data = download_hydrodynamic_data(**hydro_params)
@@ -13225,16 +14176,31 @@ def workflow_step(step_number):
             print(f"Hydrodynamic data coverage is suitable")
 
         # Grid resolution selection and domain visualisation runs regardless of the coverage
-        # result above; a coverage warning must not skip the resolution choice or Step 1 completion.
+        # result above. A coverage warning must not skip the resolution choice or Step 1 completion.
         try:
             _native_lm, _native_cm, _native_lon, _native_lat = create_masks(
                 hydro_data, geojson_file_path=None, show_map=False
             )
 
-            # 1. Let user choose grid resolution
-            _selected_resolution_km, _needs_binning = choose_grid_resolution(
-                _native_lon, _native_lat
-            )
+            # 1. Grid resolution , reuse the value saved for this project on a rerun,
+            # otherwise let the user choose (the choice is saved at the end of Step 1).
+            _saved_res = _saved_bin = None
+            if os.path.exists(_hp_path):
+                try:
+                    with open(_hp_path, 'r') as _f:
+                        _hp_prev = json.load(_f)
+                    _saved_res = _hp_prev.get('selected_resolution_km')
+                    _saved_bin = _hp_prev.get('needs_binning')
+                except Exception:
+                    _saved_res = _saved_bin = None
+            if _saved_res is not None and _saved_bin is not None and get_yes_no(
+                    f"Reuse the saved grid resolution ({_saved_res} km)?", default='yes'):
+                _selected_resolution_km, _needs_binning = _saved_res, bool(_saved_bin)
+                print(f"\n  Using the saved grid resolution: {_selected_resolution_km} km")
+            else:
+                _selected_resolution_km, _needs_binning = choose_grid_resolution(
+                    _native_lon, _native_lat
+                )
 
             # 2. Bin if needed
             _n_native_ocean = int((_native_lm == 0).sum())
@@ -13262,30 +14228,40 @@ def workflow_step(step_number):
                     f"Native coastal cells: {_n_native_coastal:,}",
                 ])
             # 3. Visualise , one map if native, two if binned (with coastal layer)
+            # Capture each figure, save it to the grids folder (not figures), then close, mirroring the passive pathway so both maps render reliably and are exported.
             subsection_header("Visualising the Hydrodynamic Extent")
             _loading_out = widgets.Output()
             display(_loading_out)
             with _loading_out:
                 print("  Loading map... this may take a moment.")
-            if _needs_binning:
-                plot_masks(_native_lm, _native_cm, _native_lon, _native_lat,
-                           geojson_file_path=None, show_coastal=True,
-                           show_save_prompt=False,
-                           title=f'Native resolution ({_native_lm.shape[0]} x {_native_lm.shape[1]} cells)')
-                plot_masks(_b_lm, _b_cm, _b_lon, _b_lat,
-                           geojson_file_path=None, show_coastal=True,
-                           show_save_prompt=False,
-                           title=f'Binned resolution ({_b_lm.shape[0]} x {_b_lm.shape[1]} cells)')
-            else:
-                plot_masks(_native_lm, _native_cm, _native_lon, _native_lat,
-                           geojson_file_path=None, show_coastal=True,
-                           show_save_prompt=False,
-                           title=f'Native resolution ({_native_lm.shape[0]} x {_native_lm.shape[1]} cells)')
-
             _loading_out.clear_output()
 
+            _grids_dir = project_dirs.get('grids', '.')
+            _fig_native = plot_masks(_native_lm, _native_cm, _native_lon, _native_lat,
+                                     geojson_file_path=None, show_coastal=True,
+                                     show_save_prompt=False,
+                                     title=f'Native resolution ({_native_lm.shape[0]} x {_native_lm.shape[1]} cells)')
+            with contextlib.redirect_stdout(io.StringIO()):
+                try:
+                    save_figure(_fig_native, os.path.join(_grids_dir, 'landmask_native'))
+                except Exception:
+                    pass
+            plt.close(_fig_native)
+
+            if _needs_binning:
+                _fig_binned = plot_masks(_b_lm, _b_cm, _b_lon, _b_lat,
+                                         geojson_file_path=None, show_coastal=True,
+                                         show_save_prompt=False,
+                                         title=f'Binned resolution ({_b_lm.shape[0]} x {_b_lm.shape[1]} cells)')
+                with contextlib.redirect_stdout(io.StringIO()):
+                    try:
+                        save_figure(_fig_binned, os.path.join(_grids_dir, 'landmask_binned'))
+                    except Exception:
+                        pass
+                plt.close(_fig_binned)
+
         except Exception as e:
-            print(f"  Note: could not display hydrodynamic extent ({e}).")
+            print(f"  Note: Could not display hydrodynamic extent ({e}).")
             _selected_resolution_km, _needs_binning = None, None
 
         completion_message(1)
@@ -13304,7 +14280,7 @@ def workflow_step(step_number):
             with open(_hp_path, 'w') as _f:
                 json.dump(_hp_saved, _f, indent=4)
         except Exception as _e:
-            print(f"  Note: could not update the parameter file ({_e}).")
+            print(f"  Note: Could not update the parameter file ({_e}).")
 
         save_now = input("\nSave session checkpoint? (yes/no) [default: yes]: ").strip().lower()
         if save_now not in ['no', 'n']:
@@ -13323,8 +14299,8 @@ def workflow_step(step_number):
         print("\nThis package has the option to use species-specific occurrence data to determine appropriate release and settlement areas for each species.\n")
 
         print("In step 3, you then have the option to:")
-        print("  - Release particles from all locations in your study extent, specific site or known occurrences")
-        print("  - Settle particles from all locations in your study extent, specific sites or known occurrences")
+        print("  - Release propagules from all locations in your study extent, specific site or known occurrences")
+        print("  - Settle propagules from all locations in your study extent, specific sites or known occurrences")
 
         subsection_header("Data source options")
         info_box([
@@ -13415,13 +14391,13 @@ def workflow_step(step_number):
         subsection_header("Release and Settlement Strategy")
         print("This package has several options for releasing and settling propagules.\n")
 
-        print("You have the option to release propagules from all sites in your study area or from known species-specific distributions.\n")
+        print("You have the option to release propagules from all sites in your study extent or from known species-specific distributions.\n")
 
-        print("For more information, see 'Part 5: Step 3 (Release and Settlement Setup)' in the User Guide.\n")
+        print("For more information, see 'Part 5: Step 3 (Simulation Setup)' in the User Guide.\n")
 
         # Set up release and settlement grids (using binned arrays if applicable)
         meshgrid, release_grids, settlement_grids, full_grid_df, grid_ids, coastal_grid, coastal_grid_df, coastal_grid_filtered, grid_df_for_mapping = setup_release_settlement(
-            grid_coastalmask, grid_landmask, clean_spp, spp_params, grid_lonarray, grid_latarray
+            grid_coastalmask, grid_landmask, clean_spp, spp_params, grid_lonarray, grid_latarray, traits=traits
         )
 
         # Create Fieldset from hydrodynamic data
@@ -13549,7 +14525,7 @@ def workflow_step(step_number):
         subsection_header("Running the Particle Simulation")
         print("The simulation will now run using the parameters you have configured.\n")
 
-        print("For more information, see 'Part 5: Step 4 (Running the Simulation)' in the User Guide.")
+        print("For more information, see 'Part 5: Step 4 (Execute the Simulation)' in the User Guide.")
 
         # Execute simulation
         output_path, chunks_dir = execute_simulation(pset, kernels, adjusted_runtime, interval)
@@ -13650,7 +14626,7 @@ def workflow_step(step_number):
         print("  - Compare a baseline trait scenario against a modified scenario")
         print("  - Modify PLD range or spawning window to test sensitivity\n")
 
-        print("For more information, see 'Part 5: Step 6 (Connectivity Analysis)' in the User Guide.\n")
+        print("For more information, see 'Part 5: Step 6 (Connectivity Analyses)' in the User Guide.\n")
 
         # Run the main analysis function
         analysis_results = post_analysis(final_processed)

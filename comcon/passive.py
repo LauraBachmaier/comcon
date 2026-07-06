@@ -1,8 +1,8 @@
-"""
+﻿"""
 ComCon: Passive Dispersal Pathway
 ==================================
 
-Implements the passive dispersal pathway for ComCon
+Implements the passive dispersal pathway for ComCon.
 A hydrodynamic-only assessment of marine larval connectivity with no species-specific trait data.
 
 This pathway follows James et al. (2025):
@@ -57,6 +57,7 @@ from comcon.interactive import (
     dispersal_animation,
     create_custom_kernels,
     process_sim_results,
+    load_traj_from_chunks,
     save_figure,
     assign_release_id,
     check_system_memory,
@@ -66,12 +67,15 @@ from comcon.interactive import (
     calculate_connectivity_metrics,
     export_connectivity_metrics,
     network_analysis,
+    build_network_summary,
     export_network_results,
+    export_network_summary,
     create_metrics_summary_table,
     create_community_map,
     build_heatmap_figure,
     create_connectivity_matrix_plot,
     create_matrix_with_map,
+    _offset_point_labels,
     create_interactive_metric_viewer,
     plot_masks,
     get_yes_no,
@@ -156,7 +160,7 @@ def bin_mask(native_landmask, native_lonarray, native_latarray, target_km):
 
     For each new coarse cell in the target grid, it counts the native land cells whose centroids fall inside it.
     The coarse cell is classified as land if >=50% of its native cells are land, otherwise ocean.
-    Coarse cells containing zero native cells are treated as land (excluded from release). This only occurs at edge-cases if the coarser resolution does not overlap with the native resolution exactly.
+    Coarse cells containing zero native cells are treated as ocean (not land), so they do not appear as phantom land at the domain edge. This only occurs at edge-cases if the coarser resolution does not overlap with the native resolution exactly.
 
     Parameters
     ----------
@@ -243,7 +247,9 @@ def bin_mask(native_landmask, native_lonarray, native_latarray, target_km):
             mask = (lat_bin_idx == i) & (lon_bin_idx == j)
             native_cells_in_bin = native_land_flat[mask]
             if len(native_cells_in_bin) == 0:
-                binned_landmask[i, j] = 1  # land by default (excluded from release)
+                # Empty edge cell (no native coverage): mark ocean, not land, so it does not
+                # appear as phantom land at the domain edge.
+                binned_landmask[i, j] = 0
             else:
                 frac_land = np.mean(native_cells_in_bin)
                 binned_landmask[i, j] = 1 if frac_land >= 0.5 else 0
@@ -305,7 +311,7 @@ def create_binned_grid(binned_landmask, binned_lonarray, binned_latarray):
         'row_idx': ocean_rows.astype(np.int32),
         'col_idx': ocean_cols.astype(np.int32),
         'is_land': 0,
-        'is_coastal': 1,  # network_analysis expects this column; all ocean treated as coastal in Path A
+        'is_coastal': 1,  # network_analysis expects this column, all ocean treated as coastal in Path A
     })
 
     return df
@@ -610,6 +616,7 @@ def execute_passive_simulation(pset, kernels, runtime_days, output_path, dt_minu
         # a plain gc.collect() before and after instead of the context manager.
         gc.collect()
         print("\nRunning OceanParcels simulation...")
+        print("\n  Note: The progress bar may stay at 0% for 1-2 minutes while the simulation initialises.")
         chunk_particles = min(mem_config['chunk_size'], len(pset))
 
         output_file = pset.ParticleFile(
@@ -631,14 +638,16 @@ def execute_passive_simulation(pset, kernels, runtime_days, output_path, dt_minu
         file_size_gb = get_zarr_size(output_path)
         print(f"Output file size: {file_size_gb:.2f} GB")
         print(f"Using memory-safe chunked loading ({mem_config['chunk_size']:,} trajectories per chunk)")
-        traj_df = process_sim_results(output_path, mem_config['chunk_size'], runtime_days)
+        chunks_dir = process_sim_results(output_path, mem_config['chunk_size'], runtime_days)
+
+        traj_df = load_traj_from_chunks(chunks_dir)
 
         # Path A has a single release event, so assign_release_id would just produce a column of 0s
         traj_df['release_id'] = 0
         traj = traj_df
 
         print("\nSimulation complete.")
-        print(f"Final dataset: {len(traj):,} rows, {traj['trajectory'].nunique():,} trajectories")
+        print(f"Final dataset: {len(traj):,} rows and {traj['trajectory'].nunique():,} trajectories")
 
         # Save the processed DataFrame to parquet for reliable session recovery
         traj_parquet_path = output_path.replace('.zarr', '_processed.parquet')
@@ -989,7 +998,7 @@ def prepare_network_inputs(binned_landmask, binned_lonarray, binned_latarray, bi
     -------
     full_grid_df : pandas.DataFrame
         DataFrame of every binned cell (land + ocean) with columns: longitude, latitude, grid_id, is_land, is_coastal.
-        Ocean cells have their grid_id populated from `binned_ocean_grid_df`; land cells have grid_id=0.
+        Ocean cells have their grid_id populated from `binned_ocean_grid_df`. Land cells have grid_id=0.
     grid_ids_2d : numpy.ndarray
         2D array matching the shape of `binned_landmask`, where each cell holds the binned grid_id of that cell if it is ocean, or 0 if it is land.
     """
@@ -1151,9 +1160,46 @@ def matrix_viewer(network_results_by_dataset):
 
     display(dataset_dropdown, output)
     # Delay initial render
-    threading.Timer(0.5, update).start()
+    update()  # render immediately (synchronous; a Timer thread fails to draw into the Output)
 
 ## Interactive viewer for the Louvain community map with dataset dropdown
+def network_summary_viewer(network_results_by_dataset):
+    """
+    Display the Type 2 network-level summary with a dataset dropdown: study extent, potential and
+    realised connectivity sites, unique connections, plus nodes, edges, density, communities and
+    modularity. Shown as its own viewer above the connectivity matrix - these run-level scalars are
+    not tied to the Louvain map, so they get their own table (same pattern as the Type 1 summary).
+    """
+    valid_keys = [k for k, v in network_results_by_dataset.items() if v is not None]
+    if not valid_keys:
+        print("  No Type 2 network summary available to display.")
+        return
+
+    default_key = 'pooled_all' if 'pooled_all' in valid_keys else valid_keys[0]
+    dataset_dropdown = make_dataset_dropdown(valid_keys, default_key)
+    output = widgets.Output()
+
+    def update(*_):
+        """Re-render the network summary when the dropdown selection changes."""
+        nr = network_results_by_dataset.get(dataset_dropdown.value)
+        with output:
+            clear_output(wait=True)
+            if nr is None:
+                print(f"  No network summary for {dataset_dropdown.value}.")
+                return
+            rows = build_network_summary(nr)   # shared helper in interactive.py
+            if rows:
+                df = pd.DataFrame(rows, columns=['Network statistic', 'Value'])
+                df.index = range(1, len(df) + 1)
+                display(df)
+            else:
+                print(f"  No network summary values for {dataset_dropdown.value}.")
+
+    dataset_dropdown.observe(update, names='value')
+    display(dataset_dropdown, output)
+    update()
+
+
 def community_viewer(network_results_by_dataset):
     """
     Interactive viewer for the Louvain community map, with a dataset dropdown.
@@ -1196,7 +1242,10 @@ def community_viewer(network_results_by_dataset):
                 clear_output(wait=True)
                 display(fig)
                 plt.close(fig)
-                # Network stats table below the map
+                # Louvain/graph parameters (nodes/edges/density/communities/modularity) belong WITH
+                # the Louvain map, so they are shown here beneath it. (The dataset summary - species,
+                # extent, sites, connections - is a separate table in the Network Summary viewer
+                # above the matrix.)
                 stats_rows = []
                 for label, key in [
                     ('Nodes', 'network_nodes'),
@@ -1215,7 +1264,6 @@ def community_viewer(network_results_by_dataset):
                 if stats_rows:
                     stats_df = pd.DataFrame(stats_rows, columns=['Network statistic', 'Value'])
                     stats_df.index = range(1, len(stats_df) + 1)
-                    # Extra vertical space so the table sits further below the map
                     print()
                     print()
                     display(stats_df)
@@ -1240,7 +1288,7 @@ def build_heatmap_figure(network_results, title=None):
     not present in network_results['site_metrics'].
     """
     site_metrics = network_results['site_metrics']
-    metric_cols = ['source', 'sink', 'self_recruitment',
+    metric_cols = ['source_strength', 'sink_strength', 'self_recruitment',
                    'betweenness', 'closeness', 'degree']
     metric_labels = ['Source', 'Sink', 'Self-recruit.',
                      'Betweenness', 'Closeness', 'Degree']
@@ -1266,56 +1314,70 @@ def build_heatmap_figure(network_results, title=None):
 
     # Metrics as rows, sites as columns (wide heatmap)
     rank_matrix_t = top_sites[available].values.astype(float).T
+
+    # Rank colouring stays (consistent with the per-metric maps)
+    # cells whose raw metric value is exactly zero are greyed out
+    # Zeros otherwise tie at a middling rank and read as "average" when they really mean "metric absent" (e.g. sites that never self-recruit).
+    value_cols = [c.replace('_rank', '') for c in available]
+    value_matrix_t = top_sites[value_cols].values.astype(float).T
+    rank_matrix_t = np.ma.masked_where(value_matrix_t == 0, rank_matrix_t)
     site_labels = top_sites['site'].astype(str).values
 
     # Standardised figure size. Taller heatmap panel so cells are more rectangular (not squished).
     fig = plt.figure(figsize=(12, 10))
-    gs = GridSpec(2, 1, height_ratios=[1.2, 1.3], hspace=0.55)
+    gs = GridSpec(3, 1, height_ratios=[1.2, 0.05, 1.3], hspace=0.5)
 
     # Top: heatmap , aspect='auto' stretches cells to fill, but the taller panel makes them less squished
     ax_hm = fig.add_subplot(gs[0])
-    im = ax_hm.imshow(rank_matrix_t, cmap='viridis_r', aspect='auto')
+    _hm_cmap = plt.cm.viridis_r.copy()
+    _hm_cmap.set_bad(color='#d9d9d9')  # raw-value-zero cells render grey
+    im = ax_hm.imshow(rank_matrix_t, cmap=_hm_cmap, aspect='auto')
 
     ax_hm.set_yticks(range(len(available)))
     ax_hm.set_yticklabels(
         [metric_labels[metric_cols.index(c.replace('_rank', ''))] for c in available],
         fontsize=11,
     )
-    ax_hm.set_xticks(range(cap))
-    ax_hm.set_xticklabels(site_labels, fontsize=7, rotation=90)
+    # Thin x-axis labels to the same set used on the inset map below, so the labelled sites are identical on the axis and the reference map (read a grid_id off either, find it on the other)
+    _label_target = 30  # number of labels shown on both the axis and the inset
+    label_step = max(1, cap // _label_target)
+    _tick_pos = list(range(0, cap, label_step))
+    ax_hm.set_xticks(_tick_pos)
+    ax_hm.set_xticklabels([site_labels[i] for i in _tick_pos], fontsize=7, rotation=90)
 
-    # Horizontal colorbar below the heatmap , full width to match the heatmap
-    cbar = plt.colorbar(im, ax=ax_hm, orientation='horizontal',
-                        shrink=0.95, pad=0.25, aspect=50)
-    cbar.set_label('Rank (1 = best)', fontsize=12)
+    # Horizontal colorbar in its own fixed slot below the heatmap
+    cbar_ax = fig.add_subplot(gs[1])
+    cbar = fig.colorbar(im, cax=cbar_ax, orientation='horizontal')
+    cbar.set_label('Rank (1 = best; grey = value of zero, not included in the rank)', fontsize=12)
     cbar.ax.tick_params(labelsize=10)
 
     heatmap_title = title or "Site x metric heatmap"
-    ax_hm.set_title(heatmap_title, fontsize=13, fontweight='bold', pad=10)
-    # Caption sits below the colorbar
+    fig.suptitle(heatmap_title, fontsize=14, fontweight='bold', y=0.98)
+    # Caption sits just below the title
     if n_sites > cap:
-        ax_hm.text(
-            0.5, -0.95,
+        fig.text(
+            0.5, 0.945,
             f"Showing top {cap} of {n_sites} sites (selected by overall composite rank, displayed in grid_id order). "
             f"Full rankings exported in per-dataset network_site_metrics.csv.",
-            transform=ax_hm.transAxes, ha='center', va='top',
-            fontsize=10, style='italic', wrap=True,
+            ha='center', va='top', fontsize=10, style='italic', color='#444444', wrap=True,
         )
 
     # Bottom: reference map for the same sites as the heatmap
-    ax_map = fig.add_subplot(gs[1], projection=ccrs.PlateCarree())
+    ax_map = fig.add_subplot(gs[2], projection=ccrs.PlateCarree())
 
-    heatmap_site_ids = set(top_sites['grid_id'].astype(int))
-    map_sites = site_metrics[site_metrics['grid_id'].astype(int).isin(heatmap_site_ids)].copy()
+    # Plot all connected sites as dots so this map matches the reference map in create_matrix_with_map
+    # Labels stay thinned below
+    map_sites = site_metrics.copy()
     if len(map_sites) == 0:
         map_sites = top_sites.copy()
 
-    buffer = 0.2
+    _lon0, _lon1 = map_sites['longitude'].min(), map_sites['longitude'].max()
+    _lat0, _lat1 = map_sites['latitude'].min(), map_sites['latitude'].max()
+    _buf_lon = max((_lon1 - _lon0) * 0.15, 0.3)
+    _buf_lat = max((_lat1 - _lat0) * 0.20, 0.3)
     ax_map.set_extent([
-        map_sites['longitude'].min() - buffer,
-        map_sites['longitude'].max() + buffer,
-        map_sites['latitude'].min() - buffer,
-        map_sites['latitude'].max() + buffer
+        _lon0 - _buf_lon, _lon1 + _buf_lon,
+        _lat0 - _buf_lat, _lat1 + _buf_lat
     ], crs=ccrs.PlateCarree())
 
     ax_map.add_feature(cfeature.LAND, facecolor='lightgray', edgecolor='none')
@@ -1324,26 +1386,34 @@ def build_heatmap_figure(network_results, title=None):
 
     ax_map.scatter(
         map_sites['longitude'], map_sites['latitude'],
-        c='#7b9ec9', s=55,
+        c='#7b9ec9', s=24,
         transform=ccrs.PlateCarree(),
         edgecolors='#2a4a6b', linewidth=0.4,
         zorder=3,
     )
 
     # Label a subset of the sites that actually appear on the x-axis
-    label_step = max(1, cap // 20)  # ~20 labels maximum
+    # Reuse label_step from the x-axis above so the inset labels exactly the sites labelled on the heatmap axis
     axis_grid_ids = top_sites['grid_id'].astype(int).tolist()
     label_ids = set(axis_grid_ids[::label_step])
-    for _, site in map_sites.iterrows():
+    _name_by_gid = (dict(zip(map_sites['grid_id'].astype(int), map_sites['site_name'].astype(str)))
+                    if 'site_name' in map_sites.columns else {})
+    # Offset the labels with leader lines so they never overlap (same scheme as the hotspot numbers).
+    _lbl_sites = [s for _, s in map_sites.iterrows() if int(s['grid_id']) in label_ids]
+    _lbl_markers = [(float(s['longitude']), float(s['latitude'])) for s in _lbl_sites]
+    _lbl_pos = _offset_point_labels(ax_map, _lbl_markers)
+    for site, (lx, ly) in zip(_lbl_sites, _lbl_pos):
         gid_int = int(site['grid_id'])
-        if gid_int in label_ids:
-            ax_map.text(
-                site['longitude'], site['latitude'],
-                str(gid_int), fontsize=6, ha='left', va='bottom',
-                transform=ccrs.PlateCarree(), zorder=4,
-                bbox=dict(boxstyle='round,pad=0.1',
-                          facecolor='white', alpha=0.85, edgecolor='none'),
-            )
+        mx, my = float(site['longitude']), float(site['latitude'])
+        ax_map.plot([mx, lx], [my, ly], color='#333333', linewidth=0.5, alpha=0.7,
+                    transform=ccrs.PlateCarree(), zorder=3)
+        ax_map.text(
+            lx, ly,
+            str(_name_by_gid.get(gid_int, gid_int)), fontsize=6, ha='center', va='center',
+            transform=ccrs.PlateCarree(), zorder=4,
+            bbox=dict(boxstyle='round,pad=0.1',
+                      facecolor='white', alpha=0.85, edgecolor='none'),
+        )
 
     ax_map.set_title('Site Reference Map', fontsize=13, fontweight='bold', pad=10)
     gl = ax_map.gridlines(draw_labels=True, linestyle=':', linewidth=0.5, color='gray', alpha=0.4)
@@ -1358,7 +1428,7 @@ def heatmap_viewer(network_results_by_dataset):
     """
     Display a site-by-metric heatmap for the currently selected dataset, with a reference map below matching the heatmap's sites.
 
-    Rows are metrics (source, sink, self-recruitment, betweenness, closeness, degree); columns are sites (top 100 by overall composite rank). Cells are coloured by rank using viridis_r (rank 1 = best = yellow).
+    Rows are metrics (source, sink, self-recruitment, betweenness, closeness, degree). Columns are sites (top 100 by overall composite rank). Cells are coloured by rank using viridis_r (rank 1 = best = yellow).
 
     Parameters
     ----------
@@ -1378,9 +1448,6 @@ def heatmap_viewer(network_results_by_dataset):
         dataset_label = dataset_dropdown.value
         network_results = network_results_by_dataset[dataset_label]
         with output:
-            # CRITICAL: every line below stays inside `with output:` (was the bug ,
-            # previously indentation broke here so display/clear_output targeted
-            # the whole cell, wiping every other viewer when the animation rendered)
             clear_output(wait=True)
             print(f"  Rendering {dataset_label}: site x metric heatmap...")
             try:
@@ -1404,7 +1471,7 @@ def heatmap_viewer(network_results_by_dataset):
     print("  The reference map below shows where the displayed sites are located.\n")
     display(dataset_dropdown, output)
     # Delay initial render slightly
-    threading.Timer(0.5, update).start()
+    update()  # render immediately (synchronous; a Timer thread fails to draw into the Output)
 
 ## Interactive viewer for hotspot metric maps with dataset and metric dropdowns
 def metric_viewer(network_results_by_dataset):
@@ -1429,8 +1496,8 @@ def metric_viewer(network_results_by_dataset):
         'Overall composite': 'overall_composite',
         'Functional roles': 'functional_composite',
         'Centrality measures': 'centrality_composite',
-        'Source strength': 'source',
-        'Sink strength': 'sink',
+        'Source strength': 'source_strength',
+        'Sink strength': 'sink_strength',
         'Self-recruitment': 'self_recruitment',
         'Betweenness centrality': 'betweenness',
         'Closeness centrality': 'closeness',
@@ -1647,7 +1714,7 @@ def summary_table_viewer(metrics_by_dataset):
 
         rows = [
             ('Total particles released', _fmt_int(community.get('total_released'))),
-            ('Self-recruitment rate', _fmt_pct(community.get('community_recruitment'))),
+            ('Self-recruitment rate', _fmt_pct(community.get('self_recruitment_rate'))),
             ('Min dispersal distance', _fmt_num(community.get('min_distance_km'), 'km')),
             ('Mean dispersal distance', _fmt_num(community.get('mean_distance_km'), 'km')),
             ('Max dispersal distance', _fmt_num(community.get('max_distance_km'), 'km')),
@@ -1762,7 +1829,8 @@ def passive_dispersal_pathway(simulation_year=None):
     # Step 1: Project directory setup
     subsection_header("Project Setup")
     project_dirs = setup_project_directory(
-        subfolders=['config', 'simulation', 'figures', 'results']
+        subfolders=['config', 'grids', 'simulation', 'figures', 'animation', 'results'],
+        mode_tag='passive'
     )
     if project_dirs is None:
         print("\nPassive dispersal pathway cancelled: no project folder created.")
@@ -1951,7 +2019,7 @@ def passive_dispersal_pathway(simulation_year=None):
             # Show mask(s): one if native resolution was used, two if binned
             _actually_binned = binned_landmask.shape != native_landmask.shape
             subsection_header("Visualising the Hydrodynamic Extent")
-            print("  Note: the same grid is used for both summer and winter simulations.\n")
+            print("  Note: The same grid is used for both summer and winter simulations.\n")
             try:
                 if _actually_binned:
                     fig_native, fig_binned = display_passive_masks(
@@ -1960,11 +2028,11 @@ def passive_dispersal_pathway(simulation_year=None):
                     )
                     with contextlib.redirect_stdout(io.StringIO()):
                         try:
-                            save_figure(fig_native, os.path.join(project_dirs['figures'], 'landmask_native'))
+                            save_figure(fig_native, os.path.join(project_dirs['grids'], 'landmask_native'))
                         except Exception:
                             pass
                         try:
-                            save_figure(fig_binned, os.path.join(project_dirs['figures'], 'landmask_binned'))
+                            save_figure(fig_binned, os.path.join(project_dirs['grids'], 'landmask_binned'))
                         except Exception:
                             pass
                     plt.close(fig_native)
@@ -1977,12 +2045,12 @@ def passive_dispersal_pathway(simulation_year=None):
                     )
                     with contextlib.redirect_stdout(io.StringIO()):
                         try:
-                            save_figure(fig_native, os.path.join(project_dirs['figures'], 'landmask_native'))
+                            save_figure(fig_native, os.path.join(project_dirs['grids'], 'landmask_native'))
                         except Exception:
                             pass
                     plt.close(fig_native)
             except Exception as e:
-                print(f"  Note: could not display hydrodynamic masks ({e}).")
+                print(f"  Note: Could not display hydrodynamic masks ({e}).")
 
             release_grid = create_release_grid(binned_ocean_grid_df)
             full_grid_df_path_a, grid_ids_2d = prepare_network_inputs(
@@ -2101,7 +2169,7 @@ def passive_dispersal_pathway(simulation_year=None):
         final_processed = final_datasets[dataset_label]
         dataset_timings = {}
 
-        # Type 1: Connectivity Metrics (silent; one result dict per dataset)
+        # Type 1: Connectivity Metrics (silent, one result dict per dataset)
         t0 = time.time()
         try:
             with contextlib.redirect_stdout(io.StringIO()):
@@ -2112,12 +2180,10 @@ def passive_dispersal_pathway(simulation_year=None):
                     traits=passive_traits,
                     traj_raw=None,
                     print_summary=False,
-                    grid_ids=grid_ids_2d,
-                    settlement_buffer=0,
                 )
             metrics_by_dataset[dataset_label] = metrics_result
         except Exception as e:
-            print(f"  Warning: connectivity metrics failed for {dataset_label}: {e}")
+            print(f"  Warning: Connectivity metrics failed for {dataset_label}: {e}")
             metrics_by_dataset[dataset_label] = None
         dataset_timings['metrics'] = time.time() - t0
 
@@ -2138,7 +2204,7 @@ def passive_dispersal_pathway(simulation_year=None):
                     exclude_self_recruitment=config['exclude_self_recruitment'],
                 )
         except Exception as e:
-            print(f"  Warning: network analysis failed for {dataset_label}: {e}")
+            print(f"  Warning: Network analysis failed for {dataset_label}: {e}")
             dataset_timings['network'] = time.time() - t0
             timing_log[dataset_label] = dataset_timings
             continue
@@ -2209,8 +2275,8 @@ def passive_dispersal_pathway(simulation_year=None):
 
                 # Per-metric hotspot maps
                 for metric_col, metric_label in [
-                    ('source', 'source_strength'),
-                    ('sink', 'sink_strength'),
+                    ('source_strength', 'source_strength'),
+                    ('sink_strength', 'sink_strength'),
                     ('self_recruitment', 'self_recruitment'),
                     ('betweenness', 'betweenness_centrality'),
                     ('closeness', 'closeness_centrality'),
@@ -2252,17 +2318,22 @@ def passive_dispersal_pathway(simulation_year=None):
                     metrics = metrics_by_dataset[dataset_label]
                     if 'community' in metrics:
                         summary_df = pd.DataFrame([metrics['community']])
-                        summary_file = os.path.join(dataset_results_dir, 'connectivity_summary.csv')
+                        # Passive export: keep only columns meaningful when every particle "settles" (no species, mortality or PLD filtering)
+                        _passive_cols = ['total_released', 'self_recruitment_rate',
+                                         'mean_distance_km', 'min_distance_km', 'max_distance_km']
+                        summary_df = summary_df[[c for c in _passive_cols if c in summary_df.columns]]
+                        summary_file = os.path.join(dataset_results_dir, f'{dataset_label}_connectivity_summary.csv')
                         summary_df.to_csv(summary_file, index=False)
                 except Exception:
                     pass
             dataset_timings['csv_type1'] = time.time() - t0
 
-            # Type 2: Network results CSVs
+            # Type 2: Network results CSVs — embed dataset label in filenames
             t0 = time.time()
             try:
                 with contextlib.redirect_stdout(io.StringIO()):
-                    export_network_results(network_results, output_dir=dataset_results_dir)
+                    export_network_results(network_results, output_dir=dataset_results_dir, prefix=dataset_label)
+                    export_network_summary(network_results, dataset_results_dir, dataset_label)
             except Exception:
                 pass
             dataset_timings['csv_type2'] = time.time() - t0
@@ -2274,7 +2345,7 @@ def passive_dispersal_pathway(simulation_year=None):
             timing_path = os.path.join(project_dirs['config'], 'analysis_timing.txt')
             all_keys = sorted({k for t in timing_log.values() for k in t})
             with open(timing_path, 'w') as f:
-                f.write("Timing summary - total seconds per step across all datasets:\n")
+                f.write("Timing summary of the total seconds per step across all datasets:\n")
                 for k in all_keys:
                     total = sum(t.get(k, 0) for t in timing_log.values())
                     f.write(f"    {k:<22s} {total:7.1f} s\n")
@@ -2286,6 +2357,24 @@ def passive_dispersal_pathway(simulation_year=None):
                     f.write(f"    {k:<22s} {worst} ({timing_log[worst].get(k, 0):.1f} s)\n")
         except Exception:
             pass
+
+    # Auto-export dispersal animations when save_figures is True (no extra prompt).
+    # The save path is reported once in the Outputs box below, not inline here.
+    _animation_saved = {}
+    if save_figures and all_trajectory_paths:
+        for _season_name, _traj_path in all_trajectory_paths.items():
+            _anim_dir = os.path.join(project_dirs['animation'], _season_name)
+            os.makedirs(_anim_dir, exist_ok=True)
+            _anim_out = os.path.join(_anim_dir, 'dispersal_animation.mp4')
+            try:
+                _anim_traj = pd.read_parquet(_traj_path)
+                with contextlib.redirect_stdout(io.StringIO()):
+                    dispersal_animation(_anim_traj, output_path=_anim_out, show_in_notebook=False)
+                del _anim_traj
+                if os.path.exists(_anim_out):
+                    _animation_saved[_season_name] = _anim_out
+            except Exception as _ae:
+                print(f"  Warning: Animation export skipped for {_season_name} ({_ae}).")
 
     # Step 8: Metadata + summary + interactive results viewer
     metadata_path = os.path.join(project_dirs['config'], 'comcon_outputs.xlsx')
@@ -2306,15 +2395,20 @@ def passive_dispersal_pathway(simulation_year=None):
     }
     try:
         metadata_dict = passive_metadata(config_for_metadata, run_info)
-        write_project_metadata(project_dirs, metadata_dict, 'passive', metadata_path)
-        print(f"  Metadata saved: {metadata_path}")
+        _meta_ok = write_project_metadata(project_dirs, metadata_dict, 'passive', metadata_path)
+        if _meta_ok:
+            print(f"  Metadata saved: {metadata_path}")
+        else:
+            print("  Metadata file was not written (run: pip install openpyxl).")
     except Exception as e:
-        print(f"  Warning: could not write metadata file ({e}).")
+        print(f"  Warning: Could not write metadata file ({e}).")
 
     subsection_header("Outputs")
     print(f"  Figures saved to:   {project_dirs['figures']}")
     print(f"  Results saved to:   {project_dirs['results']}")
     print(f"  Metadata saved to:  {metadata_path}")
+    for _season_name, _anim_out in _animation_saved.items():
+        print(f"  Animation saved to: {_anim_out}")
     print("")
     print(f"  See the metadata file for an explanation of each dataset.\n")
 
@@ -2338,81 +2432,89 @@ def passive_dispersal_pathway(simulation_year=None):
         try:
             summary_table_viewer(metrics_by_dataset)
         except Exception as e:
-            print(f"  Note: summary table viewer could not be displayed: {e}")
+            print(f"  Note: Summary table viewer could not be displayed: {e}")
     else:
         print("  No Type 1 results available.")
 
     if all_trajectory_paths:
         print()
         subsection_header("Dispersal Animation")
+        print("The animation uses the raw, combined trajectory data (all particles pooled across species), not the filtered per-species connectivity data used for the matrices and metrics.")
         try:
             animation_viewer(all_trajectory_paths)
         except Exception as e:
-            print(f"  Note: animation viewer could not be displayed: {e}")
+            print(f"  Note: Animation viewer could not be displayed: {e}")
 
     # Type 2
     subsection_header("Type 2: Network Analysis")
     info_box([
         "Type 2 treats the connectivity data as a directed weighted network.",
         "In this network nodes = sites, edges = counts of particles moving between sites.",
-        "Four complementary outputs are generated:",
+        "Five complementary outputs are generated:",
         "",
-        "1. Connectivity matrix: ",
-        "   - Source-sink heatmap of particle exchanges",
+        "1. Network analysis summary: ",
+        "   - Number of species"
+        "   - Study extent"
+        "   - Potential connectivity sites"
+        "   - Realised connectivity sites"
+        "   - Unique connections",
         "",
-        "2. Directed network with hotspots: ",
+        "2. Connectivity matrix: ",
+        "   - Source-sink matrix of particle exchanges",
+        "",
+        "3. Directed network with hotspots: ",
         "   - All sites are coloured by the selected network metric (rank 1 = best)",
-        "   - The top 200 strongest site-to-site connections drawn as arrows on top",
         "   - The top 10 connectivity hotspots are indicated",
+        "   - Select 'Network only (no metric)' to see the directed structure: arrows for the strongest site-to-site links and rings for self-recruitment",
         "",
-        "3. Site × metric heatmap: ",
+        "4. Site × metric heatmap: ",
         "   - Compact overview of rank across all metrics for every site in the dataset",
         "",
-        "4. Louvain communities: ",
+        "5. Louvain communities: ",
         "   - Sites are grouped by shared connectivity patterns",
-        "   - One colour per community",
-        "   - Network-level summary stats: ",
-        "       - Density: ",
-        "           - The percentage of possible connections that exist (0-1)",
-        "           - Low (<0.5) = Most sites unconnected",
-        "           - High (>0.5) = Most sites connected",
-        "       - Modularity: ",
-        "           - How cleanly the network separates into communities (-1 to 1)",
-        "           - High (>=0.3) = well-separated communities ",
-        "           - Low (<0.3) = weak partition.",
-        "       - Number of communities detected by the Louvain algorithm",
+        "   - A distinct colour per community (the biggest communities are labelled in the legend)",
+        "   - A table beneath the map gives the Louvain/graph parameters (nodes, edges, communities, and):",
+        "       - Density: percentage of possible site-to-site connections that exist (0-1). Low (<0.5) = most sites unconnected; high (>0.5) = most connected",
+        "       - Modularity: how cleanly the network separates into communities (-0.5 to 1). High (>=0.3) = well-separated communities; low (<0.3) = weak partition",
         "",
         "Each viewer has a dataset dropdown to switch between datasets.",
     ])
 
     if network_results_by_dataset:
         print()
+        subsection_header("Network Summary")
+        try:
+            network_summary_viewer(network_results_by_dataset)
+        except Exception as e:
+            print(f"  Note: Network summary viewer could not be displayed: {e}")
+
+        print()
         subsection_header("Connectivity Matrix")
         try:
             matrix_viewer(network_results_by_dataset)
         except Exception as e:
-            print(f"  Note: matrix viewer could not be displayed: {e}")
+            print(f"  Note: Matrix viewer could not be displayed: {e}")
 
         print()
         subsection_header("Directed Connectivity Network with Hotspots")
         try:
             metric_viewer(network_results_by_dataset)
         except Exception as e:
-            print(f"  Note: metric viewer could not be displayed: {e}")
+            print(f"  Note: Metric viewer could not be displayed: {e}")
 
         print()
         subsection_header("Site × Metric Heatmap")
         try:
             heatmap_viewer(network_results_by_dataset)
         except Exception as e:
-            print(f"  Note: heatmap viewer could not be displayed: {e}")
+            print(f"  Note: Heatmap viewer could not be displayed: {e}")
 
         print()
         subsection_header("Louvain Communities")
         try:
             community_viewer(network_results_by_dataset)
         except Exception as e:
-            print(f"  Note: community viewer could not be displayed: {e}")
+            print(f"  Note: Community viewer could not be displayed: {e}")
     else:
         print("  No Type 2 results available.")
 

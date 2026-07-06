@@ -1,4 +1,4 @@
-# region Automatic Mode Functions
+﻿# region Automatic Mode Functions
 """
 ComCon Automatic Mode
 =====================
@@ -92,10 +92,10 @@ from comcon.interactive import (
 # region Helper Functions
 ## Standardise species names
 def standardise_species_name(name):
-    """Standardise species names to use underscores consistently."""
+    """Standardise species names to use underscores consistently (case-insensitive matching)."""
     if name is None:
         return None
-    return str(name).replace(' ', '_')
+    return str(name).strip().lower().replace(' ', '_')
 
 ## Displaying species names
 def display_species_name(name):
@@ -214,15 +214,24 @@ def start_automatic_mode():
     ])
 
     # Step 1: Project folder (always required, regardless of which path below)
-    project_dirs = setup_project_directory()
+    project_dirs = setup_project_directory(mode_tag='auto')
 
-    # Step 2: Decide whether to collect new params or load a saved config
-    subsection_header("Choose an Option")
-    print("\n  1. New analysis (collect all parameters now)")
-    print("  2. Re-run with saved settings (load from a config file)")
+    # Step 2: Detect a saved configuration and offer to reuse it (interactive's pattern).
+    # The save step writes comcon_config.json; the legacy comcon_setup.json name is also
+    # accepted so older projects still reload.
+    _saved_config = os.path.join(project_dirs['config'], "comcon_config.json")
+    if not os.path.exists(_saved_config):
+        _legacy_config = os.path.join(project_dirs['config'], "comcon_setup.json")
+        if os.path.exists(_legacy_config):
+            _saved_config = _legacy_config
+    if os.path.exists(_saved_config):
+        subsection_header("Saved Configuration Found")
+        print(f"\nFound a saved configuration: {_saved_config}")
+        choice = '2' if get_yes_no("Reuse it?", default='yes') else '1'
+    else:
+        choice = '1'
 
     while True:
-        choice = input("\nEnter choice (1/2) [default: 1]: ").strip() or '1'
 
         if choice == '1':
             # New analysis - collect parameters then run
@@ -269,8 +278,8 @@ def start_automatic_mode():
                 return config
 
         elif choice == '2':
-            # Load existing config - auto-detect like hydro params
-            config_file = "comcon_config.json"
+            # Load existing config (the same file the save step writes).
+            config_file = _saved_config
 
             if not os.path.exists(config_file):
                 print(f"\nNo saved configuration found ({config_file}).")
@@ -375,25 +384,26 @@ def collect_all_parameters(project_dirs=None):
     config = {}
 
     section_header("Parameter Collection")
-    print("\nThis will collect all parameters needed for the automatic workflow.")
-    print("Progress will be shown as: [Section X/9]\n")
+    print("\nThis will collect all parameters for the same 6-step workflow used in interactive and manual mode.")
+    print("Each section is tagged with the workflow step it configures. (Step 4 runs the simulation, so it needs no setup here.)")
+    print("Project Setup (folders) and Output Settings are the only extras outside the 6 steps.\n")
 
     # Section 1: Project Setup
-    subsection_header("[Section 1/9] Project Setup")
+    subsection_header("Project Setup (folders)")
 
     # The project folder is created once at the start of the run via setup_project_directory,
     # which offers the full options (new folder, your own directory, or continue an existing project).
     # We reuse that here rather than prompting again.
     if project_dirs is None:
         # Direct call to collect_all_parameters without start_automatic_mode: set the project up now.
-        project_dirs = setup_project_directory()
+        project_dirs = setup_project_directory(mode_tag='auto')
     else:
         print("\nUsing the project folder created at the start of this run.")
 
     config['project'] = project_dirs
 
     # Section 2: Hydrodynamic Data
-    subsection_header("[Section 2/9] Hydrodynamic Data")
+    subsection_header("Step 1 · Hydrodynamic and Trait Data")
     print("\n  Data source:")
     print("    1. Download from Copernicus Marine Service (requires internet)")
     print("    2. Load from a local file (no internet needed)")
@@ -411,7 +421,8 @@ def collect_all_parameters(project_dirs=None):
         config['copernicus']['export'] = False
         # Skip to traits section
     else:
-        config['copernicus'] = {}
+        # Note: do NOT reset config['copernicus'] here; that would wipe the 'source'
+        # key set just above, so the download data-source choice was never saved.
         print("\nCopernicus Marine Service credentials:")
         config['copernicus']['username'] = input("  Username: ").strip()
         config['copernicus']['password'] = getpass.getpass("  Password: ").strip()
@@ -514,7 +525,7 @@ def collect_all_parameters(project_dirs=None):
             config['copernicus']['export_format'] = 'zarr' if export_fmt == '2' else 'netcdf'
             file_ext = '.zarr' if config['copernicus']['export_format'] == 'zarr' else '.nc'
 
-            default_hydro_path = os.path.join(config['project']['data'], f'hydro_data{file_ext}')
+            default_hydro_path = os.path.join(config['project']['hydro_data'], f'hydro_data{file_ext}')
             hydro_path = get_save_path("  Output path", default=default_hydro_path, extensions=[file_ext])
             config['copernicus']['output_path'] = hydro_path if hydro_path else default_hydro_path
             # Ensure correct extension
@@ -536,23 +547,24 @@ def collect_all_parameters(project_dirs=None):
             "A coarser grid means fewer sites, fewer particles and faster simulations, but less spatial detail in the connectivity results.",
             "",
             "Options:",
-            "  1. Recommended (auto-calculated from your domain size)",
-            "  2. Native (the hydrodynamic grid's own resolution)",
-            "     On large domains this can produce many thousands of sites and may require significant working memory and computation time.",
-            "     On very large domains it can exhaust available RAM.",
+            "  1. Native (the hydrodynamic grid's own resolution)",
+            "     - On large domains this can produce many thousands of sites",
+            "     - This may require significant working memory and computation time",
+            "     - On very large domains it can exhaust available RAM",
+            "  2. Recommended (auto-calculated from your domain size)",
             "  3. Custom (specify your own resolution in km)",
         ])
 
         while True:
-            res_choice = input("\nSelect option (1/2/3) [default: 1]: ").strip() or '1'
+            res_choice = input("\nSelect option (1/2/3) [default: 2]: ").strip() or '2'
             if res_choice in ['1', '2', '3']:
                 break
             print("  Invalid input. Please enter 1, 2, or 3.")
 
         if res_choice == '1':
-            config['grid'] = {'resolution_mode': 'recommended', 'resolution_km': None}
-        elif res_choice == '2':
             config['grid'] = {'resolution_mode': 'native', 'resolution_km': None}
+        elif res_choice == '2':
+            config['grid'] = {'resolution_mode': 'recommended', 'resolution_km': None}
         else:
             while True:
                 try:
@@ -566,7 +578,7 @@ def collect_all_parameters(project_dirs=None):
                     print("  Please enter a whole number.")
 
         # Section 2: Species Trait Data
-        subsection_header("[Section 3/9] Species Trait Data")
+        subsection_header("Species Trait Data (part of Step 1)")
 
         config['traits'] = {}
         print("\nTrait data source:")
@@ -577,13 +589,18 @@ def collect_all_parameters(project_dirs=None):
         config['traits']['source'] = 'builtin' if trait_source == '1' else 'custom'
 
         if config['traits']['source'] == 'custom':
-            print("\n  Your trait CSV needs one row per species, with these columns:")
-            print("    Required: species_name OR aphia_id, spawning_start, spawning_end, min_PLD, max_PLD")
-            print("    You must provide species_name, aphia_id or both. If both are given, aphia_id is used.")
-            print("    AphiaID is recommended for marine species because it tracks name changes and synonyms.")
-            print("    Find AphiaIDs at https://www.marinespecies.org/")
-            print("    Dates use DD/MM or DD/MM/YYYY and PLD values should be given as integers.")
-            print("    Column order does not matter and any extra columns are ignored.\n")
+            print("\nYour trait CSV needs one row per species, with these columns required:")
+            print("  - species_name OR aphia_id")
+            print("  - spawning_start, spawning_end")
+            print("  - spawning_end")
+            print("  - min_PLD")
+            print("  - max_PLD")
+            print("\nYou must provide species_name, aphia_id or both. If both are given, aphia_id is used.")
+            print("AphiaID is recommended for marine species because it tracks name changes and synonyms.")
+            print("If you provide only an aphia_id, ComCon looks up the species name online, so a stable internet connection is required.")
+            print("Find AphiaIDs at https://www.marinespecies.org/")
+            print("\nDates use DD/MM or DD/MM/YYYY and PLD values should be given as integers.")
+            print("Column order does not matter and any extra columns are ignored.\n")
             config['traits']['custom_path'] = get_valid_path(
                 "Path to your trait CSV file",
                 must_exist=True,
@@ -659,40 +676,51 @@ def collect_all_parameters(project_dirs=None):
                     except ValueError:
                         print("  Invalid input. Using all species.")
                         config['traits']['species_indices'] = None
-        _default_year = datetime.now().year - 1
-        while True:
-            try:
-                year_input = input(f"\nStart year for dispersal season [default: {_default_year}]: ").strip()
-                config['traits']['start_year'] = int(year_input) if year_input else _default_year
-                break
-            except ValueError:
-                print("  Error: Please enter a valid year")
+        if config['traits']['source'] == 'builtin':
+            _default_year = datetime.now().year - 1
+            while True:
+                try:
+                    year_input = input(f"\nStart year for dispersal season [default: {_default_year}]: ").strip()
+                    config['traits']['start_year'] = int(year_input) if year_input else _default_year
+                    break
+                except ValueError:
+                    print("  Error: Please enter a valid year")
+        else:
+            # Custom CSV supplies its own dates (DD/MM/YYYY), so no start year is needed
+            config['traits']['start_year'] = None
 
         print("\nTemporal buffer (extends the hydrodynamic data period):")
         add_buffer = input("  Add buffer days for trait sensitivity analysis? (yes/no) [default: no]: ").strip().lower()
         if add_buffer in ['yes', 'y']:
-            config['traits']['buffer_before'] = int(input("  Days before earliest spawning (e.g. 14): ").strip() or "14")
-            config['traits']['buffer_after'] = int(input("  Days after latest dispersal end (e.g. 14): ").strip() or "14")
+            config['traits']['buffer_before'] = int(input("  Days before earliest spawning [default: 14]: ").strip() or "14")
+            config['traits']['buffer_after'] = int(input("  Days after latest dispersal end [default: 14]: ").strip() or "14")
         else:
             config['traits']['buffer_before'] = 0
             config['traits']['buffer_after'] = 0
 
-        print("\nSave selected traits to CSV?")
-        print("  Note: This is optional. Your species selection is stored in the setup file")
-        print("  and will be automatically re-selected when you reload the setup.")
-        print("  Saving to CSV is useful only for your records.")
-        save_traits = input("\n  Save traits to CSV? (yes/no) [default: no]: ").strip().lower()
-        config['traits']['save_csv'] = save_traits not in ['no', 'n']
-        if config['traits']['save_csv']:
-            default_trait_dir = config['project']['data']
-            config['traits']['output_dir'] = get_valid_dir("  Output directory", default=default_trait_dir)
-            config['traits']['filename'] = input("  Filename [default: selected_traits]: ").strip() or "selected_traits"
+        if config['traits']['source'] == 'builtin':
+            print("\nSave selected traits to CSV?")
+            print(
+                "  Note: this is optional, as your species selection is stored in the setup file and will be automatically re-selected when you reload the setup.")
+            print("  Saving to CSV is useful only for your records.")
+            save_traits = input("\n  Save traits to CSV? (yes/no) [default: no]: ").strip().lower() or 'no'
+            config['traits']['save_csv'] = save_traits in ['yes', 'y']
+            if config['traits']['save_csv']:
+                default_trait_dir = config['project']['occurrence_data']
+                config['traits']['output_dir'] = get_valid_dir("  Output directory", default=default_trait_dir)
+                config['traits']['filename'] = input(
+                    "  Filename [default: selected_traits]: ").strip() or "selected_traits"
+            else:
+                config['traits']['output_dir'] = config['project']['occurrence_data']
+                config['traits']['filename'] = "selected_traits"
         else:
-            config['traits']['output_dir'] = config['project']['data']
+            # Custom CSV: the user already has their trait file, so there is nothing to save
+            config['traits']['save_csv'] = False
+            config['traits']['output_dir'] = config['project']['occurrence_data']
             config['traits']['filename'] = "selected_traits"
 
         # Section 3: Species Occurrence Data
-        subsection_header("[Section 4/9] Species Occurrence Data")
+        subsection_header("Step 2 · Species Occurrence Data")
 
         config['occurrence'] = {}
 
@@ -712,37 +740,30 @@ def collect_all_parameters(project_dirs=None):
                 extensions=['.csv']
             )
 
-        print("\nStudy area polygon (GeoJSON format):")
-        print("  Option 1: Provide a path to an existing GeoJSON file (press Enter to browse).")
-        print("  Option 2: Type 'draw' to open the interactive map widget and draw one now.\n")
+        print("\nStudy extent polygon (GeoJSON format):")
+        print("  1. Enter path to an existing GeoJSON file (a browser opens if you press Enter)")
+        print("  2. Draw a new study extent on an interactive map")
 
         while True:
-            user_input = input("Path to GeoJSON file (or 'draw'): ").strip()
-
-            if user_input.lower() == 'draw':
+            _geo_choice = input("\nSelect option (1/2) [default: 1]: ").strip() or '1'
+            if _geo_choice == '2':
                 print("\n  Opening interactive map. Draw your study extent polygon, then click Export.")
-                print("  When the file is saved, return here and enter the file path it gave you.\n")
+                print("  When the file is saved, return here and provide the file path.\n")
                 _ = create_map()
-                continue  # ask again for the path once user finishes drawing
-
-            if not user_input:
-                # Empty → open a file dialog via get_valid_path
                 geojson_path = get_valid_path(
-                    "Path to GeoJSON file",
-                    must_exist=True,
-                    extensions=['.geojson', '.json']
-                )
+                    "  Path to the GeoJSON file you just saved", must_exist=True,
+                    extensions=['.geojson', '.json'])
+                break
+            elif _geo_choice == '1':
+                geojson_path = get_valid_path(
+                    "  Path to GeoJSON file", must_exist=True,
+                    extensions=['.geojson', '.json'])
+                break
             else:
-                geojson_path = user_input
-                if not geojson_path.lower().endswith(('.geojson', '.json')):
-                    geojson_path += '.geojson'
-                if not os.path.exists(geojson_path):
-                    print(f"  File not found: {geojson_path}. Please try again.")
-                    continue
+                print("  Please enter 1 or 2.")
 
-            config['occurrence']['geojson_path'] = geojson_path
-            print(f"  File found: {geojson_path}")
-            break
+        config['occurrence']['geojson_path'] = geojson_path
+        print(f"  File found: {geojson_path}")
 
         print("\nHabitat filtering:")
         print("  1. Coastal (recommended for littoral/intertidal species)")
@@ -756,7 +777,7 @@ def collect_all_parameters(project_dirs=None):
         save_occ = input("\nSave cleaned occurrence data to CSV? (yes/no) [default: no]: ").strip().lower()
         config['occurrence']['save_csv'] = save_occ in ['yes', 'y']
         if config['occurrence']['save_csv']:
-            default_occ_path = os.path.join(config['project']['occurrence'], 'cleaned_occurrences.csv')
+            default_occ_path = os.path.join(config['project']['occurrence_data'], 'cleaned_occurrences.csv')
             config['occurrence']['csv_path'] = get_save_path("  Output path", default=default_occ_path, extensions=['.csv']) or default_occ_path
             if not config['occurrence']['csv_path'].endswith('.csv'):
                 config['occurrence']['csv_path'] += '.csv'
@@ -764,29 +785,37 @@ def collect_all_parameters(project_dirs=None):
             config['occurrence']['csv_path'] = None
 
         # Section 4: Release & Settlement Strategy
-        subsection_header("[Section 5/9] Release and Settlement Strategy")
+        subsection_header("Step 3 · Simulation Setup (Release and Settlement Strategy)")
 
         config['grids'] = {}
 
         # Get the habitat type from earlier selection
         habitat_type = config['occurrence']['habitat_filtering']
         habitat_label = {'coastal': 'coastal', 'ocean': 'ocean', 'none': 'all'}.get(habitat_type, 'coastal')
+        # Phrase for the "all <X> sites" option (avoid "all all sites" when no filtering)
+        _all_sites_label = {'coastal': 'coastal sites', 'ocean': 'ocean sites',
+                            'none': 'sites'}.get(habitat_type, 'coastal sites')
 
         print(f"\nBased on your habitat filtering selection: {habitat_label}")
 
+        print("\nRelease and settlement sites are chosen independently in the next two steps.")
+        print("Use Step 2 to choose your general study area and occurrence data for release with the option to use different occurrence data for settlement.")
+
         print("\nRelease strategy (where particles are released from):")
-        print(f"  1. Everywhere in your study extent (all {habitat_label} sites)")
-        print(f"  2. All sites in your occurrence data (non-species-specific)")
-        print(f"  3. Species-specific habitat in your study extent (uses your occurrence data)")
+        print(f"  1. Everywhere in your study extent (all {_all_sites_label})")
+        print(f"  2. All sites in your occurrence data (pooled, not species-specific)")
+        print(f"  3. Species-specific habitat in your study extent (uses the occurrence data from Step 2)")
+        print("")
+        print("  If your occurrence data includes site names, those names carry through to all outputs.")
 
         release_choice = input("\nSelect option (1/2/3) [default: 3]: ").strip() or '3'
         release_map = {'1': 'all_sites', '2': 'pooled_sites', '3': 'species_habitat'}
         config['grids']['release_strategy'] = release_map.get(release_choice, 'species_habitat')
 
         print("\nSettlement strategy (where particles can settle):")
-        print(f"  1. Everywhere in your study extent (all {habitat_label} sites)")
-        print(f"  2. All sites in your occurrence data (non-species-specific)")
-        print(f"  3. Species-specific habitat in your study extent (uses your occurrence data)")
+        print(f"  1. Everywhere in your study extent (all {_all_sites_label})")
+        print(f"  2. All sites in your occurrence data (pooled, not species-specific)")
+        print(f"  3. Species-specific habitat in your study extent (uses the occurrence data from Step 2)")
         print(f"  4. A different occurrence dataset (separate CSV)")
 
         settle_choice = input("\nSelect option (1/2/3/4) [default: 3]: ").strip() or '3'
@@ -815,7 +844,7 @@ def collect_all_parameters(project_dirs=None):
             config['grids']['output_dir'] = config['project']['grids']
 
         # Section 5: Simulation Parameters
-        subsection_header("[Section 6/9] Particle Simulation")
+        subsection_header("Particle Parameters (part of Step 3)")
 
         config['simulation'] = {}
 
@@ -850,18 +879,18 @@ def collect_all_parameters(project_dirs=None):
         )
 
         # Section 6: Post-Processing Parameters
-        subsection_header("[Section 7/9] Post-Processing")
+        subsection_header("Step 5 · Post-Processing")
 
         config['postprocessing'] = {}
 
         print("\nSettlement buffer (how close particles must be to suitable habitat to settle):")
-        print("  1 = adjacent cell only, 2 = two cells away, etc.")
+        print("  0 = exact settlement cell only (default), 1 = adjacent cell, 2 = two cells away, etc.")
         config['postprocessing']['settlement_buffer'] = int(
-            input("  Buffer size in grid cells [default: 1]: ").strip() or "1"
+            input("Buffer size in grid cells [default: 0]: ").strip() or "0"
         )
 
         # Section 7: Analysis Configuration
-        subsection_header("[Section 8/9] Connectivity Analyses")
+        subsection_header("Step 6 · Connectivity Analyses")
 
         config['analysis'] = {}
 
@@ -919,14 +948,10 @@ def collect_all_parameters(project_dirs=None):
         print("  Type 2: Network analysis (identify connectivity hotspots)")
         print("  Type 3: Trait sensitivity (modify a trait and compare to the baseline)")
 
-        run_type1 = input("\nRun Type 1: Connectivity Metrics? (yes/no) [default: yes]: ").strip().lower()
-        config['analysis']['run_type1'] = run_type1 not in ['no', 'n']
-
-        run_type2 = input("Run Type 2: Network Analysis? (yes/no) [default: yes]: ").strip().lower()
-        config['analysis']['run_type2'] = run_type2 not in ['no', 'n']
-
-        run_type3 = input("Run Type 3: Trait Sensitivity Analysis? (yes/no) [default: no]: ").strip().lower()
-        config['analysis']['run_type3'] = run_type3 in ['yes', 'y']
+        # Use validating get_yes_no so typos (e.g. "on") re-prompt instead of silently enabling.
+        config['analysis']['run_type1'] = get_yes_no("\nRun Type 1: Connectivity Metrics?", default='yes')
+        config['analysis']['run_type2'] = get_yes_no("Run Type 2: Network Analysis?", default='yes')
+        config['analysis']['run_type3'] = get_yes_no("Run Type 3: Trait Sensitivity Analysis?", default='yes')
 
         # Match interactive: ask whether to exclude self-recruitment from source/sink metrics.
         # Used by both Type 2 and Type 3 network analysis so the modes agree.
@@ -946,7 +971,7 @@ def collect_all_parameters(project_dirs=None):
             print("\nOptions:")
             print("  1. Full domain (include all connections regardless of distance)")
             print("  2. Single scale (set one distance threshold)")
-            print("  3. Multi-scale (compare local, regional and seascape patterns)")
+            print("  3. Multi-scale (compare local, regional, seascape and full domain patterns)")
 
             scale_choice = input("\nSelect option (1/2/3) [default: 1]: ").strip() or '1'
 
@@ -959,7 +984,8 @@ def collect_all_parameters(project_dirs=None):
                 local_km = int(input("  Local scale threshold (km) [default: 10]: ").strip() or "10")
                 regional_km = int(input("  Regional scale threshold (km) [default: 30]: ").strip() or "30")
                 seascape_km = int(input("  Seascape scale threshold (km) [default: 100]: ").strip() or "100")
-                config['analysis']['type2_scales'] = [local_km, regional_km, seascape_km]
+                # Include the full domain (None) alongside the three thresholds.
+                config['analysis']['type2_scales'] = [None, local_km, regional_km, seascape_km]
                 config['analysis']['scale_type'] = 'multi'
             else:
                 print("\nSingle scale analysis:")
@@ -972,19 +998,23 @@ def collect_all_parameters(project_dirs=None):
             print("  2. Composite measure of centrality measures (betweenness, closeness, degree)")
             print("  3. Overall composite (all metrics combined)")
             print("  4. Custom selection of one or several metrics")
+            print("  5. None (skip the composite hotspot ranking entirely)")
             print("\n A composite measure detects overall connectivity hotspots across several key metrics.")
+            print(" This choice only sets which composite hotspot layer is built. All six individual metrics (source, sink, self-recruitment, betweenness, closeness, degree) are always computed regardless.")
 
-            composite_choice = input("\nSelect option (1/2/3/4) [default: 3]: ").strip() or '3'
-            if composite_choice == '4':
+            composite_choice = input("\nSelect option (1/2/3/4/5) [default: 3]: ").strip() or '3'
+            if composite_choice == '5':
+                config['analysis']['type2_composite'] = 'none'
+            elif composite_choice == '4':
                 print("\nAvailable metrics:")
-                print("  1. source")
-                print("  2. sink")
+                print("  1. source_strength")
+                print("  2. sink_strength")
                 print("  3. self-recruitment")
                 print("  4. betweenness")
                 print("  5. closeness")
                 print("  6. degree")
                 _metric_map = {
-                    '1': 'source', '2': 'sink', '3': 'self_recruitment',
+                    '1': 'source_strength', '2': 'sink_strength', '3': 'self_recruitment',
                     '4': 'betweenness', '5': 'closeness', '6': 'degree'
                 }
                 while True:
@@ -1007,15 +1037,12 @@ def collect_all_parameters(project_dirs=None):
             else:
                 composite_map = {'1': 'functional', '2': 'centrality', '3': 'overall'}
                 config['analysis']['type2_composite'] = composite_map.get(composite_choice, 'overall')
-
-                # Save figures (asked for every composite choice, including custom)
-            save_figs = input("\nSave Type 2 figures to file? (yes/no) [default: no]: ").strip().lower()
-            config['analysis']['type2_visualizations'] = 'all' if save_figs in ['yes', 'y'] else 'skip'
+            # Figure saving is controlled once, by the global 'Save figures' option in
+            # Section 9 (config['output']['save_figures']) , no separate Type 2 prompt.
         else:
             config['analysis']['type2_scales'] = [None]
             config['analysis']['scale_type'] = 'full_domain'
             config['analysis']['type2_composite'] = 'overall'
-            config['analysis']['type2_visualizations'] = 'skip'
 
         if config['analysis']['run_type3']:
             # Trait sensitivity is the only Type 3 option in V1
@@ -1024,20 +1051,14 @@ def collect_all_parameters(project_dirs=None):
             print("\nType 3 will run a trait sensitivity comparison:")
             print("  Modifies one trait, re-runs network analysis, compares to baseline.")
 
-            print("\nNetwork analysis scale:")
-            print("  1. Full domain (no distance filtering, all connections included)")
-            print("  2. Specify distance threshold (km)")
-
-            scale_opt = input("\nSelect option (1/2) [default: 1]: ").strip() or '1'
-
-            if scale_opt == '1':
-                config['analysis']['type3_scale'] = None  # None means full domain
-                print("  Using full domain (all connections)")
+            # Reuse the Type 2 distance scale for Type 3 (matching interactive , no separate
+            # prompt). This is also the scale of the baseline network the comparison reuses.
+            _t2_scales = config['analysis'].get('type2_scales', [None])
+            config['analysis']['type3_scale'] = _t2_scales[0] if _t2_scales else None
+            if config['analysis']['type3_scale'] is None:
+                print("\nType 3 will use the Type 2 scale: full domain (all connections).")
             else:
-                config['analysis']['type3_scale'] = int(
-                    input("  Distance threshold in km [default: 30]: ").strip() or "30"
-                )
-                print(f"  Using {config['analysis']['type3_scale']} km threshold")
+                print(f"\nType 3 will use the Type 2 scale: {config['analysis']['type3_scale']} km threshold.")
 
             print("\nTrait modification type:")
             print("  1. Modify PLD (pelagic larval duration)")
@@ -1054,14 +1075,14 @@ def collect_all_parameters(project_dirs=None):
 
                 if pld_option == '2':
                     config['analysis']['min_pld_change'] = int(
-                        input("  Days to add/subtract from min_PLD [default: 0]: ").strip() or "0"
+                        input("  Days to add/subtract from min_PLD (e.g. enter -4 to subtract 4 days) [default: 0]: ").strip() or "0"
                     )
                     config['analysis']['max_pld_change'] = int(
-                        input("  Days to add/subtract from max_PLD [default: 0]: ").strip() or "0"
+                        input("  Days to add/subtract from max_PLD (e.g. enter -4 to subtract 4 days) [default: 0]: ").strip() or "0"
                     )
                 else:
                     pld_change = int(
-                        input("  Days to add/subtract from both min and max PLD [default: 0]: ").strip() or "0"
+                        input("  Days to add/subtract from both min and max PLD (e.g. enter -4 to subtract 4 days) [default: 0]: ").strip() or "0"
                     )
                     config['analysis']['min_pld_change'] = pld_change
                     config['analysis']['max_pld_change'] = pld_change
@@ -1076,16 +1097,16 @@ def collect_all_parameters(project_dirs=None):
                 if spawn_option == '2':
                     config['analysis']['spawning_start_shift'] = int(
                         input(
-                            "  Days to shift start (positive = later, negative = earlier) [default: 0]: ").strip() or "0"
+                            "  Days to shift start where positive = later e.g. +3 days and negative = earlier e.g. -4 days [default: 0]: ").strip() or "0"
                     )
                     config['analysis']['spawning_end_shift'] = int(
                         input(
-                            "  Days to shift end (positive = later, negative = earlier) [default: 0]: ").strip() or "0"
+                            "  Days to shift end where positive = later e.g. +3 days and negative = earlier e.g. -4 days [default: 0]: ").strip() or "0"
                     )
                 else:
                     shift = int(
                         input(
-                            "  Days to shift entire window (positive = later, negative = earlier) [default: 0]: ").strip() or "0"
+                            "  Days to shift entire window where positive = later e.g. +3 days and negative = earlier e.g. -4 days [default: 0]: ").strip() or "0"
                     )
                     config['analysis']['spawning_start_shift'] = shift
                     config['analysis']['spawning_end_shift'] = shift
@@ -1093,7 +1114,7 @@ def collect_all_parameters(project_dirs=None):
                 config['analysis']['max_pld_change'] = 0
 
         # Section 8: Output Settings
-        subsection_header("[Section 9/9] Output Settings")
+        subsection_header("Output Settings")
 
         config['output'] = {}
 
@@ -1121,7 +1142,7 @@ def collect_all_parameters(project_dirs=None):
 
         save_config = input("\nSave setup to file for future re-runs? (yes/no) [default: yes]: ").strip().lower()
         if save_config not in ['no', 'n']:
-            default_config_path = os.path.join(config['project']['config'], 'comcon_setup.json')
+            default_config_path = os.path.join(config['project']['config'], 'comcon_config.json')
             config_path = get_save_path("  Setup file path", default=default_config_path, extensions=['.json'])
             if not config_path.endswith('.json'):
                 config_path += '.json'
@@ -1215,7 +1236,7 @@ def review_and_edit_config(config):
         num += 1
 
         # Post-processing section (1 param)
-        params.append((num, "Settlement Buffer (cells)", cfg.get('postprocessing', {}).get('settlement_buffer', 1), 'postprocessing', 'settlement_buffer'))
+        params.append((num, "Settlement Buffer (cells)", cfg.get('postprocessing', {}).get('settlement_buffer', 0), 'postprocessing', 'settlement_buffer'))
         num += 1
 
         # Analysis section (8 params)
@@ -1293,6 +1314,22 @@ def review_and_edit_config(config):
 
     display_line("-")
 
+    # Valid choices for fixed-option parameters, shown when editing so users know the options.
+    _param_options = {
+        'data_source': ['user', 'gbif'],
+        'habitat_filtering': ['coastal', 'ocean', 'none'],
+        'release_strategy': ['all_sites', 'pooled_sites', 'species_habitat'],
+        'settlement_strategy': ['all_sites', 'pooled_sites', 'species_habitat', 'custom_habitat'],
+        'resolution_mode': ['native', 'recommended', 'custom'],
+        'release_interval': ['daily', 'weekly', 'biweekly', 'monthly', 'or a number of days'],
+        'source': ['builtin', 'custom'],
+        'export_format': ['netcdf', 'zarr'],
+        'scale_type': ['full_domain', 'single', 'multi'],
+        'type2_composite': ['functional', 'centrality', 'overall', 'custom'],
+        'scope': ['community', 'per_species', 'both', 'custom'],
+        'format': ['tif', 'png', 'pdf', 'svg'],
+    }
+
     while True:
         edit_choice = input("Enter parameter number to edit or press Enter to continue: ").strip()
 
@@ -1307,7 +1344,24 @@ def review_and_edit_config(config):
                         config[section] = {}
 
                     print(f"\n  Current value: {old_value}")
-                    new_value = input(f"  New value for {name}: ").strip()
+
+                    # File-path params: use the file browser (press Enter to open it) with
+                    # extension handling, exactly like the normal setup flow.
+                    _path_exts = {'custom_path': ['.csv'], 'user_data_path': ['.csv'],
+                                  'custom_settlement_path': ['.csv'], 'geojson_path': ['.geojson']}
+                    if key in _path_exts:
+                        _picked = get_valid_path(f"  New path for {name} (press Enter to browse)",
+                                                 must_exist=True, default=None, extensions=_path_exts[key])
+                        if _picked:
+                            config[section][key] = _picked
+                            print(f"  Updated: {name} = {_picked}")
+                        break
+
+                    if isinstance(old_value, bool):
+                        print("  Options: yes / no")
+                    elif key in _param_options:
+                        print(f"  Options: {', '.join(_param_options[key])}")
+                    new_value = input(f"  New value for {name} (press Enter to keep current): ").strip()
 
                     if new_value:
                         if isinstance(old_value, bool):
@@ -1518,12 +1572,19 @@ def run_workflow(config):
         # Import only pure functions from interactive.py
         # These functions take parameters and return results WITHOUT prompting
         from comcon.interactive import (
-            # Pure functions (NO input() calls inside):
+            # Pure functions (No input() calls inside):
             download_hydrodynamic_data,  # Takes params, downloads data
+            load_hydrodynamic_data,  # Loads local/previously downloaded hydro data
             create_masks,  # Creates masks from hydro data
+            bin_mask,  # Bin a native mask to a coarser target resolution
+            make_coastalmask,  # Coastal mask from a land mask
+            create_native_grid_ids_from_binned,  # Map binned grid_ids onto the native grid for the fieldset
+            calculate_resolution,  # Recommended release/settlement resolution from domain extent
             read_geojson,  # Reads GeoJSON file
             get_spp_occ,  # Downloads from GBIF (single species)
             clean_spp_occ,  # Filters occurrence data
+            validate_uploaded_data,  # Drops uploaded records outside the study extent (auto-filters in auto mode)
+            validate_spp_occ,  # Flags species with no records / low sample size (GBIF, informational)
             map_spp_to_grid,  # Maps species to grid
             create_fieldset,  # Creates OceanParcels fieldset
             reflective_boundary,  # Creates boundary vectors
@@ -1540,6 +1601,8 @@ def run_workflow(config):
             network_analysis,  # Type 2 analysis
             add_custom_composite,  # build a custom composite from chosen metrics
             export_network_results,  # Type 2 CSV export
+            export_network_summary,  # Type 2 network summary scalars CSV
+            build_settlement_attribution,  # Settlement buffer attribution table
             compare_models,  # Type 3: baseline vs modified-trait comparison
             display_sensitivity_comparison,  # Type 3: comparison table
             # Visualization
@@ -1613,14 +1676,83 @@ def run_workflow(config):
                 export=config['copernicus']['export'],
                 output_path=config['copernicus']['output_path']
             )
-        print("\n  ✓ Step 1 completed: Hydrodynamic and trait data loaded.\n")
+        # Create land and coastal masks, then resolve grid resolution / binning here in Step 1,
+        # so the native (and binned) model grid is set up alongside the hydrodynamic data, matching interactive.
+        print("\nCreating land and coastal masks...")
+        # show_map=False: the native/binned masks are displayed just below, so the generic domain
+        # map from create_masks would be redundant.
+        landmask, coastalmask, lonarray, latarray = create_masks(hydro_data, show_map=False)
+
+        # Grid resolution / binning
+        # Advection always runs on the native grid
+        # The release/settlement grid is built on the binned arrays when binning is on
+        # Native copies are kept for the fieldset and for the native-vs-binned figures
+        native_landmask, native_coastalmask = landmask, coastalmask
+        native_lonarray, native_latarray = lonarray, latarray
+
+        _native_km = round(abs(float(native_latarray[1, 0] - native_latarray[0, 0])) * 111.0, 1)
+        _grid_cfg = config.get('grid', {}) or {}
+        _res_mode = _grid_cfg.get('resolution_mode', 'native')
+        if _res_mode == 'recommended':
+            resolution_km = calculate_resolution(float(native_latarray.max() - native_latarray.min()),
+                                                 float(native_lonarray.max() - native_lonarray.min()))
+            needs_binning = resolution_km > _native_km * 1.1
+        elif _res_mode == 'custom':
+            resolution_km = int(_grid_cfg.get('resolution_km') or _native_km)
+            needs_binning = resolution_km > _native_km * 1.1
+        else:  # 'native'
+            resolution_km, needs_binning = _native_km, False
+
+        if needs_binning:
+            print(f"\nBinning grid to {resolution_km} km resolution...")
+            binned_landmask, binned_lonarray, binned_latarray = bin_mask(native_landmask, native_lonarray,
+                                                                         native_latarray, target_km=resolution_km)
+            binned_coastalmask = make_coastalmask(binned_landmask)
+            landmask, coastalmask = binned_landmask, binned_coastalmask
+            lonarray, latarray = binned_lonarray, binned_latarray
+            _n_native_c = int((native_coastalmask == 1).sum())
+            _n_binned_c = int((binned_coastalmask == 1).sum())
+            print(f"  Native coastal cells: {_n_native_c:,}")
+            print(f"  Binned coastal cells: {_n_binned_c:,} ({100 * _n_binned_c / max(_n_native_c, 1):.0f}% of native)")
+
+        # Persist the resolved resolution so the saved config reflects what was used.
+        config.setdefault('grid', {})
+        config['grid']['resolution_km'] = resolution_km
+        config['grid']['needs_binning'] = needs_binning
+
+        # Show + save native (and binned) masks to the grids folder, like interactive/passive
+        _grids_dir = config['grids'].get('output_dir') or config['project'].get('grids', '.')
+        os.makedirs(_grids_dir, exist_ok=True)
+        _save_maps = bool(config['grids'].get('save_grids') or config['output'].get('save_figures', True))
+        try:
+            _fig_native = plot_masks(native_landmask, native_coastalmask, native_lonarray, native_latarray,
+                                     geojson_file_path=None, show_coastal=True, show_save_prompt=False,
+                                     title=f'Native resolution ({native_landmask.shape[0]} x {native_landmask.shape[1]} cells)')
+            if _save_maps:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    try:
+                        save_figure(_fig_native, os.path.join(_grids_dir, 'landmask_native'))
+                    except Exception:
+                        pass
+            plt.close(_fig_native)
+            if needs_binning:
+                _fig_binned = plot_masks(landmask, coastalmask, lonarray, latarray, geojson_file_path=None,
+                                         show_coastal=True, show_save_prompt=False,
+                                         title=f'Binned resolution ({landmask.shape[0]} x {landmask.shape[1]} cells)')
+                if _save_maps:
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        try:
+                            save_figure(_fig_binned, os.path.join(_grids_dir, 'landmask_binned'))
+                        except Exception:
+                            pass
+                plt.close(_fig_binned)
+        except Exception as e:
+            print(f"  Note: Could not display/save hydrodynamic masks ({e}).")
+
+        print("\n  ✓ Step 1 completed: Hydrodynamic data, trait data and model grid ready.\n")
 
         # Step 2: Species Occurrence Data
         subsection_header("Step 2: Species Occurrence Data")
-
-        # Create masks
-        print("\nCreating land and coastal masks...")
-        landmask, coastalmask, lonarray, latarray = create_masks(hydro_data)
 
         # Read study extent
         print("Loading study extent polygon...")
@@ -1650,26 +1782,32 @@ def run_workflow(config):
             print("\n  Loading user-provided occurrence data...")
             distributions = pd.read_csv(config['occurrence']['user_data_path'])
 
+            # Drop records outside the study extent, matching interactive. In automatic mode the
+            # choice prompt auto-answers '1' (filter out) via the _auto_input patch.
+            distributions = validate_uploaded_data(distributions, shapely_polygon)
+
             display_line("=")
             print(f"Total occurrence records: {len(distributions)}")
             display_line("=")
 
-            # Check if we have any data
-            if len(distributions) == 0:
-                print("\nWarning: No occurrence records found from GBIF.")
-                print("This could be because:")
-                print("  - Species are not recorded in this region in GBIF")
-                print("  - Species names don't match GBIF taxonomy")
-                print("\nOptions:")
-                print("  1. Use 'all coastal sites' for release/settlement")
-                print("  2. Provide your own occurrence data CSV")
-                raise ValueError(
-                    "No occurrence data available. Please provide your own data or adjust species selection.")
+        # Check we have occurrence data from either source (GBIF download or uploaded file).
+        if len(distributions) == 0:
+            print("\nWarning: No occurrence records were found.")
+            print("This could be because:")
+            print("  - Species are not recorded in this region (GBIF), or the uploaded file is empty")
+            print("  - Species names don't match GBIF taxonomy")
+            print("\nOptions:")
+            print("  1. Use 'all coastal sites' for release/settlement")
+            print("  2. Provide your own occurrence data CSV")
+            raise ValueError(
+                "No occurrence data available. Please provide your own data or adjust species selection.")
 
         # Clean occurrence data
         print("\nCleaning occurrence data...")
+        # Occurrence filtering always uses the NATIVE masks (coastal/land classification is a
+        # geographic property, independent of the binning choice used for the release/settlement grid).
         clean_spp = clean_spp_occ(
-            distributions, landmask, coastalmask, lonarray, latarray,
+            distributions, native_landmask, native_coastalmask, native_lonarray, native_latarray,
             buffer_cells=1,
             habitat_type=config['occurrence']['habitat_filtering']
         )
@@ -1693,14 +1831,11 @@ def run_workflow(config):
                 else:
                     print(
                         "  Keeping all species. The unmatched species will be released but not post-processed.")
-        # Clean occurrence data
-        if config['occurrence']['data_source'] != 'sites':
-            print("\nCleaning occurrence data...")
-            clean_spp = clean_spp_occ(
-                distributions, landmask, coastalmask, lonarray, latarray,
-                buffer_cells=1,
-                habitat_type=config['occurrence']['habitat_filtering']
-            )
+
+        # Validate GBIF occurrence sample sizes (informational; flags species with no records or
+        # fewer than 10). Matches interactive; user-provided data is not sample-size checked.
+        if config['occurrence']['data_source'] == 'gbif' and len(traits) > 0:
+            validate_spp_occ(clean_spp, pd.DataFrame(traits), min_records=10)
 
         if config['occurrence']['save_csv'] and config['occurrence']['csv_path']:
             occ_dir = os.path.dirname(config['occurrence']['csv_path'])
@@ -1709,32 +1844,30 @@ def run_workflow(config):
             clean_spp.to_csv(config['occurrence']['csv_path'], index=False)
             print(f"  Saved to: {config['occurrence']['csv_path']}")
 
-        # Display maps if requested
+        # Display the hydrodynamic extent with the study-extent outline (matches interactive Step 2),
+        # then the species occurrence distribution. For coastal/ocean the occurrence map is a
+        # before/after comparison; for 'none' it is a single occurrence map.
         if config['output'].get('display_figures', False):
             try:
-                # Plot land/coastal/ocean classification
-                plot_masks(landmask, coastalmask, lonarray, latarray,
-                           config['occurrence']['geojson_path'])
-
-                # Plot species distribution data
-                # Skip when no filtering was applied
-                if config['occurrence']['habitat_filtering'] != 'none':
-                    plot_spp_occ(distributions, clean_spp,
-                                 config['occurrence']['geojson_path'],
-                                 config['occurrence']['habitat_filtering'],
-                                 lonarray, latarray)
+                plot_masks(native_landmask, native_coastalmask, native_lonarray, native_latarray,
+                           config['occurrence']['geojson_path'], show_save_prompt=False,
+                           title='Hydrodynamic Extent with Study Extent Outline')
+                plot_spp_occ(distributions, clean_spp,
+                             config['occurrence']['geojson_path'],
+                             config['occurrence']['habitat_filtering'],
+                             native_lonarray, native_latarray)
             except Exception as e:
                 print(f"  Note: Could not display maps: {e}")
 
         print("\n  ✓ Step 2 completed: Species occurrence data ready.\n")
 
         # Step 3: Setup the Simulation
-        subsection_header("Step 3: Release and Settlement Setup")
+        subsection_header("Step 3: Simulation Setup")
 
         # Create coastal grid
         print("\nCreating release and settlement grids...")
         # Build the grid from:
-        # coastal = coastal cells only; ocean = all ocean cells (coastal + offshore).
+        # coastal = coastal cells only, ocean = all ocean cells (coastal + offshore).
         if config['occurrence'].get('habitat_filtering') in ('ocean', 'none'):
             coastal_cells = (landmask == 0)
         else:
@@ -1744,78 +1877,101 @@ def run_workflow(config):
             latarray[coastal_cells]
         ])
 
-        # Filter to study area
+        # Filter to study extent
         study_area_mask = np.array([
             shapely_polygon.contains(Point(lon, lat))
             for lon, lat in coastal_coords
         ])
         study_coastal = coastal_coords[study_area_mask]
 
-        # Create grid dataframe
+        # Full-domain raster ids (row-major), identical to interactive.create_grid numbering,
+        # so grid_id is consistent across the trait-defined modes (interactive/automatic/manual).
+        global_ids_2d = np.arange(landmask.size).reshape(landmask.shape)
+        coastal_global_ids = global_ids_2d[coastal_cells]        # row-major, aligns with coastal_coords
+        study_global_ids = coastal_global_ids[study_area_mask]   # aligns with study_coastal
+
+        # Create grid dataframe (study extent), keeping the global grid_id
         coastal_grid_df = pd.DataFrame({
             'longitude': study_coastal[:, 0],
             'latitude': study_coastal[:, 1],
-            'grid_id': range(len(study_coastal))
+            'grid_id': study_global_ids.astype(int)
         })
 
-        # Create grid_ids array
-        grid_ids = np.full(landmask.shape, -1, dtype=np.int32)
-        for idx, row in coastal_grid_df.iterrows():
-            lat_idx = np.argmin(np.abs(latarray[:, 0] - row['latitude']))
-            lon_idx = np.argmin(np.abs(lonarray[0, :] - row['longitude']))
-            grid_ids[lat_idx, lon_idx] = row['grid_id']
+        # grid_ids array: every cell carries its global id (matches interactive.create_grid),
+        # so the fieldset and post-processing behave identically across modes.
+        grid_ids = global_ids_2d
+
+        # Full-domain grid (every cell, land + ocean) for optional CSV export and reference
+        full_grid_df = pd.DataFrame({
+            'longitude': lonarray.ravel(),
+            'latitude': latarray.ravel(),
+            'grid_id': global_ids_2d.ravel(),
+            'is_land': landmask.ravel().astype(int),
+            'is_coastal': coastalmask.ravel().astype(int),
+        })
+
+        # Optionally save the domain and study-extent grids (matches interactive's save_grids output)
+        if config['grids'].get('save_grids'):
+            grids_dir = config['grids'].get('output_dir') or config['project'].get('grids', '.')
+            os.makedirs(grids_dir, exist_ok=True)
+            full_grid_df.to_csv(os.path.join(grids_dir, 'grid_full_domain.csv'), index=False)
+            _study_ids = set(coastal_grid_df['grid_id'].astype(int))
+            study_grid_df = full_grid_df[full_grid_df['grid_id'].isin(_study_ids)].copy()
+            study_grid_df.to_csv(os.path.join(grids_dir, 'grid_study_area.csv'), index=False)
+            print(f"  Grids saved to: {grids_dir}")
 
             # Setup release grids
-            if config['grids']['release_strategy'] == 'all_sites':
-                meshgrid = study_coastal
-                release_grids = {standardise_species_name(t['species_name']): coastal_grid_df.copy() for t in traits}
-            elif config['grids']['release_strategy'] == 'pooled_sites':
-                meshgrid, _per_species = map_spp_to_grid(coastal_grid_df, clean_spp)
-                pooled_df = pd.concat(_per_species.values(), ignore_index=True)[
-                    ['grid_id', 'longitude', 'latitude']].drop_duplicates(subset=['grid_id']).reset_index(drop=True)
-                release_grids = {standardise_species_name(t['species_name']): pooled_df.copy() for t in traits}
-            else:
-                meshgrid, release_grids = map_spp_to_grid(coastal_grid_df, clean_spp)
+        if config['grids']['release_strategy'] == 'all_sites':
+            meshgrid = study_coastal
+            release_grids = {standardise_species_name(t['species_name']): coastal_grid_df.copy() for t in traits}
+        elif config['grids']['release_strategy'] == 'pooled_sites':
+            meshgrid, _per_species = map_spp_to_grid(coastal_grid_df, clean_spp)
+            pooled_df = pd.concat(_per_species.values(), ignore_index=True)[
+                ['grid_id', 'longitude', 'latitude']].drop_duplicates(subset=['grid_id']).reset_index(drop=True)
+            release_grids = {standardise_species_name(t['species_name']): pooled_df.copy() for t in traits}
+        else:
+            meshgrid, release_grids = map_spp_to_grid(coastal_grid_df, clean_spp)
 
             # Setup settlement grids
-            if config['grids']['settlement_strategy'] == 'all_sites':
-                settlement_grids = {standardise_species_name(t['species_name']): coastal_grid_df.copy() for t in traits}
-            elif config['grids']['settlement_strategy'] == 'pooled_sites':
-                _, _per_species = map_spp_to_grid(coastal_grid_df, clean_spp)
+        if config['grids']['settlement_strategy'] == 'all_sites':
+            settlement_grids = {standardise_species_name(t['species_name']): coastal_grid_df.copy() for t in traits}
+        elif config['grids']['settlement_strategy'] == 'pooled_sites':
+            _, _per_species = map_spp_to_grid(coastal_grid_df, clean_spp)
+            pooled_df = pd.concat(_per_species.values(), ignore_index=True)[
+                ['grid_id', 'longitude', 'latitude']].drop_duplicates(subset=['grid_id']).reset_index(drop=True)
+            settlement_grids = {standardise_species_name(t['species_name']): pooled_df.copy() for t in traits}
+        elif config['grids']['settlement_strategy'] == 'species_habitat':
+            _, settlement_grids = map_spp_to_grid(coastal_grid_df, clean_spp)
+        else:
+            custom_data = pd.read_csv(config['grids']['custom_settlement_path'])
+            if config['grids'].get('custom_settlement_mode') == 'pooled':
+                _, _per_species = map_spp_to_grid(coastal_grid_df, custom_data)
                 pooled_df = pd.concat(_per_species.values(), ignore_index=True)[
                     ['grid_id', 'longitude', 'latitude']].drop_duplicates(subset=['grid_id']).reset_index(drop=True)
                 settlement_grids = {standardise_species_name(t['species_name']): pooled_df.copy() for t in traits}
-            elif config['grids']['settlement_strategy'] == 'species_habitat':
-                _, settlement_grids = map_spp_to_grid(coastal_grid_df, clean_spp)
             else:
-                custom_data = pd.read_csv(config['grids']['custom_settlement_path'])
-                if config['grids'].get('custom_settlement_mode') == 'pooled':
-                    _, _per_species = map_spp_to_grid(coastal_grid_df, custom_data)
-                    pooled_df = pd.concat(_per_species.values(), ignore_index=True)[
-                        ['grid_id', 'longitude', 'latitude']].drop_duplicates(subset=['grid_id']).reset_index(drop=True)
-                    settlement_grids = {standardise_species_name(t['species_name']): pooled_df.copy() for t in traits}
-                else:
-                    _, settlement_grids = map_spp_to_grid(coastal_grid_df, custom_data)
+                _, settlement_grids = map_spp_to_grid(coastal_grid_df, custom_data)
 
             # Build grid_id -> site_name lookup so names appear in outputs (any data may carry site_name)
-            if 'site_name' in clean_spp.columns:
-                name_acc = defaultdict(list)
-                grid_tree = cKDTree(coastal_grid_df[['latitude', 'longitude']].values)
-                for _, row in clean_spp.drop_duplicates(subset=['site_name']).iterrows():
-                    _, idx = grid_tree.query([row['latitude'], row['longitude']])
-                    name_acc[int(coastal_grid_df.iloc[idx]['grid_id'])].append(str(row['site_name']))
-                site_lookup = {gid: ' / '.join(names) for gid, names in name_acc.items()}
-                config['grids']['site_name_lookup'] = site_lookup
-                import comcon.interactive as _ci
-                if getattr(_ci, 'spp_params', None) is None:
-                    _ci.spp_params = {}
-                _ci.spp_params['site_name_lookup'] = site_lookup
-                print(f"  Mapped {len(site_lookup)} grid cells to site names.")
-                for gid, names in name_acc.items():
-                    if len(names) > 1:
-                        joined = "' and '".join(names)
-                        print(
-                            f"  Note: sites '{joined}' fall in the same grid cell. Your outputs will report their results together.")
+        if 'site_name' in clean_spp.columns:
+            name_acc = defaultdict(list)
+            grid_tree = cKDTree(coastal_grid_df[['latitude', 'longitude']].values)
+            for _, row in clean_spp.drop_duplicates(subset=['site_name']).iterrows():
+                _, idx = grid_tree.query([row['latitude'], row['longitude']])
+                name_acc[int(coastal_grid_df.iloc[idx]['grid_id'])].append(str(row['site_name']))
+            site_lookup = {gid: ' / '.join(names) for gid, names in name_acc.items()}
+            config['grids']['site_name_lookup'] = site_lookup
+            import comcon.interactive as _ci
+            if getattr(_ci, 'spp_params', None) is None:
+                _ci.spp_params = {}
+            _ci.spp_params['site_name_lookup'] = site_lookup
+            _ci.spp_params['has_site_names'] = True
+            print(f"  Mapped {len(site_lookup)} grid cells to site names.")
+            for gid, names in name_acc.items():
+                if len(names) > 1:
+                    joined = "' and '".join(names)
+                    print(
+                        f"  Note: Sites '{joined}' fall in the same grid cell. Your outputs will report their results together.")
 
         display_line("=")
         print(f"Release sites: {len(meshgrid)}")
@@ -1823,14 +1979,17 @@ def run_workflow(config):
         display_line("=")
 
         # Create fieldset
+        # Advection always runs on the native landmask
+        # When the analysis grid was binned, grid_ids are mapped back onto the native grid so particles sample the binned release/settlement ids during the simulation
         print("\nCreating fieldset...")
-        fieldset = create_fieldset(hydro_data, landmask, grid_ids)
+        if needs_binning:
+            native_grid_ids = create_native_grid_ids_from_binned(native_lonarray, native_latarray, native_landmask,
+                                                                 coastalmask, lonarray, latarray, coastal_grid_df)
+            fieldset = create_fieldset(hydro_data, native_landmask, native_grid_ids)
+        else:
+            fieldset = create_fieldset(hydro_data, landmask, grid_ids)
 
         # Parse release interval
-        display_line("=")
-        print("Particle Configuration")
-        display_line("=")
-
         interval_mapping = {
             'daily': timedelta(days=1),
             'weekly': timedelta(weeks=1),
@@ -1848,10 +2007,6 @@ def run_workflow(config):
         num_intervals = math.ceil(runtime_td / interval)
         adjusted_runtime = num_intervals * interval
 
-        print(f"Release interval: {interval.days} days")
-        print(f"Number of cohorts: {num_intervals}")
-        print(f"Adjusted runtime: {adjusted_runtime.days} days")
-
         # Setup particle arrays
         lats = meshgrid[:, 1].flatten()
         lons = meshgrid[:, 0].flatten()
@@ -1861,14 +2016,23 @@ def run_workflow(config):
         lon_list = list(itertools.chain.from_iterable(itertools.repeat(x, npart) for x in lons))
 
         total_particles = len(lat_list) * num_intervals
-        print(f"Particles per location: {npart}")
-        print(f"Total particles: {total_particles:}")
 
         # Add diffusivity
         kh = config['simulation']['horizontal_diffusivity']
         fieldset.add_constant_field("Kh_zonal", kh, mesh="spherical")
         fieldset.add_constant_field("Kh_meridional", kh, mesh="spherical")
-        print(f"Horizontal diffusivity: {kh} m²/s")
+
+        # Particle setup summary (matches the interactive 'The Particle Setup' box, wording-wise).
+        data_box("The Particle Setup", [
+            f"Release cohorts: {num_intervals}",
+            f"Interval: Every {interval.days} days",
+            f"Release locations: {len(lats)}",
+            f"Particles per location per cohort: {npart}",
+            f"Total particles per location (all cohorts): {npart * num_intervals}",
+            f"Total particles released (all cohorts x locations): {total_particles}",
+            f"Adjusted runtime: {adjusted_runtime.days} days",
+            f"Horizontal diffusivity (kh): {kh} m²/s",
+        ])
 
         # Create particle class
         extra_vars = [
@@ -1923,6 +2087,7 @@ def run_workflow(config):
         chunk_particles = min(mem_config['chunk_size'], len(pset))
 
         print("\nRunning simulation (this may take a while)...")
+        print("\n  Note: The progress bar may stay at 0% for 1-2 minutes while the simulation initialises.")
         output_file = pset.ParticleFile(
             name=output_path,
             outputdt=output_dt,
@@ -1956,7 +2121,7 @@ def run_workflow(config):
         subsection_header("Step 5: Post-Processing")
 
         buffer = config['postprocessing']['settlement_buffer']
-        final_processed, buffer = post_process(chunks_dir, traits, release_grids, settlement_grids, grid_ids)
+        final_processed, buffer = post_process(chunks_dir, traits, release_grids, settlement_grids, grid_ids, buffer=config.get('postprocessing', {}).get('settlement_buffer', 0))
 
         results['final_processed'] = final_processed
         results['traits'] = traits
@@ -1994,7 +2159,7 @@ def run_workflow(config):
             if run_comm:
                 type1_results['community'] = calculate_connectivity_metrics(
                     filtered_processed, release_grids, settlement_grids, traits, _traj_raw,
-                    print_summary=False, grid_ids=grid_ids
+                    print_summary=False
                 )
 
             # Per-species level
@@ -2011,25 +2176,35 @@ def run_workflow(config):
                         if sp_traits:
                             type1_results['per_species'][sp] = calculate_connectivity_metrics(
                                 sp_data, sp_release, sp_settle, sp_traits, _traj_raw,
-                                print_summary=False, grid_ids=grid_ids
+                                print_summary=False
                             )
 
             results['type1'] = type1_results
             print("  Connectivity metrics calculated")
 
-            # Export Type 1 metrics to CSV
+            # Export Type 1 metrics to CSV (per-label subfolders)
             try:
                 t1_root = config['output'].get('results_dir', config['project'].get('results', '.'))
-                os.makedirs(t1_root, exist_ok=True)
                 for _key, _result_data in type1_results.items():
                     if _key == 'per_species':
                         for _sp, _sp_data in _result_data.items():
                             if 'community' in _sp_data:
+                                _sp_dir = os.path.join(t1_root, _sp)
+                                os.makedirs(_sp_dir, exist_ok=True)
                                 pd.DataFrame([_sp_data['community']]).to_csv(
-                                    os.path.join(t1_root, f'connectivity_metrics_{_sp}.csv'), index=False)
+                                    os.path.join(_sp_dir, f'{_sp}_connectivity_summary.csv'), index=False)
                     elif 'community' in _result_data:
+                        _comm_dir = os.path.join(t1_root, _key)
+                        os.makedirs(_comm_dir, exist_ok=True)
                         pd.DataFrame([_result_data['community']]).to_csv(
-                            os.path.join(t1_root, f'connectivity_metrics_{_key}.csv'), index=False)
+                            os.path.join(_comm_dir, f'{_key}_connectivity_summary.csv'), index=False)
+                # Settlement attribution
+                _attr = build_settlement_attribution(settlement_grids, grid_ids, buffer)
+                for _sp, _attr_df in _attr.items():
+                    _sp_dir = os.path.join(t1_root, _sp)
+                    os.makedirs(_sp_dir, exist_ok=True)
+                    _attr_df.insert(0, 'species', _sp)
+                    _attr_df.to_csv(os.path.join(_sp_dir, f'{_sp}_settlement_attribution.csv'), index=False)
                 print(f"  Type 1 metric CSVs saved to: {t1_root}")
             except Exception as _t1_err:
                 print(f"  Note: Type 1 CSV export skipped ({_t1_err}).")
@@ -2039,13 +2214,24 @@ def run_workflow(config):
             subsection_header("Type 2: Network Analysis")
 
             scales = config['analysis'].get('type2_scales', [30])
+            scale_type = config['analysis'].get('scale_type', 'full_domain')
+            # Match interactive's scale labels: multi-scale uses named scales
+            # (full_domain/local/regional/seascape); single scale uses '<km>_km'.
+            if scale_type == 'multi':
+                _multi_names = ['full_domain', 'local', 'regional', 'seascape']
+                scale_names = [
+                    _multi_names[i] if i < len(_multi_names)
+                    else ('full_domain' if s is None else f'{s}_km')
+                    for i, s in enumerate(scales)
+                ]
+            else:
+                scale_names = ['full_domain' if s is None else f'{s}_km' for s in scales]
             all_network_results = {}
             run_comm = scope in ('community', 'both')
             run_persp = scope in ('per_species', 'custom', 'both')
             excl = config['analysis'].get('exclude_self_recruitment', True)
 
-            for scale in scales:
-                scale_name = 'full_domain' if scale is None else f'{scale}_km'
+            for scale, scale_name in zip(scales, scale_names):
                 print(f"\nProcessing scale: {scale_name}")
                 scale_results = {}
 
@@ -2094,39 +2280,25 @@ def run_workflow(config):
                         targets.extend(scale_data['per_species'].values())
                     for nr in targets:
                         try:
-                            add_custom_composite(nr, config['analysis']['custom_metrics'])
+                            add_custom_composite(nr, config['analysis']['custom_metrics'], verbose=False)
                         except Exception as _cc_err:
                             print(
-                                f"  Warning: custom composite could not be built ({_cc_err}); using the overall composite instead.")
+                                f"  Warning: custom composite could not be built ({_cc_err}). Using the overall composite instead.")
                             _custom_ok = False
                             break
                     if not _custom_ok:
                         break
                 if not _custom_ok:
                     config['analysis']['type2_composite'] = 'overall'
+                elif config['analysis'].get('custom_metrics'):
+                    _chosen = ', '.join(
+                        m.strip().lower().replace(' ', '_') for m in config['analysis']['custom_metrics'])
+                    print(f"  Added composite 'custom_composite' from: {_chosen}")
 
-            # Export Type 2 network CSVs to the results folder (data kept separate from figures)
-            results_root = config['output'].get('results_dir', config['project'].get('results', '.'))
-            for s_name, scale_data in all_network_results.items():
-                pairs = []
-                if 'community' in scale_data:
-                    pairs.append(('community', scale_data['community']))
-                if 'per_species' in scale_data:
-                    for sp, sp_nr in scale_data['per_species'].items():
-                        pairs.append((sp, sp_nr))
-                for level_label, nr in pairs:
-                    csv_subdir = os.path.join(results_root, f'{level_label}_{s_name}')
-                    os.makedirs(csv_subdir, exist_ok=True)
-                    try:
-                        with contextlib.redirect_stdout(io.StringIO()):
-                            export_network_results(nr, output_dir=csv_subdir)
-                    except Exception:
-                        pass
-            print(f"  Result CSVs saved to: {results_root}")
-
-            # Figure export
-            if (config['analysis'].get('type2_visualizations', 'skip') != 'skip'
-                    and config['output'].get('save_figures', True)):
+            # Figures FIRST so the Louvain community map writes 'louvain_community' into
+            # each result's site_metrics before the CSVs are exported (matches interactive).
+            # Gated by the single global 'Save figures' option.
+            if config['output'].get('save_figures', True):
                 fig_root = config['output'].get('figures_dir', config['output']['directory'])
                 fmt = config['output'].get('format', 'tif')
                 _dpi = config['output'].get('dpi', 300)
@@ -2135,6 +2307,7 @@ def run_workflow(config):
                                       'overall': 'overall_composite', 'custom': 'custom_composite'}
                 _chosen_col = _composite_col_map.get(config['analysis'].get('type2_composite', 'overall'),
                                                      'overall_composite')
+                _no_composite = config['analysis'].get('type2_composite') == 'none'
 
                 for s_name, scale_data in all_network_results.items():
                     pairs = []
@@ -2177,8 +2350,8 @@ def run_workflow(config):
                             ]
 
                             for metric_col, metric_label in [
-                                ('source', 'source_strength'),
-                                ('sink', 'sink_strength'),
+                                ('source_strength', 'source_strength'),
+                                ('sink_strength', 'sink_strength'),
                                 ('self_recruitment', 'self_recruitment'),
                                 ('betweenness', 'betweenness_centrality'),
                                 ('closeness', 'closeness_centrality'),
@@ -2195,6 +2368,10 @@ def run_workflow(config):
                                         )
                                     ))
 
+                            # "None" composite: skip the combined hotspot ranking figure.
+                            if _no_composite:
+                                save_list = [x for x in save_list if x[0] != 'hotspot_overall']
+
                             for fn, make_fig in save_list:
                                 try:
                                     fig = make_fig()
@@ -2205,9 +2382,38 @@ def run_workflow(config):
                                     pass
                 print(f"  Figures saved to: {fig_root}")
 
-        # Type 3: Trait Sensitivity
+            # Export Type 2 network CSVs AFTER figures, so 'louvain_community' (written by the
+            # community map into site_metrics) is included: results/<level>/<level>_<scale>_*.csv
+            results_root = config['output'].get('results_dir', config['project'].get('results', '.'))
+            _summary_done = set()  # write the network summary scalars once per dataset
+            for s_name, scale_data in all_network_results.items():
+                pairs = []
+                if 'community' in scale_data:
+                    pairs.append(('community', scale_data['community']))
+                if 'per_species' in scale_data:
+                    for sp, sp_nr in scale_data['per_species'].items():
+                        pairs.append((sp, sp_nr))
+                for level_label, nr in pairs:
+                    csv_subdir = os.path.join(results_root, level_label)
+                    os.makedirs(csv_subdir, exist_ok=True)
+                    _pfx = f'{level_label}_{s_name}'
+                    try:
+                        with contextlib.redirect_stdout(io.StringIO()):
+                            export_network_results(nr, output_dir=csv_subdir, prefix=_pfx)
+                    except Exception:
+                        pass
+                    if level_label not in _summary_done:
+                        try:
+                            export_network_summary(nr, csv_subdir, level_label)
+                        except Exception:
+                            pass
+                        _summary_done.add(level_label)
+            print(f"  Result CSVs saved to: {results_root}")
+
+        # Type 3: Trait Sensitivity (computed here; results displayed in the results section below)
         if config['analysis'].get('run_type3', False):
             subsection_header("Type 3: Trait Sensitivity Analysis")
+            print("  Computing Type 3: Trait Sensitivity Analysis...")
 
             # Trait sensitivity
             try:
@@ -2237,51 +2443,58 @@ def run_workflow(config):
                         new_t['spawning_start'] = (s + pd.Timedelta(days=start_shift)).strftime('%d/%m/%Y')
                         new_t['spawning_end'] = (e + pd.Timedelta(days=end_shift)).strftime('%d/%m/%Y')
                         modified_traits.append(new_t)
-                    scenario_name = (f"Spawn start{'+' if start_shift >= 0 else ''}{start_shift}, "
-                                     f"end{'+' if end_shift >= 0 else ''}{end_shift} days")
+                    scenario_name = (f"Spawn start {'+' if start_shift >= 0 else ''}{start_shift}, "
+                                     f"end {'+' if end_shift >= 0 else ''}{end_shift} days")
 
                 print(f"\n  Scenario: {scenario_name}")
 
                 # Baseline network: reuse the Type 2 result if available, else compute it
+                original_network = None
                 if 'type2' in results and results['type2']:
-                    original_network = list(results['type2'].values())[0]
-                else:
+                    _first_scale = list(results['type2'].values())[0]
+                    if isinstance(_first_scale, dict):
+                        if 'community' in _first_scale:
+                            original_network = _first_scale['community']
+                        elif _first_scale.get('per_species'):
+                            original_network = list(_first_scale['per_species'].values())[0]
+                if original_network is None:
                     print("  Running baseline network analysis...")
                     original_network = network_analysis(
                         filtered_processed, release_grids, settlement_grids,
                         coastal_grid_df, grid_ids, coastal_grid_df, t3_scale,
-                        exclude_self_recruitment=exclude_lr
+                        exclude_self_recruitment=exclude_lr, verbose=False
                     )
 
-                # Re-run post-processing + network analysis with the modified traits.
-                # post_process returns (final_processed, buffer) , unpack the tuple.
-                print("  Re-running post-processing with modified traits...")
+                # Re-run post-processing + network analysis with the modified traits
+                # post_process returns (final_processed, buffer) , unpack the tuple
+                print("  Starting post-processing for the trait sensitivity analysis...")
                 modified_processed, _ = post_process(
-                    chunks_dir, modified_traits, release_grids, settlement_grids, grid_ids
+                    chunks_dir, modified_traits, release_grids, settlement_grids, grid_ids,
+                    buffer=config.get('postprocessing', {}).get('settlement_buffer', 0)
                 )
 
-                print("  Running network analysis on the modified scenario...")
-                modified_network = network_analysis(
-                    modified_processed, release_grids, settlement_grids,
-                    coastal_grid_df, grid_ids, coastal_grid_df, t3_scale,
-                    exclude_self_recruitment=exclude_lr
-                )
+                if not modified_processed:
+                    print(
+                        "  Note: The modified scenario produced no successful trajectories, so the comparison was skipped.")
+                    modified_network = None
+                else:
+                    print("  Running network analysis on the modified scenario...")
+                    modified_network = network_analysis(
+                        modified_processed, release_grids, settlement_grids,
+                        coastal_grid_df, grid_ids, coastal_grid_df, t3_scale,
+                        exclude_self_recruitment=exclude_lr, verbose=False
+                    )
 
                 if modified_network:
                     comparison = compare_models(original_network, modified_network)
 
                     original_type1 = calculate_connectivity_metrics(
-                        filtered_processed, release_grids, settlement_grids, traits, None,
-                        print_summary=False, grid_ids=grid_ids
+                        filtered_processed, release_grids, settlement_grids, traits, _traj_raw,
+                        print_summary=False
                     )
                     modified_type1 = calculate_connectivity_metrics(
-                        modified_processed, release_grids, settlement_grids, modified_traits, None,
-                        print_summary=False, grid_ids=grid_ids
-                    )
-
-                    display_sensitivity_comparison(
-                        original_type1, modified_type1, comparison,
-                        title=f"Original vs {scenario_name}"
+                        modified_processed, release_grids, settlement_grids, modified_traits, _traj_raw,
+                        print_summary=False
                     )
 
                     results['type3'] = {
@@ -2292,17 +2505,17 @@ def run_workflow(config):
                         'original_metrics': original_type1,
                         'modified_metrics': modified_type1,
                     }
-                    print("\n  Type 3 sensitivity analysis complete.")
+                    print("  Type 3 computed; see the Analysis Results section below.")
 
             except Exception as _t3_err:
                 print(f"\n  Error in trait sensitivity: {_t3_err}")
                 traceback.print_exc()
 
             # ── Workflow complete (runs regardless of which analyses were selected) ──
-        section_header("Automatic Workflow Complete")
-
-        # Display the interactive viewers so the user can inspect results
-        # when they return to the notebook. Same viewers as interactive mode.
+        # Structured analysis-results display, matching interactive and passive:
+        # a subtitle + short explanation before each viewer, rendered inline.
+        _animation_path = None
+        section_header("Analysis Results")
         try:
             from comcon.interactive import (
                 trait_metrics_viewer, network_metrics_viewer,
@@ -2311,38 +2524,179 @@ def run_workflow(config):
             )
 
             if 'type1' in results:
-                subsection_header("Type 1: Connectivity Metrics , Interactive Viewer")
-                trait_metrics_viewer(results['type1'])
+                section_header("Type 1: Connectivity Metrics")
+                info_box([
+                    "Type 1 reports connectivity summary statistics for the community and each species:",
+                    "  - Settlement rate and mortality rate",
+                    "  - Self-recruitment rate",
+                    "  - Dispersal distance (km) and realised PLD (days)",
+                    "",
+                    "Use the dropdown to switch between the community and individual species.",
+                ])
+                print()
+                subsection_header("Connectivity Metrics")
+                try:
+                    trait_metrics_viewer(results['type1'])
+                except Exception as e:
+                    print(f"  Note: Metrics viewer could not be displayed: {e}")
+
+                # Particle dispersal animation, loaded from the on-disk chunks.
+                # Exported automatically when 'save figures' was chosen (no extra prompt),
+                # and shown inline alongside the other Type 1 output.
+                print()
+                subsection_header("Dispersal Animation")
+                print("  The animation uses the raw, combined trajectory data (all particles pooled across species), not the filtered per-species connectivity data used for the matrices and metrics.")
+                try:
+                    from comcon.interactive import load_traj_from_chunks, dispersal_animation
+                    _anim_chunks = results.get('chunks_dir')
+                    if _anim_chunks and os.path.isdir(str(_anim_chunks)):
+                        _anim_traj = load_traj_from_chunks(_anim_chunks)
+                        if _anim_traj is not None and not _anim_traj.empty:
+                            _anim_out = None
+                            if config['output'].get('save_figures', True):
+                                _anim_dir = (config['project'].get('animation')
+                                             or os.path.join(config['project']['root'], 'animation'))
+                                os.makedirs(_anim_dir, exist_ok=True)
+                                _anim_out = os.path.join(_anim_dir, 'dispersal_animation.mp4')
+                            # Show the animation inline. Capture its stdout so we can re-emit the
+                            # progress notes (e.g. the "Long simulation detected: Showing every N
+                            # day(s)" frame-thinning message, matching interactive/passive) while
+                            # dropping the inline "Animation saved to:" line, since the path is
+                            # listed once in the run-summary box at the end.
+                            _anim_buf = io.StringIO()
+                            with contextlib.redirect_stdout(_anim_buf):
+                                dispersal_animation(_anim_traj, output_path=_anim_out, show_in_notebook=True)
+                            for _line in _anim_buf.getvalue().splitlines():
+                                if 'Animation saved to' not in _line:
+                                    print(_line)
+                            if _anim_out and os.path.exists(_anim_out):
+                                _animation_path = _anim_out
+                            del _anim_traj
+                            import gc as _gc
+                            _gc.collect()
+                        else:
+                            print("  No trajectory data available for animation.")
+                    else:
+                        print("  No trajectory data available for animation.")
+                except Exception as e:
+                    print(f"  Note: Animation could not be displayed: {e}")
 
             if 'type2' in results:
-                subsection_header("Type 2: Network Analysis , Interactive Viewers")
-                network_metrics_viewer(results['type2'])
-                trait_matrix_viewer(results['type2'])
-                trait_metric_viewer(results['type2'])
-                trait_heatmap_viewer(results['type2'])
-                trait_community_viewer(results['type2'])
+                section_header("Type 2: Results")
+                info_box([
+                    "Type 2 treats the connectivity data as a directed weighted network.",
+                    "In this network nodes = sites, edges = counts of particles moving between sites.",
+                    "Five complementary outputs are generated:",
+                    "",
+                    "1. Network analysis summary: ",
+                    "   - Number of species"
+                    "   - Study extent"
+                    "   - Potential connectivity sites"
+                    "   - Realised connectivity sites"
+                    "   - Unique connections",
+                    "",
+                    "2. Connectivity matrix: ",
+                    "   - Source-sink matrix of particle exchanges",
+                    "",
+                    "3. Directed network with hotspots: ",
+                    "   - All sites are coloured by the selected network metric (rank 1 = best)",
+                    "   - The top 10 connectivity hotspots are indicated",
+                    "   - Select 'Network only (no metric)' to see the directed structure: arrows for the strongest site-to-site links and rings for self-recruitment",
+                    "",
+                    "4. Site × metric heatmap: ",
+                    "   - Compact overview of rank across all metrics for every site in the dataset",
+                    "",
+                    "5. Louvain communities: ",
+                    "   - Sites are grouped by shared connectivity patterns",
+                    "   - A distinct colour per community (the biggest communities are labelled in the legend)",
+                    "   - A table beneath the map gives the Louvain/graph parameters (nodes, edges, communities, and):",
+                    "       - Density: percentage of possible site-to-site connections that exist (0-1). Low (<0.5) = most sites unconnected; high (>0.5) = most connected",
+                    "       - Modularity: how cleanly the network separates into communities (-0.5 to 1). High (>=0.3) = well-separated communities; low (<0.3) = weak partition",
+                    "",
+                    "Use the dropdowns below each viewer to switch between analysis levels, spatial scales and (for the hotspot map) network metrics.",
+                ])
+
+                print()
+                subsection_header("Network summary")
+                try:
+                    network_metrics_viewer(results['type2'])
+                except Exception as e:
+                    print(f"  Note: Network viewer could not be displayed: {e}")
+
+                print()
+                subsection_header("Connectivity matrix")
+                try:
+                    trait_matrix_viewer(results['type2'])
+                except Exception as e:
+                    print(f"  Note: Matrix viewer could not be displayed: {e}")
+
+                print()
+                subsection_header("Directed connectivity network with hotspots")
+                try:
+                    trait_metric_viewer(results['type2'])
+                except Exception as e:
+                    print(f"  Note: Metric viewer could not be displayed: {e}")
+
+                print()
+                subsection_header("Site × metric heatmap")
+                try:
+                    trait_heatmap_viewer(results['type2'])
+                except Exception as e:
+                    print(f"  Note: Heatmap viewer could not be displayed: {e}")
+
+                print()
+                subsection_header("Louvain communities")
+                try:
+                    trait_community_viewer(results['type2'])
+                except Exception as e:
+                    print(f"  Note: Community viewer could not be displayed: {e}")
+
+                # Type 3: Trait Sensitivity results (table + two comparison maps)
+            if 'type3' in results:
+                from comcon.interactive import create_comparison_map, build_trait_sensitivity_table
+                t3 = results['type3']
+                section_header("Type 3: Trait Sensitivity Analysis")
+                info_box([
+                    "Type 3 re-runs the analysis with one trait modified and compares it to the baseline.",
+                    f"Scenario: {t3['scenario']}",
+                    "The table shows how the community-level metrics shift. The two maps below show the",
+                    "hotspot ranking under the original and modified traits as separate figures.",
+                ])
+                try:
+                    display_sensitivity_comparison(
+                        t3['original_metrics'], t3['modified_metrics'], t3['comparison'],
+                        title=f"Original vs {t3['scenario']}"
+                    )
+                except Exception as e:
+                    print(f"  Note: Sensitivity comparison table could not be displayed: {e}")
+                try:
+                    _t3_fig_dir = config['project'].get('figures', '.')
+                    _t3_safe = (t3['scenario'].replace(' ', '_').replace('/', '-').replace(',', ''))
+                    create_comparison_map(
+                        t3['original_network'], t3['modified_network'],
+                        title1='Original Traits', title2=t3['scenario'],
+                        output_path=os.path.join(_t3_fig_dir, f"trait_sensitivity_{_t3_safe}")
+                    )
+                except Exception as e:
+                    print(f"  Note: Comparison maps could not be displayed: {e}")
+                try:
+                    # Auto-export the Type 3 comparison table (original vs modified) to results
+                    _t3_results_dir = os.path.join(
+                        config['output'].get('results_dir', config['project'].get('results', '.')), 'community')
+                    os.makedirs(_t3_results_dir, exist_ok=True)
+                    build_trait_sensitivity_table(t3).to_csv(
+                        os.path.join(_t3_results_dir, f"community_trait_sensitivity_{_t3_safe}.csv"),
+                        index=False)
+                    print(f"  Type 3 results saved to: {_t3_results_dir}")
+                except Exception as e:
+                    print(f"  Note: Type 3 results CSV could not be saved: {e}")
         except Exception as _viewer_err:
-            print(f"  Note: interactive viewers could not be displayed ({_viewer_err}).")
-            print("  Results dictionary is still returned and can be passed to viewers manually.")
 
-        print(f"\nOutput directory: {config['output']['directory']}")
-
-        analyses_run = []
-        if 'type1' in results:
-            analyses_run.append("Type 1: Connectivity Metrics")
-        if 'type2' in results:
-            analyses_run.append("Type 2: Network Analysis")
-        if 'type3' in results:
-            analyses_run.append("Type 3: Trait Sensitivity")
-
-        print("\nCompleted analyses:")
-        for a in analyses_run:
-            print(f"    - {a}")
-
-        print("\nResults stored in returned dictionary.")
-        print("Access with: results['type1'], results['type2'], etc.")
+            print(f"  Note: Interactive viewers could not be displayed ({_viewer_err}).")
+            print("  The results dictionary is still returned and can be passed to the viewers manually.")
 
         # Save metadata file (comcon_outputs.xlsx), matching interactive and passive.
+        metadata_path = None
         try:
             import comcon.interactive as _ci
             _loc = locals()
@@ -2358,6 +2712,33 @@ def run_workflow(config):
                 'has_site_names': bool((getattr(_ci, 'spp_params', {}) or {}).get('site_name_lookup')),
             }
             _hydro_meta = {'dataset_id': config.get('copernicus', {}).get('dataset_id', 'unknown')}
+            _cop = config.get('copernicus', {})
+            _sim = config.get('simulation', {})
+            _ana = config.get('analysis', {})
+            _extra_meta = {
+                'domain': {
+                    'min_lat': _cop.get('min_lat'), 'max_lat': _cop.get('max_lat'),
+                    'min_lon': _cop.get('min_lon'), 'max_lon': _cop.get('max_lon'),
+                    'hydro_source': 'Copernicus download',
+                },
+                'simulation_parameters': {
+                    'horizontal_diffusivity_kh': _sim.get('horizontal_diffusivity'),
+                    'particles_per_release_site': _sim.get('particles_per_location'),
+                    'dt_minutes': _sim.get('dt_minutes'),
+                    'output_dt_hours': _sim.get('output_dt_hours'),
+                    'grid_resolution_mode': config.get('grid', {}).get('resolution_mode'),
+                    'grid_resolution_km': config.get('grid', {}).get('resolution_km'),
+                    'grid_needs_binning': config.get('grid', {}).get('needs_binning'),
+                },
+                'analysis': {
+                    'run_type1': _ana.get('run_type1'),
+                    'run_type2': _ana.get('run_type2'),
+                    'run_type3': _ana.get('run_type3'),
+                    'exclude_self_recruitment': _ana.get('exclude_self_recruitment'),
+                    'type2_scale_type': _ana.get('scale_type'),
+                    'type2_scales_km': _ana.get('type2_scales'),
+                },
+            }
             metadata_dict = _ci.trait_metadata(
                 _spp_meta,
                 _loc.get('traits', []),
@@ -2367,15 +2748,51 @@ def run_workflow(config):
                 _loc.get('interval', None),
                 _loc.get('release_grids', {}),
                 _loc.get('settlement_grids', {}),
+                type3=results.get('type3'),
+                extra=_extra_meta,
             )
-            _ci.write_project_metadata(config['project'], metadata_dict, 'trait', metadata_path)
-            print(f"  Metadata saved: {metadata_path}")
+            _meta_ok = _ci.write_project_metadata(config['project'], metadata_dict, 'trait', metadata_path)
+            if not _meta_ok:
+                print("  Metadata file was not written (run: pip install openpyxl).")
         except Exception as _meta_err:
-            print(f"  Note: could not save metadata file ({_meta_err}).")
+            print(f"  Note: Could not save metadata file ({_meta_err}).")
 
-        print("\n  ✓ Step 6 completed: Connectivity analyses finished.\n")
+        # Tidy run summary, matching passive's ending. The raw results dict is
+        # returned (not echoed) so the notebook stays readable.
+        analyses_run = []
+        if 'type1' in results:
+            analyses_run.append("Type 1: Connectivity Metrics")
+        if 'type2' in results:
+            analyses_run.append("Type 2: Network Analysis")
+        if 'type3' in results:
+            analyses_run.append("Type 3: Trait Sensitivity")
 
-        return results
+        section_header("Automatic Workflow Complete")
+        _summary_lines = ["Run summary:"]
+        try:
+            _summary_lines.append(f"  Species analysed:   {len(traits)}")
+        except Exception:
+            pass
+        _summary_lines.append(
+            f"  Analyses completed: {', '.join(analyses_run) if analyses_run else 'none'}")
+        _summary_lines += [
+            "",
+            "Output files:",
+            f"  Project folder:  {config['project']['root']}",
+            f"  Simulation data: {config['project']['simulation']}",
+            f"  Results:         {config['project']['results']}",
+            f"  Figures:         {config['project']['figures']}",
+        ]
+        if _animation_path:
+            _summary_lines.append(f"  Animation:       {_animation_path}")
+        if metadata_path:
+            _summary_lines.append(f"  Metadata:        {metadata_path}")
+        info_box(_summary_lines)
+
+        # Stash for programmatic access without echoing the large dict to the notebook
+        import builtins as _b
+        _b.comcon_results = results
+        return None
 
 
 # endregion

@@ -1,4 +1,4 @@
-"""
+﻿"""
 ComCon: Community Connectivity Package
 =======================================
 
@@ -104,7 +104,7 @@ try:
         raise FileNotFoundError
 except (FileNotFoundError, OSError):
     try:
-        print("  Note: ffmpeg not found. Animations will display in-notebook but MP4 export is unavailable.")
+        print("  Note: The ffmpeg tool was not found. Animations will display in-notebook but MP4 export is unavailable.")
         print("  To enable MP4 export, run: conda install -c conda-forge ffmpeg\n")
     except Exception:
         pass
@@ -218,7 +218,7 @@ def choose_pathway():
         print("     - You will need Copernicus Marine Service credentials (first run only and saved for future use)")
         print( "  - Selection of your species of interest and traits: planktonic larval duration, spawning window and habitat preference")
         print("     - This can be uploaded as a CSV or selected from the built-in database of common intertidal rocky shore species")
-        print("  - Selection of your study area")
+        print("  - Selection of your study extent")
         print("     - This can be done interactively via the package or uploaded as a GeoJSON file of a spatial polygon")
         print("  - Selection of release and settlement preferences using habitat suitability or species occurrence data")
         print("     - This can be done using GBIF to download occurrence data or uploaded as a CSV")
@@ -280,10 +280,10 @@ def choose_pathway():
                     print("Guides users step-by-step through the complete workflow with detailed explanations, customisation options and visualisations at each step.")
                     print("Recommended for first-time users and for exploratory analysis.\n")
                     print("Step-by-step workflow with 6 main steps:")
-                    print("  1. Hydrodynamic and Trait Data Setup")
-                    print("  2. Species Occurrence Data Setup")
-                    print("  3. Release/Settlement Setup")
-                    print("  4. Particle Simulation")
+                    print("  1. Hydrodynamic and Trait Data")
+                    print("  2. Species Occurrence Data")
+                    print("  3. Simulation Setup")
+                    print("  4. Execute the Simulation")
                     print("  5. Post-Processing")
                     print("  6. Connectivity Analyses")
                     print("")
@@ -299,10 +299,10 @@ def choose_pathway():
                     display_line("─")
                     print("Collects all parameters upfront, then runs the entire workflow automatically with progress updates only.")
                     print("\nThis will complete the following 6 main steps:")
-                    print("  1. Hydrodynamic and Trait Data Setup")
-                    print("  2. Species Occurrence Data Setup")
-                    print("  3. Release/Settlement Site Setup")
-                    print("  4. Particle Simulation")
+                    print("  1. Hydrodynamic and Trait Data")
+                    print("  2. Species Occurrence Data")
+                    print("  3. Simulation Setup")
+                    print("  4. Execute the Simulation")
                     print("  5. Post-Processing")
                     print("  6. Connectivity Analyses")
                     print("")

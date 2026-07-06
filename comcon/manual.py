@@ -1,4 +1,4 @@
-# region Manual Mode Functions
+﻿# region Manual Mode Functions
 """
 ComCon Manual Mode
 ==================
@@ -101,9 +101,9 @@ from comcon.interactive import (
 
     # Step 1: Hydrodynamic Data Functions
     # Wrapper functions (have input() - use for interactive work)
-    params,  # Collect all hydro params interactively
+    params,  # Full Step 1: collect/edit/save hydrodynamic params AND load species traits
     load_spp_traits,  # Load traits with prompts
-    collect_hydro_params,  # Collect hydro params only
+    collect_hydro_params,  # Collect hydrodynamic params only (the subset that params() calls)
     setup_project_directory,  # Create/use project directory
     get_default_dir,  # Get project-aware default path
 
@@ -135,9 +135,12 @@ from comcon.interactive import (
     plot_spp_occ,  # Plot species occurrences
     validate_uploaded_data,  # Validate uploaded data
 
-    # Step 3: Grid Setup Functions
+# Step 3: Simulation Setup Functions
     # Wrapper function (has input() - use for interactive work)
     setup_release_settlement,  # Complete grid setup with prompts
+    choose_grid_resolution,  # Pick native/recommended/custom analysis resolution
+    bin_mask,  # Bin native masks to a coarser target resolution
+    create_native_grid_ids_from_binned,  # Map binned grid_ids onto the native grid for the fieldset
 
     # Direct functions (no input() - use in scripts)
     map_spp_to_grid,  # Map species to grid
@@ -146,7 +149,7 @@ from comcon.interactive import (
     reflective_boundary,  # Create boundary vectors
     create_fieldset,  # Create OceanParcels fieldset
 
-    # Step 4: Simulation Functions
+    # Step 4: Execute the Simulation Functions
     # Wrapper functions (have input() - use for interactive work)
     create_pset,  # Create ParticleSet with prompts
     execute_simulation,  # Run simulation with prompts
@@ -187,6 +190,8 @@ from comcon.interactive import (
     display_sensitivity_comparison,  # Display Type 3 sensitivity results
     export_connectivity_metrics,  # Export Type 1 metrics to CSV
     export_network_results,  # Export Type 2 network results to CSV
+    build_trait_sensitivity_table,  # Type 3: build/export the trait-sensitivity table: build_trait_sensitivity_table(t3).to_csv(...)
+    build_settlement_attribution,  # Settlement buffer attribution table
 
     # Visualisation Functions
     plot_masks,  # Visualise masks
@@ -194,7 +199,7 @@ from comcon.interactive import (
     create_connectivity_matrix_plot,  # Matrix heatmap
     create_comparison_map,  # Side-by-side comparison
 
-    # Interactive result viewers (dropdown widgets — use in Jupyter Lab)
+    # Interactive result viewers (dropdown widgets, use in Jupyter Lab)
     trait_metrics_viewer,  # Type 1 metrics, per species (dropdown)
     network_metrics_viewer,  # Type 2 summary stats (dropdown)
     trait_matrix_viewer,  # Type 2 connectivity matrix (dropdown)
@@ -217,12 +222,12 @@ def list_functions():
 
     print("""Functions are organized by workflow step. Each function is marked as:
   [I] = Interactive (has input() prompts and needs to be used in Jupyter Lab)
-  [D] = Direct (no prompts and can use in scripts)
+  [D] = Direct (no prompts and can be used in scripts)
 """)
 
     categories = {
         "Step 1: Hydrodynamic and Trait Data": [
-            ("[I] params", "Collect all hydro params interactively"),
+            ("[I] params", "Full Step 1: collect/edit/save hydro params and load species traits"),
             ("[I] load_spp_traits", "Load species traits with prompts"),
             ("[I] collect_hydro_params", "Collect hydrodynamic parameters"),
             ("[I] setup_project_directory", "Create or use a project directory"),
@@ -232,22 +237,22 @@ def list_functions():
             ("[D] calculate_overall_dispersal_period", "Calculate dispersal dates"),
         ],
         "Step 2: Species Occurrence Data": [
-            ("[I] spp_occ", "Complete species occurrence workflow"),
-            ("[D] read_geojson", "Load study area polygon"),
-            ("[D] get_spp_occ", "- Download species from GBIF from a provided species list"),
-            ("[D] get_all_spp_occ", "Download all species in study area"),
+            ("[I] spp_occ", "Complete species occurrence data setup"),
+            ("[D] read_geojson", "Load study extent polygon"),
+            ("[D] get_spp_occ", "Download species from GBIF from a provided species list"),
+            ("[D] get_all_spp_occ", "Download all species in study extent"),
             ("[D] create_masks", "Create land/coastal masks"),
             ("[D] clean_spp_occ", "Filter occurrences by habitat type"),
             ("[D] validate_spp_occ", "Validate sample sizes"),
         ],
-        "Step 3: Release and Settlement Setup": [
+        "Step 3: Simulation Setup": [
             ("[I] setup_release_settlement", "Complete grid setup with prompts"),
             ("[D] map_spp_to_grid", "Map species occurrences to grid"),
-            ("[D] filter_by_polygon", "Filter grid to study area"),
+            ("[D] filter_by_polygon", "Filter grid to study extent"),
             ("[D] create_fieldset", "Create OceanParcels fieldset"),
-            ("[D] reflective_boundary", "Create boundary reflection vectors"),
+            ("[D] reflective_boundary", "Create coastal boundary reflection vectors"),
         ],
-        "Step 4: Particle Simulation": [
+        "Step 4: Execute the Simulation": [
             ("[I] create_pset", "Create ParticleSet with prompts"),
             ("[I] execute_simulation", "Run simulation with prompts"),
             ("[D] create_custom_kernels", "Build particle behaviour kernels"),
@@ -272,6 +277,7 @@ def list_functions():
             ("[D] display_sensitivity_comparison", "Display Type 3 sensitivity results"),
             ("[D] export_connectivity_metrics", "Export Type 1 metrics to CSV"),
             ("[D] export_network_results", "Export Type 2 network results to CSV"),
+            ("[D] build_trait_sensitivity_table", "Export Type 3 trait-sensitivity table to CSV"),
         ],
         "Visualisation": [
             ("[D] plot_masks", "Visualise land/coastal classification"),
@@ -299,8 +305,8 @@ def list_functions():
         "Session & Shortcuts": [
             ("[D] save_session", "Save the workflow so you can resume later"),
             ("[D] load_session", "Reload a previously saved workflow"),
-            ("[D] run_postprocessing_only", "Re-run post-processing on loaded trajectory data without prompts (scriptable post_processing"),
-            ("[D] run_analysis_only", "Run Type 1/2 without no prompts (scriptable post_analysis)"),
+            ("[D] run_postprocessing_only", "Run post-processing on loaded data without prompts (scriptable post_processing"),
+            ("[D] run_analysis_only", "Run Type 1/2 without prompts (scriptable post_analysis)"),
         ],
     }
 
@@ -341,7 +347,7 @@ def example_workflow():
         "from comcon.manual import *",
         "",
         "# Set up a project directory (organises all outputs into subfolders)",
-        "project_dirs = setup_project_directory()",
+        "project_dirs = setup_project_directory(mode_tag='man')",
         "",
         "# Or use your own directory:",
         "# project_dirs = setup_project_directory(custom_path='/path/to/your/folder')"
@@ -352,7 +358,7 @@ def example_workflow():
         "hydro_data = download_hydrodynamic_data(**hydro_params)",
         "",
         "# or load from a previously saved local file (no internet needed):",
-        "# hydro_data = load_hydrodynamic_data(project_dirs['data'] + '/hydro_data.nc')"
+        "# hydro_data = load_hydrodynamic_data(project_dirs['hydro_data'] + '/hydro_data.nc')"
     ])
 
     code_box("Step 2: Download and clean species occurrence data", [
@@ -362,13 +368,28 @@ def example_workflow():
     ])
 
     code_box("Step 3: Set up release and settlement grids, create fieldset", [
+        "# Optional: choose a coarser analysis resolution (fewer release/settlement sites).",
+        "# Particle advection always runs on the native grid regardless of this choice.",
+        "native_landmask, native_lonarray, native_latarray = landmask, lonarray, latarray",
+        "resolution_km, needs_binning = choose_grid_resolution(lonarray, latarray)",
+        "if needs_binning:",
+        "    landmask, lonarray, latarray = bin_mask(landmask, lonarray, latarray, target_km=resolution_km)",
+        "    coastalmask = make_coastalmask(landmask)",
+        "",
         "(meshgrid, release_grids, settlement_grids, full_grid_df, grid_ids,",
         " coastal_grid, coastal_grid_df, coastal_grid_filtered,",
         " grid_df_for_mapping) = setup_release_settlement(",
-        "    coastalmask, landmask, clean_spp, spp_params, lonarray, latarray",
+        "    coastalmask, landmask, clean_spp, spp_params, lonarray, latarray, traits=traits",
         ")",
         "",
-        "fieldset = create_fieldset(hydro_data, landmask, grid_ids)"
+        "# Fieldset always uses the native landmask and maps grid_ids back to native when binned.",
+        "if needs_binning:",
+        "    grid_ids_native = create_native_grid_ids_from_binned(",
+        "        native_lonarray, native_latarray, native_landmask,",
+        "        coastalmask, lonarray, latarray, coastal_grid_df)",
+        "    fieldset = create_fieldset(hydro_data, native_landmask, grid_ids_native)",
+        "else:",
+        "    fieldset = create_fieldset(hydro_data, landmask, grid_ids)"
     ])
 
     code_box("Step 4: Create particle set and run simulation", [
@@ -467,9 +488,9 @@ def example_workflow():
         "from comcon.manual import *",
         "",
         "# Optional: Set up project directory",
-        "project_dirs = setup_project_directory()",
+        "project_dirs = setup_project_directory(mode_tag='man')",
         "",
-        "# Load study area polygon",
+        "# Load study extent polygon",
         "geometry, shapely_polygon = read_geojson('./study_area.geojson')",
         "",
         "# Download species from GBIF",
@@ -536,8 +557,8 @@ def example_workflow():
         "→ Returns: clean_spp, spp_params, landmask, coastalmask, lonarray, latarray"
     ])
 
-    data_box("setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonarray, latarray)", [
-        "All parameters from spp_occ() output",
+    data_box("setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonarray, latarray, traits=traits)", [
+        "All parameters from spp_occ() output (pass traits so all-sites/pooled release every modelled species)",
         "→ Returns: meshgrid, release_grids, settlement_grids, full_grid_df,",
         "           grid_ids, coastal_grid, coastal_grid_df, coastal_grid_filtered,",
         "           grid_df_for_mapping"
@@ -693,7 +714,7 @@ coastal_grid_df : pandas.DataFrame
 grid_ids : numpy.ndarray
     2D array mapping lat/lon indices to grid_id values
 full_grid_df : pandas.DataFrame
-    Full study area grid
+    Full study extent grid
 null_scale : float
     Distance threshold in km for filtering connections
 
@@ -767,7 +788,7 @@ def run_analysis_only(final_processed, release_grids, settlement_grids, traits,
         print("\nType 1: Connectivity Metrics")
         display_line("-")
         results['type1'] = calculate_connectivity_metrics(
-            final_processed, release_grids, settlement_grids, traits, grid_ids=grid_ids
+            final_processed, release_grids, settlement_grids, traits
         )
         display_metrics_table(results['type1'])
 
@@ -784,7 +805,7 @@ def run_analysis_only(final_processed, release_grids, settlement_grids, traits,
 
 ## Re-run post-processing on loaded trajectory data with different parameters
 def run_postprocessing_only(traj, traits, release_grids, settlement_grids,
-                            grid_ids, buffer=1):
+                            grid_ids, buffer=0):
     """
     Run post-processing on existing trajectory data.
 
@@ -985,6 +1006,9 @@ __all__ = [
 
     # Step 3 functions
     'setup_release_settlement',
+    'choose_grid_resolution',
+    'bin_mask',
+    'create_native_grid_ids_from_binned',
     'map_spp_to_grid',
     'filter_by_polygon',
     'save_grids',
@@ -1022,6 +1046,7 @@ __all__ = [
     'display_sensitivity_comparison',
     'export_connectivity_metrics',
     'export_network_results',
+    'build_settlement_attribution',
 
     # Visualisation
     'plot_masks',
