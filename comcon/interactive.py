@@ -11997,14 +11997,26 @@ def create_comparison_map(baseline_results, modified_results, output_path=None,
         _t10 = _results.get('top10_overall', _sm.head(10))
         _ng = _results.get('network_graph')
         _out = f"{output_path}_{_suffix}.{output_format}" if output_path else None
+        # Build (and save) each map without letting create_network_map show it; both are displayed
+        # explicitly below so the original always appears above the modified, regardless of how much
+        # other output the surrounding cell produces (two separate plt.show() calls can otherwise be
+        # collapsed under Jupyter's "Show more outputs" fold).
         fig = create_network_map(
             _sm, _t10, title=_title,
             composite_col='overall_composite', cmap='viridis_r',
             output_path=_out, output_format=output_format, dpi=dpi,
-            show_figure=True, network_graph=_ng, top_n_edges=200,
+            show_figure=False, network_graph=_ng, top_n_edges=200,
             subtitle='Sites coloured by overall composite hotspot rank (1 = best)',
         )
         figs.append(fig)
+
+    # Display the two maps in order (original first, then modified) as separate outputs.
+    try:
+        from IPython.display import display as _ipy_display
+        for _fig in figs:
+            _ipy_display(_fig)
+    except Exception:
+        pass
     return figs
 
     # endregion
@@ -13737,7 +13749,8 @@ def post_analysis(final_processed):
                                     original_network, modified_network,
                                     title1='Original Traits',
                                     title2=scenario_name,
-                                    output_path=os.path.join(_fig_dir, f"trait_sensitivity_{_safe_scn}")
+                                    output_path=os.path.join(_fig_dir, f"trait_sensitivity_{_safe_scn}"),
+                                    output_format='tif', dpi=300,
                                 )
 
                         print("\n Type 3 sensitivity analysis complete")

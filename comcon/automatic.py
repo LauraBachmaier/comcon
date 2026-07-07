@@ -2661,7 +2661,9 @@ def run_workflow(config):
                     create_comparison_map(
                         t3['original_network'], t3['modified_network'],
                         title1='Original Traits', title2=t3['scenario'],
-                        output_path=os.path.join(_t3_fig_dir, f"trait_sensitivity_{_t3_safe}")
+                        output_path=os.path.join(_t3_fig_dir, f"trait_sensitivity_{_t3_safe}"),
+                        output_format=config['output'].get('format', 'tif'),
+                        dpi=config['output'].get('dpi', 300),
                     )
                 except Exception as e:
                     print(f"  Note: Comparison maps could not be displayed: {e}")
