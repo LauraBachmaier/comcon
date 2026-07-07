@@ -2399,7 +2399,7 @@ def passive_dispersal_pathway(simulation_year=None):
         if _meta_ok:
             print(f"  Metadata saved: {metadata_path}")
         else:
-            print("  Metadata file was not written (run: pip install openpyxl).")
+            print("  Metadata file was not written. It may be open in another program (close it and re-run), or openpyxl may not be installed (pip install openpyxl).")
     except Exception as e:
         print(f"  Warning: Could not write metadata file ({e}).")
 

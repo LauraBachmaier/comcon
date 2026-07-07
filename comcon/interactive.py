@@ -13838,7 +13838,7 @@ def post_analysis(final_processed):
             }
         _meta_ok = write_project_metadata(_proj_dirs, metadata_dict, 'trait', metadata_path)
         if not _meta_ok:
-            print("  Metadata file was not written (run: pip install openpyxl).")
+            print("  Metadata file was not written. It may be open in another program (close it and re-run), or openpyxl may not be installed (pip install openpyxl).")
     except Exception as e:
         print(f"  Note: Could not save metadata file: {e}")
 
