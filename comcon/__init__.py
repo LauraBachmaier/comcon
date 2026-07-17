@@ -66,6 +66,32 @@ def display_line(char="═"):
         print(char * width)
 
 
+def copy_paste_prompt(code_lines, intro="To begin"):
+    """Print a prominent, hard-to-miss instruction telling the user to copy the given line(s)
+    into a NEW Jupyter cell and run them. Rendered bold (via a styled HTML block, falling back
+    to ANSI bold) so it stands out from the surrounding text - ComCon's workflow always advances
+    by running the next line in a fresh cell, and this makes that step obvious every time."""
+    _code = "\n".join(str(c) for c in code_lines)
+    try:
+        display(HTML(
+            f'<div style="border-left:4px solid #6366f1; background:rgba(99,102,241,0.10); '
+            f'padding:12px 16px; margin:10px 0; border-radius:8px; '
+            f'font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif; line-height:1.55;">'
+            f'<div style="font-size:0.95em;">'
+            f'<span style="color:#6366f1;">&#9654;</span> <b>{intro}</b> &mdash; open a <b>new cell</b> '
+            f'(the <b>+</b> button, or <b>Esc</b> then <b>B</b>), paste below, and run with <b>Shift + Enter</b>:'
+            f'</div>'
+            f'<pre style="margin:10px 0 0 0; padding:10px 14px; background:rgba(128,128,128,0.18); '
+            f'border-radius:6px; font-size:0.95em; overflow-x:auto; '
+            f'font-family:SFMono-Regular,Consolas,Menlo,monospace;">{_code}</pre>'
+            f'</div>'))
+    except Exception:
+        print(f"\n▶ {intro} - open a NEW cell (the + button, or Esc then B), paste below, run with Shift+Enter:")
+        for _ln in code_lines:
+            print(f"      {_ln}")
+        print("")
+
+
 ## Display the ComCon logo on import
 def display_logo():
     """Display package logo in Jupyter environments."""
@@ -96,16 +122,25 @@ def display_logo():
         pass
 
 
-# Check ffmpeg availability (needed for MP4 animation export)
+# Check ffmpeg availability (needed for MP4 animation export). ComCon ships the
+# imageio-ffmpeg package (a self-contained ffmpeg binary), so check that first and
+# only fall back to a system ffmpeg. Do not recommend `conda install ffmpeg` - its
+# Windows build pulls a broken gdk-pixbuf post-link that fails the whole install.
+_ffmpeg_ok = False
 try:
-    import subprocess
-    _ffmpeg_check = subprocess.run(['ffmpeg', '-version'], capture_output=True)
-    if _ffmpeg_check.returncode != 0:
-        raise FileNotFoundError
-except (FileNotFoundError, OSError):
+    import imageio_ffmpeg
+    imageio_ffmpeg.get_ffmpeg_exe()
+    _ffmpeg_ok = True
+except Exception:
     try:
-        print("  Note: The ffmpeg tool was not found. Animations will display in-notebook but MP4 export is unavailable.")
-        print("  To enable MP4 export, run: conda install -c conda-forge ffmpeg\n")
+        import subprocess
+        _ffmpeg_ok = subprocess.run(['ffmpeg', '-version'], capture_output=True).returncode == 0
+    except (FileNotFoundError, OSError):
+        _ffmpeg_ok = False
+if not _ffmpeg_ok:
+    try:
+        print("  Note: ffmpeg was not found. Animations will display in-notebook but MP4 export is unavailable.")
+        print("  To enable MP4 export, run: pip install imageio-ffmpeg\n")
     except Exception:
         pass
 
@@ -196,9 +231,10 @@ def choose_pathway():
         print("JupyterLab tip: If you see a 'Show more outputs' button during a workflow step, click it to reveal all output.")
         print("→ To disable this permanently: Settings → Settings Editor → Notebook → set 'maxNumberOutputs' to 0.")
         print("")
-        print("To begin, run in a new cell:")
-        print("from comcon.passive import *")
-        print("passive_dispersal_pathway()")
+        print("Heads-up: a full run can take a while (the particle simulation is the slow part) - this is expected, not a freeze.")
+        print("While a cell is running, JupyterLab shows [*] to its left and a filled circle at the bottom-right; let it finish before running the next cell.")
+        copy_paste_prompt(["from comcon.passive import *", "passive_dispersal_pathway()"],
+                          intro="To begin the passive pathway")
         display_line("═")
 
     ## Display the trait-defined pathway description and mode selection dropdown
@@ -289,9 +325,10 @@ def choose_pathway():
                     print("")
                     print("JupyterLab tip: If you see a 'Show more outputs' button during a workflow step, click it to reveal all output.")
                     print("→ To disable this permanently: Settings → Settings Editor → Notebook → set 'maxNumberOutputs' to 0.")
-                    print("\nTo begin, run in a new cell:")
-                    print("from comcon.interactive import *")
-                    print("workflow_step(1)")
+                    print("\nHeads-up: a full run can take a while (the particle simulation is the slow part) - this is expected, not a freeze.")
+                    print("While a cell is running, JupyterLab shows [*] to its left and a filled circle at the bottom-right; let it finish before running the next cell.")
+                    copy_paste_prompt(["from comcon.interactive import *", "workflow_step(1)"],
+                                      intro="To begin Interactive Mode")
                     display_line("═")
 
                 elif selected_mode == 'automatic':
@@ -308,9 +345,10 @@ def choose_pathway():
                     print("")
                     print("JupyterLab tip: If you see a 'Show more outputs' button during a workflow step, click it to reveal all output.")
                     print("→ To disable this permanently: Settings → Settings Editor → Notebook → set 'maxNumberOutputs' to 0.")
-                    print("\nTo begin, run in a new cell:")
-                    print("from comcon.automatic import *")
-                    print("start_automatic_mode()")
+                    print("\nHeads-up: a full run can take a while (the particle simulation is the slow part) - this is expected, not a freeze.")
+                    print("While a cell is running, JupyterLab shows [*] to its left and a filled circle at the bottom-right; let it finish before running the next cell.")
+                    copy_paste_prompt(["from comcon.automatic import *", "start_automatic_mode()"],
+                                      intro="To begin Automatic Mode")
                     display_line("═")
 
                 else:  # manual
@@ -320,12 +358,9 @@ def choose_pathway():
                     print("")
                     print("JupyterLab tip: If you see a 'Show more outputs' button during a workflow step, click it to reveal all output.")
                     print("→ To disable this permanently: Settings → Settings Editor → Notebook → set 'maxNumberOutputs' to 0.")
-                    print("\nTo access all functions and get started, run in a new cell:")
-                    print("from comcon.manual import *")
-                    print("\nTo see all available functions, run in a new cell:")
-                    print("list_functions()")
-                    print("\nTo see example workflows:")
-                    print("example_workflow()")
+                    copy_paste_prompt(["from comcon.manual import *"],
+                                      intro="To start Manual Mode")
+                    print("Then, in the same way, run list_functions() to see every available function, or example_workflow() to see example pipelines.")
                     display_line("═")
 
         mode_button.on_click(on_mode_click)

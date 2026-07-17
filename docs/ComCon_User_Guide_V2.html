@@ -337,7 +337,6 @@
             <ul>
                 <li><a href="#what-is-comcon" class="toc-h3">What is ComCon?</a></li>
                 <li><a href="#installing-conda" class="toc-h3">Installing Conda</a></li>
-                <li><a href="#creating-environment" class="toc-h3">Creating the Environment</a></li>
                 <li><a href="#terminal-navigation" class="toc-h3">Navigating with the Terminal</a></li>
                 <li><a href="#installing-comcon" class="toc-h3">Installing ComCon</a></li>
                 <li><a href="#launching-jupyter" class="toc-h3">Launching Jupyter Lab</a></li>
@@ -439,8 +438,7 @@
             </thead>
             <tbody>
                 <tr><td>Install Miniconda</td><td><strong>Once only.</strong> Already done if you followed Part 1.</td></tr>
-                <tr><td>Create the comcon environment (<code>conda create ...</code>)</td><td><strong>Once only.</strong> The environment remains on your computer.</td></tr>
-                <tr><td>Install packages (<code>pip install ...</code>)</td><td><strong>Once only.</strong> Packages stay installed inside the environment.</td></tr>
+                <tr><td>Create the comcon environment (<code>conda env create -f environment.yml</code>)</td><td><strong>Once only.</strong> The environment and all its packages remain on your computer.</td></tr>
                 <tr><td>Install ComCon (<code>pip install -e .</code>)</td><td><strong>Once only</strong> (unless you receive an updated version).</td></tr>
                 <tr><td>Activate the environment (<code>conda activate comcon</code>)</td><td><strong>Every time</strong> you open a new terminal window.</td></tr>
                 <tr><td>Navigate to your folder (<code>cd path/to/comcon_distribution</code>)</td><td><strong>Every time</strong> you open a new terminal window.</td></tr>
@@ -864,74 +862,6 @@
             <code>conda 24.x.x</code> (the numbers may vary)
         </div>
         
-        <h2 id="creating-environment">Creating the ComCon Environment</h2>
-        <p>Now we'll create a dedicated environment for ComCon. This is like creating a special workspace with exactly the right tools for the job.</p>
-        
-        <div class="info-box">
-            <strong>Why use environments?</strong> Different projects may need different versions of packages. Environments keep everything organised and prevent conflicts. The ComCon environment will contain everything you need for connectivity modelling.
-        </div>
-        
-        <h3>Step-by-Step Environment Setup</h3>
-        
-        <p><strong>1. Open your terminal</strong></p>
-        
-        <p><strong>2. Create the environment with all dependencies</strong></p>
-        <p>Copy and paste the following command (all on one line) and press <kbd>Enter</kbd>:</p>
-        
-        <pre><code>conda env create -f environment.yml</code></pre>
-        
-        <div class="info-box">
-            <strong>What does this command do?</strong>
-            <ul>
-                <li><code>conda create</code> - Creates a new environment</li>
-                <li><code>-n comcon</code> - Names it "comcon"</li>
-                <li><code>-c conda-forge</code> - Uses the conda-forge channel (a library of packages)</li>
-                <li>The rest are the packages needed for ComCon, including:
-                    <ul>
-                        <li><code>parcels</code> - Ocean particle tracking engine</li>
-                        <li><code>cartopy</code> - Map plotting library</li>
-                        <li><code>geopandas</code> - Geographic data handling</li>
-                        <li><code>jupyter</code> - Interactive notebook environment</li>
-                    </ul>
-                </li>
-            </ul>
-        </div>
-        
-        <p>When prompted "Proceed ([y]/n)?", type <code>y</code> and press <kbd>Enter</kbd>.</p>
-        
-        <p>This will take several minutes as Conda downloads and installs all the required packages. You'll see a progress bar.</p>
-        
-        <div class="expected-output">
-            <div class="expected-output-header">Expected Output (when complete):</div>
-            <pre>Preparing transaction: done
-Verifying transaction: done
-Executing transaction: done
-#
-# To activate this environment, use
-#
-#     $ conda activate comcon
-#
-# To deactivate an active environment, use
-#
-#     $ conda deactivate</pre>
-        </div>
-        
-        <p><strong>3. Activate the environment</strong></p>
-        <p>Type the following and press <kbd>Enter</kbd>:</p>
-        <pre><code>conda activate comcon</code></pre>
-        
-        <p>You should see your prompt change to show <code>(comcon)</code> at the beginning. This tells you the environment is active:</p>
-        
-        <div class="expected-output">
-            <div class="expected-output-header">What your terminal should look like:</div>
-            <pre style="background-color: #1e1e1e; color: #d4d4d4;">
-<span style="color: #4ec9b0;">(comcon)</span> C:\Users\YourName>   <span style="color: #6a9955;">← Windows: The (comcon) means it's working!</span>
-<span style="color: #4ec9b0;">(comcon)</span> username@computer:~$  <span style="color: #6a9955;">← Mac/Linux version</span></pre>
-        </div>
-        
-        <div class="critical-box">
-            <strong>Important:</strong> You must activate the comcon environment every time you open a new terminal window before working with ComCon. If you don't see <code>(comcon)</code> at the start of your prompt, the environment isn't active.
-        </div>
         <h2 id="terminal-navigation">Navigating with the Terminal</h2>
 
         <p>Before installing ComCon, you need to understand a few basic terminal commands. You will use these throughout the setup process and whenever you launch ComCon.</p>
@@ -989,9 +919,21 @@ Executing transaction: done
         <div class="warning-box">
             <strong>Windows Users:</strong> Python uses forward slashes (<code>/</code>) in file paths, not backslashes (<code>\</code>). If you copy a path from File Explorer, you may need to change <code>\</code> to <code>/</code>. Alternatively, put an <code>r</code> before the path string: <code>r"C:\Users\Laura\Documents"</code>
         </div>
+
+        <div class="tip-box">
+            <strong>Pasting a path into the terminal:</strong>
+            In the <strong>Anaconda Prompt</strong> on Windows, <strong>right-click once</strong> to paste whatever you last copied. The text appears straight away with no menu and the <kbd>Ctrl</kbd> + <kbd>V</kbd> shortcut often does not work. On <strong>macOS</strong> use <kbd>Cmd</kbd> + <kbd>V</kbd>, and on <strong>Linux</strong> use <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd>.
+
+        </div>
+                <div style="text-align: center; margin: 20px 0;">
+            <img src="images/file_path.png"
+                 style="max-width: 100%; border: 1px solid #ddd; border-radius: 8px;">
+            <p style="color: #666; font-size: 14px;">How to easily copy and paste file paths for the entire workflow</p>
+        </div>
+
         <h2 id="installing-comcon">Installing ComCon</h2>
 
-        <p>With the environment ready, we can now install ComCon itself. You should have received a folder called <code>comcon_distribution</code> (either as a ZIP file or shared folder).</p>
+        <p>In this section you'll set up your ComCon folder, create the ComCon environment and install ComCon itself. You should have received a folder called <code>comcon_distribution</code> (either as a ZIP file or shared folder).</p>
 
         <p><strong>1. Locate the ComCon folder</strong></p>
         <p>If you received a ZIP file, first unzip it:</p>
@@ -1013,7 +955,7 @@ Executing transaction: done
         </ul>
 
         <p><strong>2. Navigate to the folder in your terminal</strong></p>
-        <p>You need to tell the terminal where the ComCon files are. Use the <code>cd</code> (change directory) command. Adjust the path to where you unzipped the folder.</p>
+        <p>Open your terminal (Anaconda Prompt on Windows, or Terminal on Mac/Linux), then tell it where the ComCon files are using the <code>cd</code> (change directory) command. Adjust the path to where you unzipped the folder.</p>
 
         <pre><code><span class="comment"># Windows example: </span>
 cd C:\Users\YourName\Documents\comcon_distribution
@@ -1029,13 +971,80 @@ cd ~/Documents/comcon_distribution</code></pre>
             </ul>
         </div>
 
-        <div style="text-align: center; margin: 20px 0;">
-            <img src="images/file_path.png"
-                 style="max-width: 100%; border: 1px solid #ddd; border-radius: 8px;">
-            <p style="color: #666; font-size: 14px;">How to easily copy and paste file paths for the entire workflow</p>
+        <h3>Creating the ComCon Environment</h3>
+        <p>Now we'll create a dedicated environment for ComCon. This is like creating a special workspace with exactly the right tools for the job.</p>
+
+        <div class="info-box">
+            <strong>Why use environments?</strong> Different projects may need different versions of packages. Environments keep everything organised and prevent conflicts. The ComCon environment will contain everything you need for connectivity modelling.
         </div>
 
-        <p><strong>3. Install ComCon</strong></p>
+        <p><strong>3. Create the environment with all dependencies</strong></p>
+        <p>Make sure you are inside the <code>comcon_distribution</code> folder (from the previous step), then copy and paste the following command and press <kbd>Enter</kbd>:</p>
+
+        <pre><code>conda env create -f environment.yml</code></pre>
+
+        <div class="tip-box">
+            <strong>Two environment files are included but you only need one:</strong>
+            <ul>
+                <li><code>environment.yml</code> (used in the command above) installs the newest compatible version of each package. This is the recommended default and keeps you up to date with bug fixes.</li>
+                <li><code>environment-lock.yml</code> installs the <em>exact</em> package versions ComCon was tested with. If you want a setup guaranteed to be identical to the tested one or if <code>environment.yml</code> ever gives a version or compatibility error, use this one instead: <code>conda env create -f environment-lock.yml</code>. (It is Windows-specific.)</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <strong>What does this command do?</strong>
+            <ul>
+                <li><code>conda env create</code> - Creates a new conda environment</li>
+                <li><code>-f environment.yml</code> - Reads the environment name (comcon), the conda-forge channel and the full package list from the <code>environment.yml</code> file included with ComCon</li>
+                <li>The packages it installs include:
+                    <ul>
+                        <li><code>parcels</code> - Ocean particle tracking engine</li>
+                        <li><code>cartopy</code> - Map plotting library</li>
+                        <li><code>geopandas</code> - Geographic data handling</li>
+                        <li><code>jupyter</code> - Interactive notebook environment</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <p>When prompted "Proceed ([y]/n)?", type <code>y</code> and press <kbd>Enter</kbd>.</p>
+
+        <p>This will take several minutes as Conda downloads and installs all the required packages. You'll see a progress bar.</p>
+
+        <div class="expected-output">
+            <div class="expected-output-header">Expected Output (when complete):</div>
+            <pre>Preparing transaction: done
+Verifying transaction: done
+Executing transaction: done
+#
+# To activate this environment, use
+#
+#     $ conda activate comcon
+#
+# To deactivate an active environment, use
+#
+#     $ conda deactivate</pre>
+        </div>
+
+        <p><strong>4. Activate the environment</strong></p>
+        <p>Type the following and press <kbd>Enter</kbd>:</p>
+        <pre><code>conda activate comcon</code></pre>
+
+        <p>You should see your prompt change to show <code>(comcon)</code> at the beginning. This tells you the environment is active:</p>
+
+        <div class="expected-output">
+            <div class="expected-output-header">What your terminal should look like:</div>
+            <pre style="background-color: #1e1e1e; color: #d4d4d4;">
+<span style="color: #4ec9b0;">(comcon)</span> C:\Users\YourName>   <span style="color: #6a9955;">← Windows: The (comcon) means it's working!</span>
+<span style="color: #4ec9b0;">(comcon)</span> username@computer:~$  <span style="color: #6a9955;">← Mac/Linux version</span></pre>
+        </div>
+
+        <div class="critical-box">
+            <strong>Important:</strong> You must activate the comcon environment every time you open a new terminal window before working with ComCon. If you don't see <code>(comcon)</code> at the start of your prompt, the environment isn't active.
+        </div>
+
+        <h3>Installing the ComCon Package</h3>
+        <p><strong>5. Install ComCon</strong></p>
         <p>Make sure your environment is still activated (you should see <code>(comcon)</code> at the start of your prompt). Then run:</p>
 
         <pre><code>pip install -e .</code></pre>
@@ -1134,6 +1143,17 @@ cd ~/Documents/comcon_distribution</code></pre>
             <li>Or click the "+" button in the toolbar</li>
         </ul>
 
+        <h3>Running ComCon step by step</h3>
+        <p>ComCon works one cell at a time. As you go, the package prints a highlighted blue box that begins with <strong>&#9654; To begin</strong> or <strong>&#9654; To continue</strong>. Each time you see one of these boxes:</p>
+        <ol>
+            <li><strong>Make a new cell</strong> by clicking the <strong>+</strong> button in the toolbar or clicking just below the current cell and pressing <kbd>Esc</kbd> then <kbd>B</kbd>.</li>
+            <li><strong>Copy and paste</strong> the exact line(s) shown in the box into the new cell.</li>
+            <li><strong>Run it</strong> by pressing <kbd>Shift</kbd> + <kbd>Enter</kbd> (or the &#9654; Run button at the top).</li>
+        </ol>
+        <div class="tip-box">
+            <strong>Is it still running?</strong> A cell that is still working shows <code>[*]</code> to its left and a small filled circle at the bottom-right of the Jupyter Lab window. Wait for these to clear before running the next cell. There are several steps in the workflow which can take a long time to finish. This is normal and does not mean anything has frozen.
+        </div>
+
         <h3>The Kernel</h3>
 
         <p>The <strong>kernel</strong> is the computational engine that runs your Python code. When you run a cell (press <kbd>Shift</kbd> + <kbd>Enter</kbd>), the kernel executes the code and returns the result. The kernel remembers all variables and data from previous cells. This is your <strong>session</strong>.</p>
@@ -1202,12 +1222,8 @@ cd ~/Documents/comcon_distribution</code></pre>
                     <td><strong>Once only.</strong> Already done if you followed Part 1.</td>
                 </tr>
                 <tr>
-                    <td>Create the comcon environment (<code>conda create ...</code>)</td>
-                    <td><strong>Once only.</strong> The environment remains on your computer.</td>
-                </tr>
-                <tr>
-                    <td>Install packages (<code>pip install ...</code>)</td>
-                    <td><strong>Once only.</strong> Packages stay installed inside the environment.</td>
+                    <td>Create the comcon environment (<code>conda env create -f environment.yml</code>)</td>
+                    <td><strong>Once only.</strong> The environment and all its packages remain on your computer.</td>
                 </tr>
                 <tr>
                     <td>Install ComCon (<code>pip install -e .</code>)</td>

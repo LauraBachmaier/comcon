@@ -1906,15 +1906,23 @@ def run_workflow(config):
             study_grid_df.to_csv(os.path.join(grids_dir, 'grid_study_area.csv'), index=False)
             print(f"  Grids saved to: {grids_dir}")
 
-            # Setup release grids
+            # Setup release grids. Only trait species that actually have occurrence records
+            # are modelled - a trait with no occurrences (e.g. a placeholder/ghost species)
+            # has no basis to be released and must not appear in results. Under all_sites and
+            # pooled, every trait would otherwise be given a grid, so restrict to the
+            # occurrence-matched species here (species_habitat already does this implicitly
+            # via map_spp_to_grid, which is keyed off the occurrence data).
+        _occ_species = {standardise_species_name(s) for s in clean_spp['species'].unique()}
         if config['grids']['release_strategy'] == 'all_sites':
             meshgrid = study_coastal
-            release_grids = {standardise_species_name(t['species_name']): coastal_grid_df.copy() for t in traits}
+            release_grids = {standardise_species_name(t['species_name']): coastal_grid_df.copy()
+                             for t in traits if standardise_species_name(t['species_name']) in _occ_species}
         elif config['grids']['release_strategy'] == 'pooled_sites':
             meshgrid, _per_species = map_spp_to_grid(coastal_grid_df, clean_spp)
             pooled_df = pd.concat(_per_species.values(), ignore_index=True)[
                 ['grid_id', 'longitude', 'latitude']].drop_duplicates(subset=['grid_id']).reset_index(drop=True)
-            release_grids = {standardise_species_name(t['species_name']): pooled_df.copy() for t in traits}
+            release_grids = {standardise_species_name(t['species_name']): pooled_df.copy()
+                             for t in traits if standardise_species_name(t['species_name']) in _occ_species}
         else:
             meshgrid, release_grids = map_spp_to_grid(coastal_grid_df, clean_spp)
 
@@ -2536,7 +2544,7 @@ def run_workflow(config):
                     from comcon.interactive import load_traj_from_chunks, dispersal_animation
                     _anim_chunks = results.get('chunks_dir')
                     if _anim_chunks and os.path.isdir(str(_anim_chunks)):
-                        _anim_traj = load_traj_from_chunks(_anim_chunks)
+                        _anim_traj = load_traj_from_chunks(_anim_chunks, max_trajectories=25000)
                         if _anim_traj is not None and not _anim_traj.empty:
                             _anim_out = None
                             if config['output'].get('save_figures', True):
@@ -2758,7 +2766,15 @@ def run_workflow(config):
         section_header("Automatic Workflow Complete")
         _summary_lines = ["Run summary:"]
         try:
-            _summary_lines.append(f"  Species analysed:   {len(traits)}")
+            # Count species actually analysed: under species-specific/pooled release a
+            # trait species with no occurrence records has an empty release grid and is
+            # skipped, so it must not be counted here. Under all-sites every species runs.
+            if release_grids:
+                _n_analysed = len([g for g in release_grids.values()
+                                   if hasattr(g, '__len__') and len(g) > 0])
+            else:
+                _n_analysed = len(traits)
+            _summary_lines.append(f"  Species analysed:   {_n_analysed}")
         except Exception:
             pass
         _summary_lines.append(

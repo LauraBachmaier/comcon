@@ -20,8 +20,8 @@ Open a terminal (Anaconda Prompt on Windows) and run these commands one after th
 # Navigate to the comcon_distribution folder (adjust path as needed)
 cd path/to/comcon_distribution
 
-# Create environment with all dependencies
-conda create -n comcon -c conda-forge python=3.10 parcels cartopy geopandas jupyter ipywidgets folium ipyleaflet psutil tqdm networkx python-louvain ffmpeg scikit-learn seaborn scipy
+# Create the environment with all dependencies (reads environment.yml in this folder)
+conda env create -f environment.yml
 
 # Activate the environment
 conda activate comcon
@@ -75,7 +75,7 @@ Worked examples are provided as Jupyter notebooks in `docs/vignettes/`: single-s
 
 ## Requirements
 
-- Python 3.10
+- Python 3.11
 - OceanParcels >= 3.0
 - Copernicus Marine Service account (free)
 - 8GB+ RAM recommended

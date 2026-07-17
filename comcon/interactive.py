@@ -277,6 +277,31 @@ def status_message(message, status="info"):
     print(f"  {symbol} {message}")
 
 ## Standard step/workflow completion message
+def copy_paste_prompt(code_lines, intro="To continue"):
+    """Print a prominent, hard-to-miss instruction to copy the given line(s) into a NEW Jupyter
+    cell and run them. Bold styled block (falls back to ANSI bold if HTML is unavailable), so the
+    'run this in a new cell' step the interactive workflow depends on is obvious every time."""
+    _code = "\n".join(str(c) for c in code_lines)
+    try:
+        display(HTML(
+            f'<div style="border-left:4px solid #6366f1; background:rgba(99,102,241,0.10); '
+            f'padding:12px 16px; margin:10px 0; border-radius:8px; '
+            f'font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif; line-height:1.55;">'
+            f'<div style="font-size:0.95em;">'
+            f'<span style="color:#6366f1;">&#9654;</span> <b>{intro}</b> &mdash; open a <b>new cell</b> '
+            f'(the <b>+</b> button, or <b>Esc</b> then <b>B</b>), paste below, and run with <b>Shift + Enter</b>:'
+            f'</div>'
+            f'<pre style="margin:10px 0 0 0; padding:10px 14px; background:rgba(128,128,128,0.18); '
+            f'border-radius:6px; font-size:0.95em; overflow-x:auto; '
+            f'font-family:SFMono-Regular,Consolas,Menlo,monospace;">{_code}</pre>'
+            f'</div>'))
+    except Exception:
+        print(f"\n▶ {intro} - open a NEW cell (the + button, or Esc then B), paste below, run with Shift+Enter:")
+        for _ln in code_lines:
+            print(f"      {_ln}")
+        print("")
+
+
 def completion_message(step_number=None, next_step=True):
     """
     Standard completion message for end of steps or workflow.
@@ -293,7 +318,8 @@ def completion_message(step_number=None, next_step=True):
         print("  ✓ Workflow completed!")
     display_line("─")
     if step_number and next_step and step_number < 6:
-        print(f"\n  To continue, run: workflow_step({step_number + 1})\n")
+        copy_paste_prompt([f"workflow_step({step_number + 1})"],
+                          intro=f"To continue to Step {step_number + 1}")
 
 ## Workflow progress header showing tick/arrow status for all 6 steps
 def workflow_progress_header(step_number, workflow_status):
@@ -1277,10 +1303,10 @@ def save_session(filepath=None):
     next_step = min(last_step + 1, 6)
 
     print(f"\nSession saved after Step {last_step}.")
-    print(f"\nTo resume later, after restarting the kernel or in a new notebook, run in a new cell:")
-    print(f"from comcon.interactive import *")
-    print(f"load_session('{filepath}')")
-    print(f"workflow_step({next_step})")
+    copy_paste_prompt(["from comcon.interactive import *",
+                       f"load_session('{filepath}')",
+                       f"workflow_step({next_step})"],
+                      intro="To resume later (after restarting the kernel or in a new notebook)")
 
 ## Load a previously saved workflow session and restore all variables to the module namespace
 def load_session(filepath=None):
@@ -6552,11 +6578,17 @@ def setup_release_settlement(coastalmask, landmask, clean_spp, spp_params, lonar
     info_box(release_lines)
 
     # Species to model for the release/settlement grids. Strategies that do NOT use per-species
-    # occurrence (all sites, pooled) key by the full set of TRAIT species, so every modelled species
-    # is released/settled even if it has no occurrence records - matching automatic mode. The
-    # species-specific strategy keys by occurrence species via map_spp_to_grid (unchanged). Falls
-    # back to occurrence species when traits are not provided (e.g. a manual call without traits).
-    if traits:
+    # Only trait species that actually have occurrence records are modelled: a trait with no
+    # occurrences (e.g. a placeholder/ghost species) has no basis to be released or settled and
+    # must not appear in results under ANY strategy. all_sites and pooled therefore key by the
+    # trait species that are present in the occurrence data (species_habitat already does this
+    # via map_spp_to_grid). Falls back to all trait species only when there is no occurrence data
+    # at all, and to occurrence species when traits are not provided (e.g. a manual call).
+    if traits and len(clean_spp) > 0:
+        _occ_present = {standardise_species_name(s) for s in clean_spp['species'].unique()}
+        modelled_species = [standardise_species_name(t['species_name']) for t in traits
+                            if standardise_species_name(t['species_name']) in _occ_present]
+    elif traits:
         modelled_species = [standardise_species_name(t['species_name']) for t in traits]
     elif len(clean_spp) > 0:
         modelled_species = list(clean_spp['species'].unique())
@@ -7516,9 +7548,9 @@ def process_sim_results(zarr_path, chunk_size=None, runtime_days=None):
         n_timesteps = ds.dims.get('obs', 0)
 
         data_box("Dataset properties", [
-            f"Trajectories: {n_trajectories}",
-            f"Time steps: {n_timesteps}",
-            f"The dataset will be imported in chunks of {chunk_size} trajectories"
+            f"Trajectories: {n_trajectories:,}",
+            f"Time steps: {n_timesteps:,}",
+            f"The dataset will be imported in chunks of {chunk_size:,} trajectories"
         ])
 
         # Create temp directory for parquet chunks
@@ -7566,9 +7598,9 @@ def process_sim_results(zarr_path, chunk_size=None, runtime_days=None):
     return chunks_dir
 
 ## Load all parquet trajectory chunks into one combined DataFrame
-def load_traj_from_chunks(chunks_dir):
+def load_traj_from_chunks(chunks_dir, max_trajectories=None):
     """
-    Load all parquet chunks into a single DataFrame.
+    Load parquet chunks into a single DataFrame.
 
     Use this only when the full trajectory DataFrame is needed (e.g. for dispersal animation).
     For normal processing, use per-chunk functions instead.
@@ -7577,11 +7609,16 @@ def load_traj_from_chunks(chunks_dir):
     ----------
     chunks_dir : str
         Path to directory containing parquet chunk files.
+    max_trajectories : int, optional
+        If given and the run has more trajectories than this, load only a random,
+        fixed-seed sample of that many trajectories (one chunk at a time). The dispersal
+        animation only ever displays a capped subset, so this keeps a multi-million-particle
+        run from having to hold its entire (100M+ row) trajectory table in memory at once.
 
     Returns
     -------
     pandas.DataFrame
-        Complete trajectory data.
+        Complete trajectory data (or a memory-safe trajectory sample if max_trajectories set).
     """
     if not os.path.isdir(chunks_dir):
         raise FileNotFoundError(f"Chunks directory not found: {chunks_dir}")
@@ -7589,6 +7626,26 @@ def load_traj_from_chunks(chunks_dir):
     chunk_files = sorted(glob(os.path.join(chunks_dir, 'chunk_*.parquet')))
     if not chunk_files:
         raise FileNotFoundError(f"No chunk files found in {chunks_dir}")
+
+    if max_trajectories is not None:
+        # Cheaply gather the trajectory IDs (only the 'trajectory' column, one chunk at a
+        # time), then, if there are too many, sample and read back only those rows so the
+        # full dataset never has to be in memory.
+        _all_ids = set()
+        for cf in chunk_files:
+            _all_ids.update(pd.read_parquet(cf, columns=['trajectory'], engine='pyarrow')['trajectory'].unique())
+        if len(_all_ids) > max_trajectories:
+            _rng = np.random.default_rng(0)
+            _keep = set(_rng.choice(sorted(_all_ids), size=max_trajectories, replace=False).tolist())
+            print(f"Loading a random {max_trajectories:,} of {len(_all_ids):,} particles for the animation (memory-safe)...")
+            _parts = []
+            for cf in chunk_files:
+                _c = pd.read_parquet(cf, engine='pyarrow')
+                _parts.append(_c[_c['trajectory'].isin(_keep)])
+                del _c
+            traj_df = pd.concat(_parts, ignore_index=True)
+            print(f"Loaded {len(traj_df):,} rows.")
+            return traj_df
 
     print(f"Loading {len(chunk_files)} chunks into memory...")
     with MemoryMonitor("Loading all chunks"):
@@ -8462,7 +8519,7 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
         chunks_dir = chunks_dir_or_traj
         chunk_files = sorted(glob(os.path.join(chunks_dir, 'chunk_*.parquet')))
         use_chunks = True
-        print(f"  Processing {len(chunk_files)} chunks from disk (memory-efficient mode).")
+        print(f"Processing {len(chunk_files)} chunks from disk (memory-efficient mode).")
     else:
         # Backward compatibility: received a DataFrame directly
         use_chunks = False
@@ -8486,11 +8543,26 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
         del _input_traj_ids
     else:
         n_input_traj = traj['trajectory'].nunique()
-    print(f"  Raw input: {n_input_traj:,} unique trajectories before filtering.")
+    print(f"Raw input: {n_input_traj:,} unique trajectories before filtering.")
 
     for i, species_trait in enumerate(traits_list):
         species_name = standardise_species_name(species_trait['species_name'])
-        print(f"\n  [{i + 1}/{n_species}] Processing: {display_species_name(species_name)}")
+
+        # A trait species with no occurrence records gets an empty (or absent) release grid
+        # under the species-specific and pooled strategies, so it has no habitat to be
+        # released from and cannot contribute to connectivity. Skip it up front rather than
+        # running every filter only to retain zero - this also keeps it out of every
+        # downstream result, figure and count. Under the all-sites strategy release_grids is
+        # None and every species is releasable, so this never triggers there.
+        if release_grids is not None:
+            _rkey = next((k for k in release_grids
+                          if standardise_species_name(k) == species_name), None)
+            if _rkey is None or len(release_grids[_rkey]) == 0:
+                print(f"\n[{i + 1}/{n_species}] {display_species_name(species_name)}: "
+                      f"skipped (no occurrence records, so no release habitat).")
+                continue
+
+        print(f"\n[{i + 1}/{n_species}] Processing: {display_species_name(species_name)}")
 
         if use_chunks:
             # Per-chunk processing: apply all three filters to each chunk, collect only the surviving rows (typically 1-5% of data).
@@ -8518,17 +8590,30 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
                     sp_final = habitat_filter({species_name: sp_pld[species_name]}, release_grids)
                     del sp_pld
                 if species_name in sp_final and not sp_final[species_name].empty:
-                    _n_habitat += sp_final[species_name]['trajectory'].nunique()
-                    species_survivors.append(sp_final[species_name])
+                    _sp = sp_final[species_name]
+                    _n_habitat += _sp['trajectory'].nunique()
+                    # Keep only each surviving trajectory's first (release, obs == 0) and last
+                    # (settlement) observation. The connectivity metrics AND the network
+                    # analysis both use only the start and end of each track, never the path
+                    # in between (that is only needed during filtering, and by the animation,
+                    # which reads the raw data separately). Slimming here - per chunk - keeps
+                    # the accumulated result tiny (2 rows per trajectory) so post-processing
+                    # stays memory-bounded even for multi-million-particle runs.
+                    _sp = _sp.sort_values(['trajectory', 'obs'])
+                    _sp = pd.concat([
+                        _sp.drop_duplicates('trajectory', keep='first'),
+                        _sp.drop_duplicates('trajectory', keep='last'),
+                    ]).drop_duplicates().reset_index(drop=True)
+                    species_survivors.append(_sp)
                 del chunk, sp_final
                 gc.collect()
             print()
             _out_spawning = max(0, n_input_traj - _n_spawning)
             _out_pld = max(0, _n_spawning - _n_pld)
             _out_habitat = max(0, _n_pld - _n_habitat)
-            print(f"Spawning filter: {_n_spawning:,} retained ({_out_spawning:,} filtered out: Released outside the spawning window)")
-            print(f"PLD filter: {_n_pld:,} retained ({_out_pld:,} filtered out: Exceeded their PLD before reaching suitable settlement habitat)")
-            print(f"Habitat filter: {_n_habitat:,} retained ({_out_habitat:,} filtered out: Not released from this species' habitat)")
+            print(f"    Spawning filter: {_n_spawning:,} retained ({_out_spawning:,} filtered out: Released outside the spawning window)")
+            print(f"    PLD filter: {_n_pld:,} retained ({_out_pld:,} filtered out: Exceeded their PLD before reaching suitable settlement habitat)")
+            print(f"    Habitat filter: {_n_habitat:,} retained ({_out_habitat:,} filtered out: Not released from this species' habitat)")
 
             if species_survivors:
                 combined = pd.concat(species_survivors, ignore_index=True)
@@ -8539,10 +8624,10 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
                 summary_lines.append(
                     f"{display_species_name(species_name)}: {n_traj} successful trajectories from {n_releases} release cohorts"
                 )
-                print(f"    Filters complete: {n_traj} successful trajectories from {n_releases} release cohorts")
+                print(f"\n    Filters complete: {n_traj} successful trajectories from {n_releases} release cohorts")
                 del species_survivors
             else:
-                print(f"    No trajectories survived all filters.")
+                print(f"\n    No trajectories survived all filters.")
             gc.collect()
             continue  # skip the non-chunked path below
 
@@ -8693,6 +8778,8 @@ def calculate_connectivity_metrics(final_processed, release_grids, settlement_gr
     total_retained = 0
     all_distances = []
     all_plds = []
+    all_release_sites = set()   # union of the cells each species was actually released from
+    all_settle_sites = set()    # union of the cells each species actually settled in
 
     # Track if any species had calculable mortality
     any_mortality_calculable = False
@@ -8710,16 +8797,24 @@ def calculate_connectivity_metrics(final_processed, release_grids, settlement_gr
             print(f"No successful trajectories")
             continue
 
-        # Get release sites for this species. Match keys by standardised name so a space/underscore spelling difference between the grids and the trait names cannot cause a silent miss.
+        # Report the release and settlement sites this species ACTUALLY used, taken from its
+        # own trajectory data: each trajectory's first cell (obs == 0) is where the larva was
+        # released, its last cell is where it settled. Deriving these from the data - rather
+        # than from the release/settlement grid dicts - guarantees the reported counts match
+        # the habitat filtering and the connectivity matrix and can never disagree with them.
+        # (The old grid-based version could report all shared release sites for a species that
+        # was really released from fewer, and reported 0 settlement sites under the all-sites
+        # strategy despite real settlement.) These counts are only reported, never used in the
+        # metrics themselves.
         species_name_std = standardise_species_name(species_name)
-        release_key = next((k for k in release_grids if standardise_species_name(k) == species_name_std),
-                           None) if release_grids else None
-        release_sites = set(release_grids[release_key]['grid_id']) if release_key is not None else set()
-
-        # Get settlement sites, using the same standardised matching.
-        settle_key = next((k for k in settlement_grids if standardise_species_name(k) == species_name_std),
-                          None) if settlement_grids else None
-        settle_sites = set(settlement_grids[settle_key]['grid_id']) if settle_key is not None else set()
+        if 'grid_id' in df.columns and 'obs' in df.columns:
+            release_sites = set(df.loc[df['obs'] == 0, 'grid_id'].dropna().astype(int).unique())
+            _last_cells = df.sort_values('obs').drop_duplicates('trajectory', keep='last')
+            settle_sites = set(_last_cells['grid_id'].dropna().astype(int).unique())
+        else:
+            release_sites, settle_sites = set(), set()
+        all_release_sites |= release_sites
+        all_settle_sites |= settle_sites
 
         # Count settled trajectories
         n_trajectories = df['trajectory'].nunique()
@@ -8865,13 +8960,12 @@ def calculate_connectivity_metrics(final_processed, release_grids, settlement_gr
     community_mortality = 1 - (total_settled / total_released) if total_released > 0 else 0
     community_recruitment = total_retained / total_settled if total_settled > 0 else 0
 
-    # Community release/settlement site counts = the union of every species' release/settlement grid cells, so species sharing the same cells are not double counted
-    _comm_release_sites = {gid for _g in (release_grids or {}).values()
-                           if isinstance(_g, pd.DataFrame) and 'grid_id' in _g.columns
-                           for gid in _g['grid_id'].tolist()}
-    _comm_settle_sites = {gid for _g in (settlement_grids or {}).values()
-                          if isinstance(_g, pd.DataFrame) and 'grid_id' in _g.columns
-                          for gid in _g['grid_id'].tolist()}
+    # Community release/settlement site counts = the union of the cells each species was
+    # actually released from / settled in (accumulated above from the trajectory data), so
+    # they match the per-species counts and the connectivity matrix, and species sharing a
+    # cell are not double counted.
+    _comm_release_sites = all_release_sites
+    _comm_settle_sites = all_settle_sites
 
     results['community'] = {
         'n_species': len([s for s in final_processed.values() if not s.empty]),
@@ -9688,6 +9782,15 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
             vmin=score_min, vmax=score_max, zorder=3,
         )
 
+        # A site with a raw value of zero for this metric is greyed out (metric absent),
+        # so it must not be numbered as a top-10 hotspot either - otherwise the map
+        # contradicts the heatmap (which greys value-zero cells). Drop zero-value sites
+        # from the ranked/labelled set before highlighting the top 10. (e.g. only the one
+        # site that actually self-recruits is labelled on the self-recruitment map.)
+        if _zero_mask.any():
+            _zero_ids = set(site_metrics.loc[_zero_mask, 'grid_id'].astype(int))
+            top_10 = top_10[~top_10['grid_id'].astype(int).isin(_zero_ids)].copy()
+
         # Top 10: larger + dark outline
         top10_ids = set(top_10['grid_id'].astype(int))
         top10_mask = site_metrics['grid_id'].astype(int).isin(top10_ids)
@@ -9714,8 +9817,8 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
         _off = max(0.03, _span * 0.045)
         _min_sep = _span * 0.05  # minimum spacing between labels and markers
         _markers = [(float(s['longitude']), float(s['latitude'])) for _, s in top_10.iterrows()]
-        _cx = sum(m[0] for m in _markers) / len(_markers)
-        _cy = sum(m[1] for m in _markers) / len(_markers)
+        _cx = (sum(m[0] for m in _markers) / len(_markers)) if _markers else 0.0
+        _cy = (sum(m[1] for m in _markers) / len(_markers)) if _markers else 0.0
         _labels = []
         for (mx, my) in _markers:
             _dx, _dy = mx - _cx, my - _cy
@@ -9760,18 +9863,31 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
         # Grey notes under the title: an optional caller-supplied subtitle (e.g. which metric the
         # Type 3 comparison maps show) and/or the zero-value/grey-sites note. When any note is
         # shown, push the title up so the note has its own space beneath it and never overlaps.
+        # Put the metric being shown into the title. The caller's title is only the
+        # level + scale (e.g. "Community , full_domain"), so append the metric name so
+        # every hotspot map states what it maps - closeness, self-recruitment, source, etc.
+        _metric_names = {
+            'source_strength': 'Source strength', 'sink_strength': 'Sink strength',
+            'self_recruitment': 'Self-recruitment', 'betweenness': 'Betweenness centrality',
+            'closeness': 'Closeness centrality', 'degree': 'Degree centrality',
+        }
+        if str(_base_metric).endswith('_composite'):
+            _metric_label = str(_base_metric).replace('_', ' ').title()
+        else:
+            _metric_label = _metric_names.get(_base_metric, str(_base_metric).replace('_', ' ').title())
+        _disp_title = f"{title} , {_metric_label}"
         _notes = []
         if subtitle:
             _notes.append(subtitle)
         if _zero_mask.any():
             _notes.append('Grey sites have a value of zero for this metric (not included in the rank)')
         if _notes:
-            ax.set_title(title, fontsize=12, fontweight='bold', pad=(28 if len(_notes) == 1 else 40))
+            ax.set_title(_disp_title, fontsize=12, fontweight='bold', pad=(28 if len(_notes) == 1 else 40))
             ax.text(0.5, 1.01, '\n'.join(_notes),
                     transform=ax.transAxes, ha='center', va='bottom',
                     fontsize=9, style='italic', color='#666666')
         else:
-            ax.set_title(title, fontsize=12, fontweight='bold', pad=10)
+            ax.set_title(_disp_title, fontsize=12, fontweight='bold', pad=10)
     # Dotted lighter gridlines, standardised (Fix 15)
     gl = ax.gridlines(draw_labels=True, linestyle=':', linewidth=0.5, color='gray', alpha=0.4)
     gl.top_labels = False
@@ -9892,7 +10008,7 @@ def create_connectivity_matrix_plot(connectivity_matrix, title="Connectivity Mat
     masked_data = np.ma.masked_where(matrix_data == 0, matrix_data)
 
     # Create heatmap with RdBu_r diverging colormap (standardised across ComCon figures)
-    cmap = plt.cm.get_cmap('RdBu_r').copy()
+    cmap = plt.get_cmap('RdBu_r').copy()
     cmap.set_bad('lightgray')  # Colour for masked (zero) values
 
     im = ax.imshow(masked_data, cmap=cmap, aspect='auto', interpolation='nearest')
@@ -10016,7 +10132,7 @@ def create_matrix_with_map(connectivity_matrix, site_metrics,
         cbar_label = 'Connectivity Strength'
 
     masked_data = np.ma.masked_where(matrix_data == 0, matrix_data)
-    cmap_matrix = plt.cm.get_cmap('RdBu_r').copy()
+    cmap_matrix = plt.get_cmap('RdBu_r').copy()
     cmap_matrix.set_bad('lightgray')
 
     im = ax_matrix.imshow(masked_data, cmap=cmap_matrix, aspect='equal', interpolation='nearest')
@@ -10120,8 +10236,12 @@ def create_matrix_with_map(connectivity_matrix, site_metrics,
     fig.suptitle(title, fontsize=15, fontweight='bold', y=0.99)
     _note = (f"Showing {n_sites} site{'s' if n_sites != 1 else ''} with at least one connection and "
              f"sites with no imported or exported particles are hidden.")
-    fig.text(0.5, 0.935, _note, ha='center', va='top', fontsize=11, style='italic', color='#444444')
-    fig.subplots_adjust(top=0.91, bottom=0.24, left=0.08, right=0.97, wspace=0.35)
+    fig.text(0.5, 0.94, _note, ha='center', va='top', fontsize=11, style='italic', color='#444444')
+    # Keep the axes (and the reference map's own title) clear of the note above. When the
+    # connected sites span a taller-than-wide area the cartopy map fills the full height of
+    # its cell and its title rides up toward the note; a lower 'top' guarantees a gap for
+    # any aspect ratio (portrait or landscape).
+    fig.subplots_adjust(top=0.86, bottom=0.24, left=0.08, right=0.97, wspace=0.35)
 
     if output_path:
         fig.savefig(output_path, format=output_format, dpi=dpi, bbox_inches='tight')
@@ -11202,11 +11322,24 @@ def dispersal_animation(traj, output_path=None, fps=5, dpi=150, show_in_notebook
 
     anim = FuncAnimation(fig, animate, frames=n_frames, interval=1000 // fps, blit=False)
 
+    # The interactive in-notebook player (to_jshtml) embeds every frame as base64, which for
+    # a long/dense animation exceeds matplotlib's default 20 MB embed cap and silently drops
+    # frames. Raise the cap so the full animation always plays.
+    plt.rcParams['animation.embed_limit'] = 200  # MB
+
     # Save or display
     if output_path:
         try:
             from matplotlib.animation import FFMpegWriter
             import logging
+            # Point matplotlib at the ffmpeg binary bundled by imageio-ffmpeg (a pip
+            # dependency), so MP4 export works without the conda 'ffmpeg' package - whose
+            # Windows build pulls a broken gdk-pixbuf/librsvg post-link that fails on install.
+            try:
+                import imageio_ffmpeg
+                plt.rcParams['animation.ffmpeg_path'] = imageio_ffmpeg.get_ffmpeg_exe()
+            except Exception:
+                pass
             writer = FFMpegWriter(fps=fps, bitrate=1800)
             # Silence the INFO chatter matplotlib/ffmpeg emit during the save (the
             # alarming-looking "INFO:MovieWriter..." / "INFO:Animation.save..." lines)
@@ -11223,18 +11356,18 @@ def dispersal_animation(traj, output_path=None, fps=5, dpi=150, show_in_notebook
                 _mpl_log.setLevel(_prev_mpl)
             print(f"  Animation saved to: {output_path}")
 
-            # Also display in notebook if requested
+            # Also display in notebook if requested. Show the interactive JS player
+            # (play / pause / scrub / loop toggle) rather than an autoplaying video, while
+            # still saving the MP4 file above.
             if show_in_notebook:
                 try:
-                    from IPython.display import Video
-                    display(Video(output_path, embed=True,
-                                  html_attributes="controls autoplay loop style='width:100%;'"))
+                    from IPython.display import HTML as IPHTML
+                    display(IPHTML(anim.to_jshtml()))
                 except Exception:
-                    print("  Video saved but cannot display inline.")
+                    print("  Animation saved but cannot display inline.")
         except Exception as e:
             print(f"  Could not save MP4: {e}")
-            print("  If the package ffmpeg is missing, run: conda install -c conda-forge ffmpeg")
-            print("  Displaying animation in notebook instead using HTML5...")
+            print("  Displaying the animation in the notebook instead using HTML5...")
             try:
                 from IPython.display import HTML as IPHTML
                 display(IPHTML(anim.to_jshtml()))
@@ -11989,6 +12122,18 @@ def create_comparison_map(baseline_results, modified_results, output_path=None,
         [baseline_figure, modified_figure]
     """
     figs = []
+    # Use ONE shared map extent for both scenarios so the two figures render at the same
+    # size and are directly comparable (otherwise each auto-fits its own sites and they can
+    # come out different sizes). Match the 5-cell buffer create_network_map uses.
+    _sm_both = pd.concat([baseline_results['site_metrics'], modified_results['site_metrics']])
+    _ex_lons = np.unique(np.round(_sm_both['longitude'].values, 4))
+    _ex_lats = np.unique(np.round(_sm_both['latitude'].values, 4))
+    _ex_cl = float(np.min(np.diff(_ex_lons))) if len(_ex_lons) > 1 else 0.1
+    _ex_ct = float(np.min(np.diff(_ex_lats))) if len(_ex_lats) > 1 else 0.1
+    _common_extent = [
+        _sm_both['longitude'].min() - 5 * _ex_cl, _sm_both['longitude'].max() + 5 * _ex_cl,
+        _sm_both['latitude'].min() - 5 * _ex_ct, _sm_both['latitude'].max() + 5 * _ex_ct,
+    ]
     for _results, _title, _suffix in [
         (baseline_results, title1, 'original'),
         (modified_results, title2, 'modified'),
@@ -12006,6 +12151,7 @@ def create_comparison_map(baseline_results, modified_results, output_path=None,
             composite_col='overall_composite', cmap='viridis_r',
             output_path=_out, output_format=output_format, dpi=dpi,
             show_figure=False, network_graph=_ng, top_n_edges=200,
+            zoom_extent=_common_extent,
             subtitle='Sites coloured by overall composite hotspot rank (1 = best)',
         )
         figs.append(fig)
@@ -12791,10 +12937,10 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
                                    ('Column Definitions', col_defs_df)]:
                 ws = writer.sheets[sheet_name]
                 for i, col in enumerate(df.columns):
-                    max_len = max(
-                        df[col].astype(str).map(len).max() if not df.empty else 0,
-                        len(str(col))
-                    )
+                    # Use len(str(x)) per cell so a stray float/None can never raise
+                    # "object of type 'float' has no len()" (seen on newer pandas).
+                    cell_widths = [len(str(x)) for x in df[col].tolist()] if not df.empty else [0]
+                    max_len = max(cell_widths + [len(str(col))])
                     col_letter = chr(ord('A') + i)
                     ws.column_dimensions[col_letter].width = min(max_len + 2, 80)
     except Exception as e:
@@ -13173,7 +13319,7 @@ def post_analysis(final_processed):
                     anim_traj = traj
                 if anim_traj is None and 'chunks_dir' in globals() and chunks_dir and os.path.isdir(str(chunks_dir)):
                     print("  Loading trajectory data for animation...")
-                    anim_traj = load_traj_from_chunks(chunks_dir)
+                    anim_traj = load_traj_from_chunks(chunks_dir, max_trajectories=25000)
 
                 if anim_traj is None or (isinstance(anim_traj, pd.DataFrame) and anim_traj.empty):
                     print("  Warning: No trajectory data available for animation. Skipping.")
@@ -13854,7 +14000,14 @@ def post_analysis(final_processed):
         section_header("Workflow Complete")
         _lines = ["Run summary:"]
         try:
-            _lines.append(f"  Species analysed:    {len(traits)}")
+            # Count species actually analysed: a trait species with no occurrence records
+            # has an empty release grid and is skipped in post-processing, so exclude it.
+            if release_grids:
+                _n_analysed = len([g for g in release_grids.values()
+                                   if hasattr(g, '__len__') and len(g) > 0])
+            else:
+                _n_analysed = len(traits)
+            _lines.append(f"  Species analysed:    {_n_analysed}")
             _lines.append(f"  Total release sites: {sum(len(v) for v in release_grids.values())}")
         except Exception:
             pass
