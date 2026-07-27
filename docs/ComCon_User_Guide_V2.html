@@ -738,7 +738,6 @@
                     <td><strong>Weighted</strong></td>
                     <td>Describes a network where each connection carries a value (its weight). In ComCon the weight is the number of particles (propagules) exchanged between two sites, so stronger connections count for more in the network metrics and in community detection.</td>
                 </tr>
-                <tr>
             </tbody>
         </table>
     </section>
@@ -983,14 +982,6 @@ cd ~/Documents/comcon_distribution</code></pre>
 
         <pre><code>conda env create -f environment.yml</code></pre>
 
-        <div class="tip-box">
-            <strong>Two environment files are included but you only need one:</strong>
-            <ul>
-                <li><code>environment.yml</code> (used in the command above) installs the newest compatible version of each package. This is the recommended default and keeps you up to date with bug fixes.</li>
-                <li><code>environment-lock.yml</code> installs the <em>exact</em> package versions ComCon was tested with. If you want a setup guaranteed to be identical to the tested one or if <code>environment.yml</code> ever gives a version or compatibility error, use this one instead: <code>conda env create -f environment-lock.yml</code>. (It is Windows-specific.)</li>
-            </ul>
-        </div>
-
         <div class="info-box">
             <strong>What does this command do?</strong>
             <ul>
@@ -1144,12 +1135,20 @@ Executing transaction: done
         </ul>
 
         <h3>Running ComCon step by step</h3>
-        <p>ComCon works one cell at a time. As you go, the package prints a highlighted blue box that begins with <strong>&#9654; To begin</strong> or <strong>&#9654; To continue</strong>. Each time you see one of these boxes:</p>
+        <p>Depending on the mode, ComCon may need you to create a new cell as you work your way through the steps. The package prints a highlighted blue box that begins with <strong>&#9654; To begin</strong> or <strong>&#9654; To continue</strong>. Each time you see one of these boxes:</p>
         <ol>
             <li><strong>Make a new cell</strong> by clicking the <strong>+</strong> button in the toolbar or clicking just below the current cell and pressing <kbd>Esc</kbd> then <kbd>B</kbd>.</li>
             <li><strong>Copy and paste</strong> the exact line(s) shown in the box into the new cell.</li>
             <li><strong>Run it</strong> by pressing <kbd>Shift</kbd> + <kbd>Enter</kbd> (or the &#9654; Run button at the top).</li>
         </ol>
+
+        <p>The box looks like this:</p>
+        <div style="border-left:4px solid #6366f1; background:rgba(99,102,241,0.10); padding:12px 16px; margin:10px 0 18px 0; border-radius:8px; font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif; line-height:1.55;">
+            <div style="font-size:0.95em;"><span style="color:#6366f1;">&#9654;</span> <strong>To begin Automatic Mode</strong>. Open a <strong>new cell</strong> (the <strong>+</strong> button, or <strong>Esc</strong> then <strong>B</strong>), paste below and run with <strong>Shift + Enter</strong>:</div>
+            <pre style="margin:10px 0 0 0; padding:10px 14px; background:rgba(128,128,128,0.18); color:#1f2430; border-radius:6px; font-size:0.95em; overflow-x:auto; font-family:SFMono-Regular,Consolas,Menlo,monospace;"><code style="color:#1f2430; background:none; padding:0; border:none; font-family:inherit; font-size:inherit;">from comcon.automatic import *
+start_automatic_mode()</code></pre>
+        </div>
+        <p>You will see one of these each time ComCon needs you to run code manually. This occurs when you first choose a pathway/mode and again after each step of the Interactive workflow. That's it.</p>
         <div class="tip-box">
             <strong>Is it still running?</strong> A cell that is still working shows <code>[*]</code> to its left and a small filled circle at the bottom-right of the Jupyter Lab window. Wait for these to clear before running the next cell. There are several steps in the workflow which can take a long time to finish. This is normal and does not mean anything has frozen.
         </div>
@@ -2094,7 +2093,9 @@ cc.create_network_map(network['site_metrics'], network['site_metrics'].head(10),
         <p>ComCon produces various outputs saved to your working directory. Here's what each file contains:</p>
         
         <h2>Output Files</h2>
-        <p>At any export or output directory prompt, press <strong>Enter</strong> to open a folder browser and select a location, or type a path directly and press Enter to use it.</p>
+        <p>At any export or output directory prompt, press <strong>Enter</strong> to open a folder browser and select a location or type a path directly and press Enter to use it.</p>
+
+        <p>The table below lists the <strong>core outputs</strong>, the files produced by every standard run and the ones you will use for interpreting your results. Paths are shown relative to your project folder.</p>
         
         <table>
             <thead>
@@ -2105,48 +2106,42 @@ cc.create_network_map(network['site_metrics'], network['site_metrics'].head(10),
             </thead>
             <tbody>
                 <tr>
-                    <td><code>hydro_data</code></td>
-                    <td>Downloaded NEMO ocean current data (NetCDF files)</td>
-                </tr>
-                <tr>
-                    <td><code>simulation_output.zarr</code></td>
+                    <td><code>simulation/simulation.zarr</code></td>
                     <td>Raw particle trajectory data from the simulation</td>
                 </tr>
                 <tr>
-                    <td><code>&lt;label&gt;_connectivity_summary.csv</code></td>
+                    <td><code>results/&lt;label&gt;/&lt;label&gt;_connectivity_summary.csv</code></td>
                     <td>Summary of the connectivity metrics. One file is created per species and one for the community, the &lt;label&gt; prefix identifying which</td>
                 </tr>
                 <tr>
-                    <td><code>network_site_metrics.csv</code></td>
+                    <td><code>results/&lt;label&gt;/&lt;label&gt;_&lt;scale&gt;_network_site_metrics.csv</code></td>
                     <td>Centrality and functional role metrics for each site</td>
                 </tr>
                 <tr>
-                    <td><code>network_summary.csv</code></td>
+                    <td><code>results/&lt;label&gt;/&lt;label&gt;_network_summary.csv</code></td>
                     <td>Network-level summary scalars for each analysis level and scale (number of species, study extent, potential and realised connectivity sites, unique connections). The whole-network companion to the per-site <code>network_site_metrics.csv</code>.</td>
                 </tr>
                 <tr>
-                    <td><code>connectivity_matrix.csv</code></td>
+                    <td><code>results/&lt;label&gt;/&lt;label&gt;_&lt;scale&gt;_connectivity_matrix.csv</code></td>
                     <td>Raw particle-exchange counts between every source site (rows) and sink site (columns). The on-screen matrix shows log<sub>10</sub> of these counts for clarity (see <em>Connectivity Strength</em> in the Glossary). This file holds the absolute numbers.</td>
-                </tr>
-                <tr>
-                    <td><code>community_trait_sensitivity_&lt;scenario&gt;.csv</code></td>
-                    <td>Type 3 trait-sensitivity comparison: each connectivity metric under the original versus trait-modified traits, with the change, plus Mantel test and hotspot-overlap statistics. One file per chosen scenario.</td>
-                </tr>
-                <tr>
-                    <td><code>grid_full_domain.csv</code>, <code>grid_study_area.csv</code></td>
-                    <td>The release/settlement grid cells (grid_id, longitude, latitude) for the full hydrodynamic domain and for the study extent. Written when grid saving is enabled, in every mode (interactive, automatic and manual).</td>
                 </tr>
                 <tr>
                     <td><code>figures/</code></td>
                     <td>Saved maps and plots, organised into one subfolder per analysis level and scale (e.g. <code>community_full_domain/</code>), containing the hotspot map, network-only map, community map, connectivity matrix, site × metric heatmap and per-metric hotspot maps.</td>
                 </tr>
                 <tr>
-                    <td><code>comcon_outputs.xlsx</code></td>
+                    <td><code>config/comcon_outputs.xlsx</code></td>
                     <td>A metadata file with a record of the run across four sheets: A list of all outputs (what each file is and whether it was saved), the full run configuration, a Metric Definitions sheet explaining how every reported metric is calculated and a Column Definitions sheet documenting every column in the exported CSVs. Use this alongside your results to interpret and reproduce them.</td>
                 </tr>
             </tbody>
         </table>
-        
+
+        <div class="info-box">
+            <strong>Your project folder will contain more than this.</strong> Everything else depends on the pathway you ran and the options you chose, so it is not listed above. That includes the Type 3 trait-sensitivity table (<code>results/community/community_trait_sensitivity_&lt;scenario&gt;.csv</code>, only when you run a sensitivity scenario), the saved grid cell lists (<code>grids/grid_full_domain.csv</code> and <code>grid_study_area.csv</code>, when grid saving is enabled), downloaded ocean-current files (<code>hydro_data/</code>, which stays empty unless you choose to save a local copy rather than streaming), saved parameter and session files (<code>config/</code>), the cleaned occurrence table (<code>occurrence_data/</code>), trajectory chunks used during post-processing (<code>simulation/chunks_*/</code>), the dispersal animation (<code>animation/</code>), and the land-mask, occurrence-distribution and trait-sensitivity figures.
+            <br><br>
+            For a complete list of what <em>your</em> run produced, open the <strong>Outputs Reference</strong> sheet of <code>comcon_outputs.xlsx</code> in your project's <code>config</code> folder. It catalogues every file ComCon can produce and marks whether each one was actually saved.
+        </div>
+
         <h2>Interpreting Results</h2>
         
         <h3>Connectivity Matrices</h3>
@@ -2194,16 +2189,17 @@ cc.create_network_map(network['site_metrics'], network['site_metrics'].head(10),
         <ul>
             <li><strong>Connectivity matrix:</strong> The number of particles travelling from each source site to each sink site. Figures display log<sub>10</sub>(count&nbsp;+&nbsp;1) for clarity. The exported CSV holds raw counts.</li>
             <li><strong>Network:</strong> Sites are nodes in a directed, weighted graph (edge weight = particles exchanged). Optional distance thresholds filter out connections longer than a chosen scale.</li>
-            <li><strong>Site metrics:</strong> Source and sink strength (weighted out-/in-degree, with the option to exclude a site's own self-recruitment so it does not inflate these), self-recruitment (self-connections), and degree, betweenness and closeness centrality (via NetworkX). Each metric is ranked (rank&nbsp;1&nbsp;=&nbsp;highest); composites are the mean of their member metrics' ranks (equal weight, scale-independent, lower&nbsp;=&nbsp;higher priority). ComCon reports three fixed composites , <em>functional</em> (source, sink, self-recruitment), <em>centrality</em> (betweenness, closeness, degree) and <em>overall</em> (all six) , and lets you build a <em>custom</em> composite from any subset of metrics so a study can prioritise the aspects of connectivity that matter to it. Choosing a composite only sets which composite hotspot layer is built; all six individual metrics are always computed and exported regardless of the choice.</li>
+            <li><strong>Site metrics:</strong> Source and sink strength (weighted out-/in-degree, with the option to exclude a site's own self-recruitment so it does not inflate these), self-recruitment (self-connections), and degree, betweenness and closeness centrality (via NetworkX). Each metric is ranked (rank&nbsp;1&nbsp;=&nbsp;highest). Composites are the mean of their member metrics' ranks (equal weight, scale-independent, lower&nbsp;=&nbsp;higher priority). ComCon reports three fixed composites , <em>functional</em> (source, sink, self-recruitment), <em>centrality</em> (betweenness, closeness, degree) and <em>overall</em> (all six) , and lets you build a <em>custom</em> composite from any subset of metrics so a study can prioritise the aspects of connectivity that matter to it. Choosing a composite only sets which composite hotspot layer is built. All six individual metrics are always computed and exported regardless of the choice.</li>
             <li><strong>Communities:</strong> Louvain community detection on the undirected, weighted graph, by modularity maximisation, groups of sites that exchange more propagules with each other than with the rest of the network.</li>
         </ul>
         <h3>Spatial resolution and sites</h3>
         <ul>
-            <li><strong>Resolution:</strong> Connectivity is resolved at the hydrodynamic grid-cell scale. Two locations within the same cell cannot be distinguished by dispersal; choose a finer grid if you need to separate nearby sites.</li>
-            <li><strong>Site snapping:</strong> Occurrence records are snapped to the nearest grid cell of your selected habitat type (coastal or ocean) using KD-tree nearest-neighbour search. Site names attach to grid cells: A named cell shows its name everywhere in the outputs, an unnamed cell shows its grid_id (<code>site_&lt;grid_id&gt;</code>), and you can name some, all, or none of your sites. If two named sites fall in the same cell, both names are reported together for that cell.</li>
+            <li><strong>Resolution:</strong> Connectivity is resolved at the hydrodynamic grid-cell scale. Two locations within the same cell cannot be distinguished by dispersal. Choose a finer grid if you need to separate nearby sites.</li>
+            <li><strong>Site snapping:</strong> Occurrence records are snapped to the nearest grid cell of your selected habitat type (coastal or ocean) using KD-tree nearest-neighbour search. Site names attach to grid cells: A named cell shows its name everywhere in the outputs, an unnamed cell shows its grid_id (<code>site_&lt;grid_id&gt;</code>), and you can name some, all or none of your sites. If two named sites fall in the same cell, both names are reported together for that cell.</li>
             <li><strong>Distances:</strong> Inter-site dispersal distances and distance-threshold (scale) filtering both use great-circle (haversine) distances on a sphere of radius 6371 km, so east-west distances are correct at all latitudes.</li>
+            <li><strong>Grid cell size and latitude:</strong> When your chosen resolution is converted from kilometres into degrees, the east-west conversion uses the cosine of a single latitude: the midpoint of your study extent. Because lines of longitude converge towards the poles, cells north and south of that midpoint are slightly narrower and wider than the resolution you asked for. The effect depends on how many degrees of latitude your domain spans, not on where it sits: a domain spanning 10&deg; of latitude near the equator is essentially exact, the same span at 35-49&deg;N varies by roughly &plusmn;10%, and at 55-70&deg;N it varies by roughly &plusmn;25%. This affects the size of a cell, not the dispersal distances or connectivity metrics. For studies spanning many tens of degrees of latitude, or at high latitudes, run separate regional domains rather than one very tall extent. ComCon is designed for regional-scale studies and is not intended for global runs.</li>
         </ul>
-        <p>Every metric's exact definition and formula is also written into the <code>comcon_outputs.xlsx</code> file produced with each run (Metric Definitions sheet), so the calculations travel with your results.</p>
+        <p>Every metric's exact definition and formula is also written into the <code>comcon_outputs.xlsx</code> file produced with each run (Metric Definitions sheet).</p>
     </section>
 
     <!-- Part 7: Data Preparation -->

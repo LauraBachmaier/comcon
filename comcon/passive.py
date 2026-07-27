@@ -199,9 +199,14 @@ def bin_mask(native_landmask, native_lonarray, native_latarray, target_km):
     target_lat_step = target_km / 111.0
     target_lon_step = target_km / (111.0 * max(np.cos(np.deg2rad(lat_mid)), 0.1))
 
-    # If target is within 10% of native, return native unchanged (no binning needed)
+    # If target is within 10% of native, return native unchanged (no binning needed). Re-binning
+    # onto a grid almost the same size as the native one gains nothing and makes the land mask
+    # ragged, because each coarse cell would capture one native cell in places and two in others.
+    # Report the resolution actually used: this is the only case where the grid differs from the
+    # target, and here the target is chosen automatically, so the user has nothing to compare against.
     native_km_lat = native_lat_step * 111.0
     if abs(target_km - native_km_lat) / native_km_lat < 0.10:
+        print(f"  Grid resolution used: {native_km_lat:.1f} km (the native grid, kept unchanged because {target_km} km is within 10% of it).")
         return native_landmask.copy(), native_lonarray.copy(), native_latarray.copy()
 
     # Build coarse grid edges
@@ -2009,10 +2014,16 @@ def passive_dispersal_pathway(simulation_year=None):
             )
 
             n_native_ocean = int((native_landmask == 0).sum())
+            # Report the resolution measured off the grid that was actually built, not the target
+            # requested above. The user has no control over the target in this pathway, so the
+            # figure that matters to them is the one the analysis actually runs at.
+            _native_km = float(abs(native_latarray[1, 0] - native_latarray[0, 0])) * 111.0
+            _binned_km = (float(abs(binned_latarray[1, 0] - binned_latarray[0, 0])) * 111.0
+                          if binned_landmask.shape[0] > 1 else _native_km)
             data_box("Grid summary", [
-                f"Native grid:        {native_landmask.shape[0]} x {native_landmask.shape[1]} cells",
+                f"Native grid:        {native_landmask.shape[0]} x {native_landmask.shape[1]} cells ({_native_km:.1f} km)",
                 f"Native ocean cells: {n_native_ocean:,}",
-                f"Binned grid:        {binned_landmask.shape[0]} x {binned_landmask.shape[1]} cells",
+                f"Binned grid:        {binned_landmask.shape[0]} x {binned_landmask.shape[1]} cells ({_binned_km:.1f} km)",
                 f"Binned ocean cells: {len(binned_ocean_grid_df):,}",
             ])
 
@@ -2425,6 +2436,8 @@ def passive_dispersal_pathway(simulation_year=None):
         "  - An animation of particle dispersal",
         "",
         "Use the dropdown below each viewer to switch between datasets.",
+        "",
+        "If a viewer appears empty, select a different dataset in its dropdown and then switch back. This forces Jupyter to draw the figure and is a display quirk only, not a problem with your results.",
     ])
     if metrics_by_dataset:
         print()

@@ -302,6 +302,24 @@ def copy_paste_prompt(code_lines, intro="To continue"):
         print("")
 
 
+## Placeholder written in place of the Copernicus password in any saved parameter file.
+## Matches automatic.py so a file saved by one pathway is understood by the other.
+PASSWORD_PLACEHOLDER = "YOUR_PASSWORD_HERE"
+
+
+def scrub_password(params):
+    """Return a copy of a parameter dict with the Copernicus password replaced by a placeholder.
+
+    Saved parameter files live inside the project folder, which users routinely email, zip or
+    commit, so the real password must never be written to disk. The in-memory dict is left
+    untouched, so the current session can still authenticate with Copernicus.
+    """
+    safe = copy.deepcopy(params)
+    if isinstance(safe, dict) and safe.get('password'):
+        safe['password'] = PASSWORD_PLACEHOLDER
+    return safe
+
+
 def completion_message(step_number=None, next_step=True):
     """
     Standard completion message for end of steps or workflow.
@@ -904,9 +922,14 @@ def bin_mask(native_landmask, native_lonarray, native_latarray, target_km):
     target_lat_step = target_km / 111.0
     target_lon_step = target_km / (111.0 * max(np.cos(np.deg2rad(lat_mid)), 0.1))
 
-    # If target is within 10% of native, return native unchanged
+    # If target is within 10% of native, return native unchanged. Re-binning onto a grid almost the
+    # same size as the native one gains nothing and makes the land mask ragged, because each coarse
+    # cell would capture one native cell in places and two in others. Report the resolution actually
+    # used: this is the only case where the grid differs from the target, and in the passive pathway
+    # the target is chosen automatically, so the user has nothing to compare it against.
     native_km_lat = native_lat_step * 111.0
     if abs(target_km - native_km_lat) / native_km_lat < 0.10:
+        print(f"  Grid resolution used: {native_km_lat:.1f} km (the native grid, kept unchanged because {target_km} km is within 10% of it).")
         return native_landmask.copy(), native_lonarray.copy(), native_latarray.copy()
 
     lat_min = float(np.min(native_latarray))
@@ -1213,6 +1236,12 @@ def save_session(filepath=None):
                 session_data[var_name] = globals()[var_name]
             except Exception as e:
                 print(f"  Warning: Could not save '{var_name}': {e}")
+
+    # The checkpoint lives in the project folder and gets shared like any other output, so the
+    # Copernicus password must not travel inside it either. Scrub the saved copy only; the live
+    # session keeps the real password.
+    if 'hydro_params' in session_data:
+        session_data['hydro_params'] = scrub_password(session_data['hydro_params'])
 
     # Save hydro_data: strip the unpicklable Copernicus/S3 backend by converting to a plain in-memory dataset.
     # Cache the clean copy so subsequent saves are instant.
@@ -3108,9 +3137,9 @@ def edit_hydro_params(hydro_params):
         hydro_params['time_range'][1].strftime('%Y-%m-%d')
     ]
 
-    # Save the updated parameters to the JSON file
+    # Save the updated parameters to the JSON file (never the real password)
     with open("hydrodynamic_parameters.json", "w") as file:
-        json.dump(hydro_params, file, indent=4)
+        json.dump(scrub_password(hydro_params), file, indent=4)
 
     print("\nParameters updated and saved.")
 
@@ -3319,11 +3348,12 @@ def params():
         hydro_params['time_range'][1].strftime('%Y-%m-%d')
     ]
 
-    # Save the parameters to a JSON file
+    # Save the parameters to a JSON file (never the real password)
     with open(params_file, "w") as file:
-        json.dump(hydro_params, file, indent=4)
+        json.dump(scrub_password(hydro_params), file, indent=4)
 
     print("\nParameters have been saved to 'hydrodynamic_parameters.json'.")
+    print("Your Copernicus password is not written to this file.")
 
     # Convert time_range back to datetime objects for return
     hydro_params['time_range'] = [
@@ -7217,7 +7247,7 @@ def create_pset(fieldset, meshgrid, runtime):
         f"Release locations: {num_locations}",
         f"Particles per location per cohort: {npart}",
         f"Total particles per location (all cohorts): {particles_per_location}",
-        f"Total particles released (all cohorts x locations): {total_particles}",
+        f"Total particles released (simulation): {total_particles}",
         f"Adjusted runtime: {adjusted_runtime.days} days",
         f"Horizontal diffusivity (kh): {kh} m²/s"
     ])
@@ -8559,10 +8589,13 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
                           if standardise_species_name(k) == species_name), None)
             if _rkey is None or len(release_grids[_rkey]) == 0:
                 print(f"\n[{i + 1}/{n_species}] {display_species_name(species_name)}: "
-                      f"skipped (no occurrence records, so no release habitat).")
+                      f"skipped (no occurrence records, so no release habitat).", flush=True)
                 continue
 
-        print(f"\n[{i + 1}/{n_species}] Processing: {display_species_name(species_name)}")
+        # flush=True: the per-chunk progress line below starts with '\r', and Jupyter merges it
+        # with anything still sitting in the stdout buffer, swallowing this header. Flushing here
+        # pushes this line (and the step headers before it) out as their own output first.
+        print(f"\n[{i + 1}/{n_species}] Processing: {display_species_name(species_name)}", flush=True)
 
         if use_chunks:
             # Per-chunk processing: apply all three filters to each chunk, collect only the surviving rows (typically 1-5% of data).
@@ -9600,7 +9633,7 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
                        zoom_extent=None, cmap='viridis_r',
                        output_format='png', dpi=300, show_figure=None,
                        network_graph=None, top_n_edges=200, network_only=False,
-                       subtitle=None):
+                       subtitle=None, figsize=None):
     """
         Hotspot/metric map (default) or network-only map.
 
@@ -9637,10 +9670,14 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
     fig_width, fig_height, _ = calculate_figure_dimensions(lon_range, lat_range, base_size=6, n_panels=1)
 
     if network_only:
-        fig = plt.figure(figsize=(12, 8.5))
+        fig = plt.figure(figsize=figsize or (12, 8.5))
         gs = GridSpec(1, 1, figure=fig)
     else:
-        fig = plt.figure(figsize=(12, 10.5))
+        # figsize is normally left at the standard (12, 10.5). Callers that render a matched pair
+        # of maps (the Type 3 comparison) pass one explicit size derived from the shared extent,
+        # so both figures are laid out identically and the map fills its axes instead of sitting
+        # in a band of white space.
+        fig = plt.figure(figsize=figsize or (12, 10.5))
         gs = GridSpec(3, 1, height_ratios=[6, 0.3, 1.3],
                       hspace=0.4, figure=fig)
 
@@ -9945,7 +9982,13 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
         cbar.ax.tick_params(labelsize=11)
 
     if output_path:
-        fig.savefig(output_path, format=output_format, dpi=dpi, bbox_inches='tight')
+        # Force a full render before writing, and set an explicit white background to match
+        # save_figure. bbox_inches='tight' measures the artists and can otherwise rasterise a
+        # cartopy GeoAxes that has not been drawn yet, producing a blank file at the correct
+        # size. This is purely a render pass, so it cannot alter the figure's content.
+        fig.canvas.draw()
+        fig.savefig(output_path, format=output_format, dpi=dpi, bbox_inches='tight',
+                    facecolor='white', edgecolor='none')
         print(f"  Figure saved to: {output_path}")
 
     if show_figure is None or show_figure:
@@ -10062,7 +10105,13 @@ def create_connectivity_matrix_plot(connectivity_matrix, title="Connectivity Mat
 
     # Save if output path provided
     if output_path:
-        fig.savefig(output_path, format=output_format, dpi=dpi, bbox_inches='tight')
+        # Force a full render before writing, and set an explicit white background to match
+        # save_figure. bbox_inches='tight' measures the artists and can otherwise rasterise a
+        # cartopy GeoAxes that has not been drawn yet, producing a blank file at the correct
+        # size. This is purely a render pass, so it cannot alter the figure's content.
+        fig.canvas.draw()
+        fig.savefig(output_path, format=output_format, dpi=dpi, bbox_inches='tight',
+                    facecolor='white', edgecolor='none')
         print(f"  Figure saved to: {output_path}")
 
     if show_figure is None or show_figure:
@@ -10108,10 +10157,35 @@ def create_matrix_with_map(connectivity_matrix, site_metrics,
             return str(_lbl)
 
     def _wrap_label(_txt):
-        # Long combined site names (several sites sharing one grid cell, joined by ' / ')
-        # are stacked onto separate lines so rotated axis labels stay short and do not
-        # overlap the colourbar, and map labels stay compact.
-        return str(_txt).replace(' / ', '/\n')
+        # A grid cell shared by several named sites stores them joined by ' / '. Stacking those
+        # names onto separate lines made the tick label several lines tall, so on a dense axis
+        # (e.g. an all-sites run with hundreds of cells) it overlapped the neighbouring ticks.
+        # Show the first name and a count of the rest instead, which stays one line high and one
+        # short token wide on both axes and the map. The full membership is spelled out in the
+        # footnote below the figure (and in the Step 3 note and saved grid files).
+        _parts = [p for p in str(_txt).split(' / ') if p]
+        if len(_parts) > 1:
+            return f"{_parts[0]} (+{len(_parts) - 1})"
+        return str(_txt)
+
+    # Resolve any matrix row/column label back to its grid_id, whether it is stored as
+    # 'site_<gid>' or as a real site name. A cell shared by several named sites is stored under
+    # its combined name (e.g. 'TAR_PU / TAR_U / TAR_N'), not 'site_<gid>', so a plain 'site_'
+    # strip cannot recover its grid_id. Defined here so both the reference map's site selection
+    # and its labels use it and the map shows exactly the cells the axes label.
+    _name_to_gid = {}
+    if 'grid_id' in site_metrics.columns:
+        for _c in ('site_name', 'site'):
+            if _c in site_metrics.columns:
+                for _, _r in site_metrics.iterrows():
+                    _name_to_gid[str(_r[_c])] = int(_r['grid_id'])
+
+    def _index_to_gid(_lbl):
+        _g = str(_lbl).replace('site_', '')
+        try:
+            return int(_g)
+        except (TypeError, ValueError):
+            return _name_to_gid.get(str(_lbl))
 
     # Cap the number of tick labels to a fixed target so the axes and the map stay readable at any site count
     _max_tick_labels = 30
@@ -10162,9 +10236,11 @@ def create_matrix_with_map(connectivity_matrix, site_metrics,
     # Right: Reference map
     ax_map = fig.add_subplot(gs[1], projection=ccrs.PlateCarree())
 
-    # Get coordinates for connected sites
-    site_ids_in_matrix = [s.replace('site_', '') for s in connectivity_matrix.index]
-    map_sites = site_metrics[site_metrics['grid_id'].astype(str).isin(site_ids_in_matrix)].copy()
+    # Get coordinates for connected sites. Resolve each matrix label to its grid_id (handles the
+    # named-cell form too) so named sites are kept on the map; matching only the 'site_<gid>'
+    # form previously dropped them, leaving the map and the matrix axes inconsistent.
+    _matrix_gids = {g for g in (_index_to_gid(s) for s in connectivity_matrix.index) if g is not None}
+    map_sites = site_metrics[site_metrics['grid_id'].astype(int).isin(_matrix_gids)].copy()
 
     if len(map_sites) == 0:
         # Fallback: try matching differently
@@ -10193,23 +10269,8 @@ def create_matrix_with_map(connectivity_matrix, site_metrics,
         zorder=3
     )
 
-    # Label the same sites that are labelled on the matrix axes
-    # The matrix index may be 'site_<grid_id>', a bare grid_id or a real site_name
-    # Resolve each labelled position back to a grid_id
-    _name_to_gid = {}
-    if 'grid_id' in site_metrics.columns:
-        for _c in ('site_name', 'site'):
-            if _c in site_metrics.columns:
-                for _, _r in site_metrics.iterrows():
-                    _name_to_gid[str(_r[_c])] = int(_r['grid_id'])
-
-    def _index_to_gid(_lbl):
-        _g = str(_lbl).replace('site_', '')
-        try:
-            return int(_g)
-        except (TypeError, ValueError):
-            return _name_to_gid.get(str(_lbl))
-
+    # Label the same sites that are labelled on the matrix axes (resolver defined above so the
+    # map's selection and its labels stay in step with the axes).
     labelled_gids = set()
     for i in range(0, n_sites, label_every):
         _gid = _index_to_gid(connectivity_matrix.index[i])
@@ -10237,14 +10298,42 @@ def create_matrix_with_map(connectivity_matrix, site_metrics,
     _note = (f"Showing {n_sites} site{'s' if n_sites != 1 else ''} with at least one connection and "
              f"sites with no imported or exported particles are hidden.")
     fig.text(0.5, 0.94, _note, ha='center', va='top', fontsize=11, style='italic', color='#444444')
+    # Footnote spelling out any grid cell shared by several named sites, so a reader of the saved
+    # figure has the full membership behind each 'first (+N)' axis/map label without needing the
+    # grid files. Only cells present in this matrix are listed; a long list is truncated and
+    # points to the saved grids. Shown only when such shared cells exist, so ordinary runs are
+    # unaffected.
+    _shared = []
+    for _gid in sorted(_matrix_gids):
+        _nm = _name_by_gid.get(_gid)
+        _parts = [p for p in str(_nm).split(' / ') if p] if _nm else []
+        if len(_parts) > 1:
+            _shared.append(f"{_parts[0]} (+{len(_parts) - 1}) = {' / '.join(_parts)}")
+
     # Keep the axes (and the reference map's own title) clear of the note above. When the
     # connected sites span a taller-than-wide area the cartopy map fills the full height of
     # its cell and its title rides up toward the note; a lower 'top' guarantees a gap for
-    # any aspect ratio (portrait or landscape).
-    fig.subplots_adjust(top=0.86, bottom=0.24, left=0.08, right=0.97, wspace=0.35)
+    # any aspect ratio (portrait or landscape). When a shared-cell footnote is shown, drop the
+    # panels a little further so the footnote has its own band above the colourbar.
+    fig.subplots_adjust(top=0.86, bottom=0.30 if _shared else 0.24, left=0.08, right=0.97, wspace=0.35)
+
+    if _shared:
+        _cap = 6
+        _shared_txt = ('; '.join(_shared[:_cap]) + f"; and {len(_shared) - _cap} more (see the saved grid files)"
+                       if len(_shared) > _cap else '; '.join(_shared))
+        fig.text(0.5, 0.12,
+                 "Sites sharing a grid cell are labelled by the first site and a count. "
+                 "Full membership: " + _shared_txt,
+                 ha='center', va='top', fontsize=8, style='italic', color='#444444', wrap=True)
 
     if output_path:
-        fig.savefig(output_path, format=output_format, dpi=dpi, bbox_inches='tight')
+        # Force a full render before writing, and set an explicit white background to match
+        # save_figure. bbox_inches='tight' measures the artists and can otherwise rasterise a
+        # cartopy GeoAxes that has not been drawn yet, producing a blank file at the correct
+        # size. This is purely a render pass, so it cannot alter the figure's content.
+        fig.canvas.draw()
+        fig.savefig(output_path, format=output_format, dpi=dpi, bbox_inches='tight',
+                    facecolor='white', edgecolor='none')
         print(f"  Figure saved to: {output_path}")
 
     if show_figure is None or show_figure:
@@ -12041,10 +12130,12 @@ def display_sensitivity_comparison(original_metrics, modified_metrics, compariso
     print(f"{'Mean dispersal distance (km)':<35} {orig_mean_dist:>15.1f} {mod_mean_dist:>15.1f} {mod_mean_dist - orig_mean_dist:>+12.1f}")
     print(f"{'Max dispersal distance (km)':<35} {orig_max_dist:>15.1f} {mod_max_dist:>15.1f} {mod_max_dist - orig_max_dist:>+12.1f}")
 
-    # PLD
-    print(f"{'Min PLD (days)':<35} {orig_min_pld:>15.0f} {mod_min_pld:>15.0f} {mod_min_pld - orig_min_pld:>+12.0f}")
+    # PLD. One decimal place throughout, matching the CSV and every other PLD readout in the
+    # package: realised PLD is resolved to the output timestep (half a day), so rounding to whole
+    # days turned a genuine 0.5 d minimum into "0", which reads as instantaneous settlement.
+    print(f"{'Min PLD (days)':<35} {orig_min_pld:>15.1f} {mod_min_pld:>15.1f} {mod_min_pld - orig_min_pld:>+12.1f}")
     print(f"{'Mean PLD (days)':<35} {orig_mean_pld:>15.1f} {mod_mean_pld:>15.1f} {mod_mean_pld - orig_mean_pld:>+12.1f}")
-    print(f"{'Max PLD (days)':<35} {orig_max_pld:>15.0f} {mod_max_pld:>15.0f} {mod_max_pld - orig_max_pld:>+12.0f}")
+    print(f"{'Max PLD (days)':<35} {orig_max_pld:>15.1f} {mod_max_pld:>15.1f} {mod_max_pld - orig_max_pld:>+12.1f}")
 
     print("-" * 80)
 
@@ -12134,6 +12225,18 @@ def create_comparison_map(baseline_results, modified_results, output_path=None,
         _sm_both['longitude'].min() - 5 * _ex_cl, _sm_both['longitude'].max() + 5 * _ex_cl,
         _sm_both['latitude'].min() - 5 * _ex_ct, _sm_both['latitude'].max() + 5 * _ex_ct,
     ]
+    # One figure size for BOTH maps, derived from the shared extent, so the pair is guaranteed to
+    # come out identically laid out (only the data and title differ). Sizing the canvas to the
+    # domain's aspect also stops the map sitting in a band of white space: a cartopy GeoAxes keeps
+    # an equal aspect, so on a fixed 12 x 10.5 canvas a wide domain leaves large empty margins
+    # above and below the map. Width is fixed at 12 in; the map panel takes 6 of the 7.6 height
+    # units in the GridSpec below, so the canvas height is the map height scaled back up by that
+    # fraction, then clamped to keep the colourbar and legend readable for extreme aspect ratios.
+    _ce_lon = max(float(_common_extent[1] - _common_extent[0]), 1e-6)
+    _ce_lat = max(float(_common_extent[3] - _common_extent[2]), 1e-6)
+    _map_h_in = 12.0 * (_ce_lat / _ce_lon)
+    _cmp_figsize = (12.0, float(np.clip(_map_h_in * (7.6 / 6.0) + 1.2, 8.0, 16.0)))
+
     for _results, _title, _suffix in [
         (baseline_results, title1, 'original'),
         (modified_results, title2, 'modified'),
@@ -12141,19 +12244,24 @@ def create_comparison_map(baseline_results, modified_results, output_path=None,
         _sm = _results['site_metrics']
         _t10 = _results.get('top10_overall', _sm.head(10))
         _ng = _results.get('network_graph')
-        _out = f"{output_path}_{_suffix}.{output_format}" if output_path else None
-        # Build (and save) each map without letting create_network_map show it; both are displayed
+        # Build each map without letting create_network_map show it; both are displayed
         # explicitly below so the original always appears above the modified, regardless of how much
         # other output the surrounding cell produces (two separate plt.show() calls can otherwise be
         # collapsed under Jupyter's "Show more outputs" fold).
         fig = create_network_map(
             _sm, _t10, title=_title,
             composite_col='overall_composite', cmap='viridis_r',
-            output_path=_out, output_format=output_format, dpi=dpi,
             show_figure=False, network_graph=_ng, top_n_edges=200,
-            zoom_extent=_common_extent,
+            zoom_extent=_common_extent, figsize=_cmp_figsize,
             subtitle='Sites coloured by overall composite hotspot rank (1 = best)',
         )
+        # Write the file through save_figure, the same helper every Type 1/2 and passive figure
+        # uses, rather than create_network_map's own savefig. That path sets an explicit white
+        # facecolor and is the one proven across every other figure in the package; the direct
+        # savefig here previously produced an all-white file for the first of the two maps.
+        if output_path:
+            save_figure(fig, f"{output_path}_{_suffix}",
+                        format_ext=output_format, dpi=dpi)
         figs.append(fig)
 
     # Display the two maps in order (original first, then modified) as separate outputs.
@@ -12344,9 +12452,9 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
              'Site x metric heatmaps, rows are network metrics, columns are top sites by overall rank.'),
             ('figures', '<dataset>/*hotspot*',
              'Top 10 hotspot maps coloured by composite or single-metric rank.'),
-            ('figures', 'trait_sensitivity_*_original.*',
+            ('figures', '<dataset>/trait_sensitivity_*_original.*',
              'Type 3 hotspot map under the original (baseline) traits.'),
-            ('figures', 'trait_sensitivity_*_modified.*',
+            ('figures', '<dataset>/trait_sensitivity_*_modified.*',
              'Type 3 hotspot map under the modified-trait scenario.'),
 
             # animation
@@ -13534,8 +13642,12 @@ def post_analysis(final_processed):
                                     show_figure=False, network_graph=ng,
                                     top_n_edges=None, network_only=True,
                                 )),
-                                ('communities', lambda nr_=nr, t=_title: create_community_map(
-                                    nr_, title=t, show_figure=False)[0]),
+                                # create_community_map returns (fig, partition), or None when it
+                                # cannot run (e.g. python-louvain missing, too few nodes). The
+                                # 'or (None,)' keeps that None case from raising TypeError so the
+                                # caller reports a clear reason instead of a subscripting error.
+                                ('communities', lambda nr_=nr, t=_title: (create_community_map(
+                                    nr_, title=t, show_figure=False) or (None,))[0]),
                                 ('connectivity_matrix', lambda cm=_cm, sm=_sm, t=_title: create_matrix_with_map(
                                     cm, sm, title=t, show_figure=False)),
                                 ('heatmap', lambda nr_=nr, t=_title: build_heatmap_figure(
@@ -13572,8 +13684,16 @@ def post_analysis(final_processed):
                                     if fig is not None:
                                         save_figure(fig, os.path.join(fig_subdir, fn))
                                         plt.close(fig)
-                                except Exception:
-                                    pass
+                                    else:
+                                        print(f"  Note: '{fn}' figure was not produced for "
+                                              f"{level_label} , {s_name}, so it was not saved.")
+                                except Exception as _e:
+                                    # Never fail the whole run for one figure, but say which one
+                                    # failed and why - a silent 'pass' here previously hid every
+                                    # missing figure (e.g. all Louvain maps when python-louvain
+                                    # was absent) with no warning at all.
+                                    print(f"  Note: could not save the '{fn}' figure for "
+                                          f"{level_label} , {s_name} ({_e}).")
 
                                 # Save result CSVs: results/<level>/<level>_<scale>_*.csv
                             results_root = get_default_dir('results')
@@ -13630,6 +13750,8 @@ def post_analysis(final_processed):
                     "       - Modularity: how cleanly the network separates into communities (-0.5 to 1). High (>=0.3) = well-separated communities; low (<0.3) = weak partition",
                     "",
                     "Use the dropdowns below each viewer to switch between analysis levels, spatial scales and (for the hotspot map) network metrics.",
+                    "",
+                    "If a viewer appears empty, select a different option in its dropdown and then switch back. This forces Jupyter to draw the figure and is a display quirk only, not a problem with your results.",
                     "",
                 ])
 
@@ -13888,7 +14010,15 @@ def post_analysis(final_processed):
                                 print(f"  Type 3 results saved to: {_t3_path}")
 
                             if get_yes_no("\nCreate comparison map?", default='yes'):
-                                _fig_dir = globals().get('project_dirs', {}).get('figures', '.')
+                                # Keep Type 3 maps beside the Type 2 figures for the same level and
+                                # scale (figures/community_<scale>/) instead of loose in figures/.
+                                # Scale naming matches Type 2: None means the full domain.
+                                _t3_scale = ('full_domain' if sensitivity_scale is None
+                                             else f'{sensitivity_scale}_km')
+                                _fig_dir = os.path.join(
+                                    globals().get('project_dirs', {}).get('figures', '.'),
+                                    f'community_{_t3_scale}')
+                                os.makedirs(_fig_dir, exist_ok=True)
                                 _safe_scn = (scenario_name.replace(' ', '_')
                                              .replace('/', '-').replace(',', ''))
                                 create_comparison_map(
@@ -14253,6 +14383,12 @@ def workflow_step(step_number):
             buffer_before = hydro_params.get('buffer_before', 0)
             buffer_after = hydro_params.get('buffer_after', 0)
 
+            # Saved parameter files and session checkpoints store a placeholder instead of the
+            # real password, so ask for it again rather than sending the placeholder to Copernicus.
+            if hydro_params.get('password') == PASSWORD_PLACEHOLDER:
+                print("\nYour saved parameters do not include your Copernicus password (it is never written to disk).")
+                hydro_params['password'] = getpass.getpass("  Copernicus password: ").strip()
+
             # Pre-download coverage check: confirm the dataset covers the dispersal period before streaming anything.
             _cov_ok, _avail_start, _avail_end = check_dataset_coverage(
                 hydro_params['dataset_id'], hydro_params['time_range'],
@@ -14313,8 +14449,7 @@ def workflow_step(step_number):
                 hydro_data, geojson_file_path=None, show_map=False
             )
 
-            # 1. Grid resolution , reuse the value saved for this project on a rerun,
-            # otherwise let the user choose (the choice is saved at the end of Step 1).
+            # 1. Grid resolution , reuse the value saved for this project on a rerun, otherwise let the user choose (the choice is saved at the end of Step 1).
             _saved_res = _saved_bin = None
             if os.path.exists(_hp_path):
                 try:
@@ -14395,7 +14530,9 @@ def workflow_step(step_number):
             print(f"  Note: Could not display hydrodynamic extent ({e}).")
             _selected_resolution_km, _needs_binning = None, None
 
-        completion_message(1)
+        # next_step=False: the "continue to the next step" box is shown after the session-save
+        # prompt instead, so it is always the last thing on screen at the end of a step.
+        completion_message(1, next_step=False)
         print("\nOutputs: Species traits, hydrodynamic parameters, dispersal period")
 
         # Capture the data-source and grid-resolution choices in the parameter file
@@ -14409,15 +14546,14 @@ def workflow_step(step_number):
             _hp_saved['selected_resolution_km'] = _selected_resolution_km
             _hp_saved['needs_binning'] = _needs_binning
             with open(_hp_path, 'w') as _f:
-                json.dump(_hp_saved, _f, indent=4)
+                json.dump(scrub_password(_hp_saved), _f, indent=4)
         except Exception as _e:
             print(f"  Note: Could not update the parameter file ({_e}).")
 
         save_now = input("\nSave session checkpoint? (yes/no) [default: yes]: ").strip().lower()
         if save_now not in ['no', 'n']:
             save_session()
-        print("\nTo continue, run in the next cell:")
-        print("workflow_step(2)\n")
+        copy_paste_prompt(["workflow_step(2)"], intro="To continue to Step 2")
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Step 2: Species Occurrence Data
@@ -14472,13 +14608,12 @@ def workflow_step(step_number):
             hydro_data, species_traits_path
         )
 
-        completion_message(2)
+        completion_message(2, next_step=False)
         print("\nOutputs: Cleaned species occurrences, land/coastal masks, study extent polygon")
         save_now = input("\nSave session checkpoint? (yes/no) [default: yes]: ").strip().lower()
         if save_now not in ['no', 'n']:
             save_session()
-        print("\nTo continue, run in the next cell:")
-        print("workflow_step(3)\n")
+        copy_paste_prompt(["workflow_step(3)"], intro="To continue to Step 3")
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Step 3: Simulation Setup
@@ -14504,6 +14639,11 @@ def workflow_step(step_number):
 
             n_native_coastal = int((make_coastalmask(landmask) == 1).sum())
             n_binned_coastal = int((binned_coastalmask == 1).sum())
+            # Measure the resolution off the grid that was actually built, so the reported figure
+            # is never the requested one when bin_mask has kept the native grid instead.
+            _built_km = (float(abs(binned_latarray[1, 0] - binned_latarray[0, 0])) * 111.0
+                         if binned_landmask.shape[0] > 1 else float(resolution_km))
+            print(f"  Grid resolution used: {_built_km:.1f} km")
             print(f"  Native coastal cells: {n_native_coastal:,}")
             print(f"  Binned coastal cells: {n_binned_coastal:,} "
                   f"({100 * n_binned_coastal / max(n_native_coastal, 1):.0f}% of native)\n")
@@ -14567,13 +14707,12 @@ def workflow_step(step_number):
         # Create custom kernels
         kernels = create_custom_kernels(pset)
 
-        completion_message(3)
+        completion_message(3, next_step=False)
         print("\nOutputs: Release/settlement grids, grid IDs, fieldset, ParticleSet")
         save_now = input("\nSave session checkpoint? (yes/no) [default: yes]: ").strip().lower()
         if save_now not in ['no', 'n']:
             save_session()
-        print("\nTo continue, run in the next cell:")
-        print("workflow_step(4)\n")
+        copy_paste_prompt(["workflow_step(4)"], intro="To continue to Step 4")
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Step 4: Execute Simulation
@@ -14663,14 +14802,13 @@ def workflow_step(step_number):
 
         traj = None  # Trajectory data stays on disk as parquet chunks for memory efficiency
 
-        completion_message(4)
+        completion_message(4, next_step=False)
         print("\nOutputs: Simulation .zarr file (saved to disk), trajectory DataFrame (in memory)")
         print("Note: The .zarr file is permanently saved on disk. Save your session to preserve the processed trajectory DataFrame and avoid re-loading from .zarr in future.")
         save_now = input("\nSave session checkpoint? (yes/no) [default: yes]: ").strip().lower()
         if save_now not in ['no', 'n']:
             save_session()
-        print("\nTo continue, run in the next cell:")
-        print("workflow_step(5)\n")
+        copy_paste_prompt(["workflow_step(5)"], intro="To continue to Step 5")
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Step 5: Post-processing
@@ -14724,14 +14862,13 @@ def workflow_step(step_number):
         traj_input = chunks_dir if has_chunks else traj
         final_processed, buffer = post_process(traj_input, traits, release_grids, settlement_grids, grid_ids)
 
-        completion_message(5)
+        completion_message(5, next_step=False)
         print("\nOutputs: Filtered trajectory data by species (in memory)")
         print("Note: Save your session here to re-run analyses (Step 6) without re-processing.")
         save_now = input("\nSave session checkpoint? (yes/no) [default: yes]: ").strip().lower()
         if save_now not in ['no', 'n']:
             save_session()
-        print("\nTo continue, run in the next cell:")
-        print("workflow_step(6)\n")
+        copy_paste_prompt(["workflow_step(6)"], intro="To continue to Step 6")
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Step 6: Connectivity Analyses

@@ -92,17 +92,31 @@ from comcon.interactive import (
 # region Helper Functions
 ## Standardise species names
 def standardise_species_name(name):
-    """Standardise species names to use underscores consistently (case-insensitive matching)."""
+    """Standardise species names to use underscores consistently.
+
+    MUST behave identically to interactive.standardise_species_name. The grids built here are
+    looked up later by post_process/metrics/network, which all live in interactive.py and use
+    that version - so if the two diverge, the lookups silently miss and every species is
+    dropped. (This previously lowercased, which made all_sites/pooled build lowercase grid keys
+    that interactive could never match, so only species already lowercase in the traits file
+    survived post-processing.)
+    """
     if name is None:
         return None
-    return str(name).strip().lower().replace(' ', '_')
+    return str(name).replace(' ', '_')
 
 ## Displaying species names
 def display_species_name(name):
-    """Format species name for display (replace underscores with spaces)."""
+    """Format species name for display: underscores to spaces and capitalise the first letter
+    (genus), leaving the rest untouched so a binomial reads 'Carcinus maenas'.
+
+    MUST behave identically to interactive.display_species_name so species labels are the same
+    in every mode.
+    """
     if name is None:
         return None
-    return str(name).replace('_', ' ')
+    s = str(name).replace('_', ' ')
+    return s[:1].upper() + s[1:] if s else s
 
 ## Memory monitor
 class MemoryMonitor:
@@ -132,13 +146,18 @@ def check_system_memory():
 
 ## Getting the memory configuration setup
 def get_memory_config(available_gb, runtime_days=None, output_hours=None):
-    """Determine memory configuration based on available RAM."""
-    if available_gb >= 16:
-        return {'system_type': 'high', 'chunk_size': 100000}
-    elif available_gb >= 8:
-        return {'system_type': 'medium', 'chunk_size': 50000}
-    else:
-        return {'system_type': 'limited', 'chunk_size': 25000}
+    """Determine memory configuration based on available RAM.
+
+    Delegates to interactive.get_memory_config so every mode sizes chunks identically.
+    Automatic previously used its own coarse RAM buckets (25k/50k/100k trajectories) which
+    ignored runtime and output frequency and allowed chunks up to 10x larger than
+    interactive's safe cap - so the same import could use far more memory in automatic mode
+    than in interactive. Interactive's version scales the chunk with available RAM, runtime
+    and output frequency, then clamps it to a safe 500-10,000 trajectories.
+    """
+    from comcon.interactive import get_memory_config as _interactive_memory_config
+    return _interactive_memory_config(available_gb, runtime_days,
+                                      output_hours if output_hours is not None else 24)
 
 ## Error handling for inputs
 ## Analyses error handling function
@@ -1698,6 +1717,11 @@ def run_workflow(config):
             lonarray, latarray = binned_lonarray, binned_latarray
             _n_native_c = int((native_coastalmask == 1).sum())
             _n_binned_c = int((binned_coastalmask == 1).sum())
+            # Measure the resolution off the grid that was actually built, so the reported figure
+            # is never the requested one when bin_mask has kept the native grid instead.
+            _built_km = (float(abs(binned_latarray[1, 0] - binned_latarray[0, 0])) * 111.0
+                         if binned_landmask.shape[0] > 1 else float(resolution_km))
+            print(f"  Grid resolution used: {_built_km:.1f} km")
             print(f"  Native coastal cells: {_n_native_c:,}")
             print(f"  Binned coastal cells: {_n_binned_c:,} ({100 * _n_binned_c / max(_n_native_c, 1):.0f}% of native)")
 
@@ -1969,7 +1993,10 @@ def run_workflow(config):
 
         display_line("=")
         print(f"Release sites: {len(meshgrid)}")
-        print(f"Species with grids: {len(release_grids)}")
+        print(f"Species with release grids: {len(release_grids)}")
+        for _sp, _g in release_grids.items():
+            print(f"   - {_sp}: {len(_g)} release sites")
+        print(f"Species to post-process: {[standardise_species_name(t['species_name']) for t in traits]}")
         display_line("=")
 
         # Create fieldset
@@ -2023,7 +2050,7 @@ def run_workflow(config):
             f"Release locations: {len(lats)}",
             f"Particles per location per cohort: {npart}",
             f"Total particles per location (all cohorts): {npart * num_intervals}",
-            f"Total particles released (all cohorts x locations): {total_particles}",
+            f"Total particles released (simulation): {total_particles}",
             f"Adjusted runtime: {adjusted_runtime.days} days",
             f"Horizontal diffusivity (kh): {kh} m²/s",
         ])
@@ -2526,6 +2553,8 @@ def run_workflow(config):
                     "  - Dispersal distance (km) and realised PLD (days)",
                     "",
                     "Use the dropdown to switch between the community and individual species.",
+                    "",
+                    "If a viewer below appears empty, select a different option in its dropdown and then switch back. This forces Jupyter to draw the figure and is a display quirk only, not a problem with your results.",
                 ])
                 print()
                 subsection_header("Connectivity Metrics")
@@ -2608,6 +2637,8 @@ def run_workflow(config):
                     "       - Modularity: how cleanly the network separates into communities (-0.5 to 1). High (>=0.3) = well-separated communities; low (<0.3) = weak partition",
                     "",
                     "Use the dropdowns below each viewer to switch between analysis levels, spatial scales and (for the hotspot map) network metrics.",
+                    "",
+                    "If a viewer appears empty, select a different option in its dropdown and then switch back. This forces Jupyter to draw the figure and is a display quirk only, not a problem with your results.",
                 ])
 
                 print()
@@ -2664,7 +2695,15 @@ def run_workflow(config):
                 except Exception as e:
                     print(f"  Note: Sensitivity comparison table could not be displayed: {e}")
                 try:
-                    _t3_fig_dir = config['project'].get('figures', '.')
+                    # Keep Type 3 maps beside the Type 2 figures for the same level and scale
+                    # (figures/community_<scale>/) instead of loose in figures/. Scale naming
+                    # matches interactive and Type 2: no scale means the full domain.
+                    _t3_scale_km = config['analysis'].get('type3_scale')
+                    _t3_scale = ('full_domain' if _t3_scale_km is None
+                                 else f'{_t3_scale_km}_km')
+                    _t3_fig_dir = os.path.join(config['project'].get('figures', '.'),
+                                               f'community_{_t3_scale}')
+                    os.makedirs(_t3_fig_dir, exist_ok=True)
                     _t3_safe = (t3['scenario'].replace(' ', '_').replace('/', '-').replace(',', ''))
                     create_comparison_map(
                         t3['original_network'], t3['modified_network'],

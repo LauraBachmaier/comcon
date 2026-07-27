@@ -18,8 +18,20 @@ outputs/
 **/saved_state/
 *.pkl
 
+# Saved run parameters — these can contain Copernicus credentials, never commit them
+hydrodynamic_parameters.json
+comcon_config.json
+spp_occ_params.json
+
 # OS
 .DS_Store
 Thumbs.db
 # Sphinx build output
 docs/api/_build/
+
+# Development / testing notebooks — scratch work with large embedded outputs,
+# not distributed. The published tutorials live directly in docs/vignettes/.
+docs/vignettes/testing/
+docs/vignettes/files/
+docs/vignettes/old/
+docs/vignettes/outputs/

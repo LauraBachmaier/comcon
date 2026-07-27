@@ -67,10 +67,9 @@ def display_line(char="═"):
 
 
 def copy_paste_prompt(code_lines, intro="To begin"):
-    """Print a prominent, hard-to-miss instruction telling the user to copy the given line(s)
-    into a NEW Jupyter cell and run them. Rendered bold (via a styled HTML block, falling back
-    to ANSI bold) so it stands out from the surrounding text - ComCon's workflow always advances
-    by running the next line in a fresh cell, and this makes that step obvious every time."""
+    """Print a prominent, hard-to-miss instruction telling the user to copy the given line(s) into a NEW Jupyter cell and run them.
+    Rendered bold (via a styled HTML block, falling back to ANSI bold) so it stands out from the surrounding text.
+    ComCon's workflow always advances by running the next line in a fresh cell, and this makes that step obvious every time."""
     _code = "\n".join(str(c) for c in code_lines)
     try:
         display(HTML(
@@ -86,7 +85,7 @@ def copy_paste_prompt(code_lines, intro="To begin"):
             f'font-family:SFMono-Regular,Consolas,Menlo,monospace;">{_code}</pre>'
             f'</div>'))
     except Exception:
-        print(f"\n▶ {intro} - open a NEW cell (the + button, or Esc then B), paste below, run with Shift+Enter:")
+        print(f"\n▶ {intro}. Open a new cell (the + button, or Esc then B), paste code below and run with Shift+Enter:")
         for _ln in code_lines:
             print(f"      {_ln}")
         print("")
@@ -231,8 +230,8 @@ def choose_pathway():
         print("JupyterLab tip: If you see a 'Show more outputs' button during a workflow step, click it to reveal all output.")
         print("→ To disable this permanently: Settings → Settings Editor → Notebook → set 'maxNumberOutputs' to 0.")
         print("")
-        print("Heads-up: a full run can take a while (the particle simulation is the slow part) - this is expected, not a freeze.")
-        print("While a cell is running, JupyterLab shows [*] to its left and a filled circle at the bottom-right; let it finish before running the next cell.")
+        print("Heads-up: a full run can take a while (the particle simulation and post-processing are the slowest steps). This is expected, not a freeze.")
+        print("While a cell is running, JupyterLab shows [*] to the left of the cell. Let it finish before running the next cell.")
         copy_paste_prompt(["from comcon.passive import *", "passive_dispersal_pathway()"],
                           intro="To begin the passive pathway")
         display_line("═")
