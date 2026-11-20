@@ -100,7 +100,7 @@ The DOI for each release will be listed here and on the Releases page. GitHub's 
 
 ## Acknowledgements
 
-ComCon was developed as part of my PhD at the University of Plymouth, supervised by Antony Knights, Pete Cotton, Louise Firth, David Bilton and Kerry Howell. The Louvain community detection is based on code by Antony Knights. The reflective boundary (unbeaching) method is adapted from Clubley et al. (2024) and their code (https://github.com/cclubley/Multi-generational-dispersal). The passive dispersal pathway follows James et al. (2025). Thank you to Giada Riva for testing ComCon on Mediterranean data.
+ComCon was developed as part of my PhD at the University of Plymouth, supervised by Pete Cotton, Louise Firth, David Bilton, Kerry Howell and Antony Knights. The Louvain community detection is based on code by Antony Knights. The reflective boundary (unbeaching) method is adapted from Clubley et al. (2024) and their code (https://github.com/cclubley/Multi-generational-dispersal). The passive dispersal pathway follows James et al. (2025). Thank you to Giada Riva for testing ComCon on Mediterranean data.
 
 ## Use of AI tools
 

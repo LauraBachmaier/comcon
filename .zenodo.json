@@ -11,10 +11,6 @@
   ],
   "contributors": [
     {
-      "name": "Knights, Antony",
-      "type": "Supervisor"
-    },
-    {
       "name": "Cotton, Pete",
       "type": "Supervisor"
     },
@@ -28,6 +24,10 @@
     },
     {
       "name": "Howell, Kerry",
+      "type": "Supervisor"
+    },
+    {
+      "name": "Knights, Antony",
       "type": "Supervisor"
     },
     {
