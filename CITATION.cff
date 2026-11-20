@@ -9,8 +9,16 @@ authors:
     affiliation: "University of Plymouth"
     orcid: "https://orcid.org/0009-0002-7870-4334"
 version: 1.0.0
+doi: 10.5281/zenodo.24404292
 date-released: 2026-11-20
 license: MIT
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.24404291
+    description: "All versions of ComCon"
+  - type: doi
+    value: 10.5281/zenodo.24404292
+    description: "ComCon v1.0.0"
 repository-code: "https://github.com/LauraBachmaier/comcon"
 keywords:
   - marine connectivity

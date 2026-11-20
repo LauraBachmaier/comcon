@@ -1,5 +1,7 @@
 # ComCon: Community Connectivity Package
 
+[![DOI](https://zenodo.org/badge/1465528245.svg)](https://doi.org/10.5281/zenodo.24404291)
+
 **Version 1.0.0** | Laura Bachmaier | University of Plymouth
 
 ComCon is a Python package for multi-species marine larval dispersal modelling using Lagrangian particle tracking with OceanParcels and NEMO hydrodynamic data. It offers two workflow pathways: a quick **passive-dispersal** overview (following James et al. 2025) and a full **trait-defined** workflow that uses species-specific planktonic larval durations, spawning windows and habitat preferences.
@@ -94,9 +96,9 @@ The built-in trait database (`comcon/data/trait_database.csv`) gives spawning wi
 
 If you use ComCon, please cite the version you used:
 
-> Bachmaier, L. (2026). ComCon: Community Connectivity Package (v1.0.0). Zenodo. DOI to follow.
+> Bachmaier, L. (2026). ComCon: Community Connectivity Package (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.24404292
 
-The DOI for each release will be listed here and on the Releases page. GitHub's **Cite this repository** button (on the right of this page) gives the citation in other formats.
+To cite ComCon in general (all versions), use https://doi.org/10.5281/zenodo.24404291. Each new release gets its own DOI, listed on Zenodo and the Releases page. GitHub's **Cite this repository** button (on the right of this page) gives the citation in other formats.
 
 ## Acknowledgements
 
