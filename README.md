@@ -88,7 +88,7 @@ Worked examples are provided as Jupyter notebooks in `docs/vignettes/`: single-s
 
 ## Trait database
 
-The built-in trait database (`comcon/data/trait_database.csv`) was compiled from the published literature. A full table of sources for each trait value will be added in a later release (planned for early 2027).
+The built-in trait database (`comcon/data/trait_database.csv`) gives spawning windows and planktonic larval durations for 28 rocky shore species. Most values come from BIOTIC, the Biological Traits Information Catalogue (MarLIN, 2006. BIOTIC - Biological Traits Information Catalogue. Marine Life Information Network. Plymouth: Marine Biological Association of the United Kingdom. Available from www.marlin.ac.uk/biotic). The other values come from the published literature. A full table of sources for each species and value will be added in a later release (planned for early 2027).
 
 ## Citing ComCon
 
@@ -104,7 +104,7 @@ ComCon was developed as part of my PhD at the University of Plymouth, supervised
 
 ## Use of AI tools
 
-I designed ComCon and developed the science and the workflow. AI tools (Claude and Claude Code, by Anthropic) were used to help write, debug and reorganise parts of the code and to draft parts of the documentation. I reviewed and tested these changes. A full manual review of the code is under way for the next release.
+Generative AI tools were used during the development of ComCon and its documentation. Between 2024 and early 2025, OpenAI ChatGPT (GPT-4o to GPT-4.1) was used as a coding aid to suggest and troubleshoot short code snippets, which I assembled into the working functions. From May 2025, Anthropic Claude (Claude Sonnet 4 to Claude Opus 5.5, through claude.ai and Claude Code) was used to restructure this code into a Python package. This included refactoring, debugging, memory optimisation and packaging, and generating some parts of the analysis and visualisation functions. Claude was also used to draft parts of the user guide and docstrings. I developed the scientific design of ComCon, the workflow and the choice of analyses. I reviewed and tested the AI-assisted code and text, and a full manual review of the code is under way for the next release.
 
 ## Support
 
