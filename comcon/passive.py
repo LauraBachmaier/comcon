@@ -1148,7 +1148,7 @@ def matrix_viewer(network_results_by_dataset):
                 # Capture the return value directly. create_matrix_with_map calls
                 # plt.close(fig) internally when show_figure=False, so plt.gcf()
                 # afterwards returns a fresh empty figure, not the one we just
-                # built, that's why the matrix wasn't appearing in the viewer.
+                # built.
                 fig = create_matrix_with_map(
                     network_results['connectivity_matrix'],
                     network_results['site_metrics'],
@@ -1247,7 +1247,7 @@ def community_viewer(network_results_by_dataset):
                 clear_output(wait=True)
                 display(fig)
                 plt.close(fig)
-                # Louvain/graph parameters (nodes/edges/density/communities/modularity) belong WITH
+                # Louvain/graph parameters (nodes/edges/density/communities/modularity) belong with
                 # the Louvain map, so they are shown here beneath it. (The dataset summary - species,
                 # extent, sites, connections - is a separate table in the Network Summary viewer
                 # above the matrix.)
@@ -1553,7 +1553,7 @@ def metric_viewer(network_results_by_dataset):
             clear_output(wait=True)
             print(f"  Rendering {dataset_label}: {metric_name}... (~10-20 seconds)")
             try:
-                # Network-only mode shows ALL edges so natural weight variation
+                # Network-only mode shows all edges so natural weight variation
                 # reads through the alpha channel. Metric mode caps at 200 edges
                 # so the metric colour stays the dominant signal on the map.
                 top_n = None if network_only else 200
@@ -1660,7 +1660,7 @@ def animation_viewer(trajectory_paths_by_season):
                 traj = pd.read_parquet(parquet_path)
                 clear_output(wait=True)
                 print(f"  Rendering {season_label} animation... (this may take a minute)")
-                # Build the animation object WITHOUT letting dispersal_animation display it.
+                # Build the animation object without letting dispersal_animation display it.
                 # That way the "Rendering..." message can be cleared before the HTML5 player appears.
                 anim = dispersal_animation(traj, output_path=None, show_in_notebook=False)
                 clear_output(wait=True)
@@ -2321,7 +2321,7 @@ def passive_dispersal_pathway(simulation_year=None):
             dataset_results_dir = os.path.join(project_dirs['results'], dataset_label)
             os.makedirs(dataset_results_dir, exist_ok=True)
 
-            # Type 1: Connectivity metrics CSV (was a bug, never called before)
+            # Type 1: Connectivity metrics CSV
             t0 = time.time()
             if metrics_by_dataset.get(dataset_label) is not None:
                 try:

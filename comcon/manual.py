@@ -101,7 +101,7 @@ from comcon.interactive import (
 
     # Step 1: Hydrodynamic Data Functions
     # Wrapper functions (have input() - use for interactive work)
-    params,  # Full Step 1: collect/edit/save hydrodynamic params AND load species traits
+    params,  # Full Step 1: collect/edit/save hydrodynamic params and load species traits
     load_spp_traits,  # Load traits with prompts
     collect_hydro_params,  # Collect hydrodynamic params only (the subset that params() calls)
     setup_project_directory,  # Create/use project directory

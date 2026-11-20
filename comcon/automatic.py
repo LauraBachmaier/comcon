@@ -426,7 +426,7 @@ def collect_all_parameters(project_dirs=None):
         config['copernicus']['export'] = False
         # Skip to traits section
     else:
-        # Note: do NOT reset config['copernicus'] here; that would wipe the 'source'
+        # Note: do not reset config['copernicus'] here; that would wipe the 'source'
         # key set just above, so the download data-source choice was never saved.
         print("\nCopernicus Marine Service credentials:")
         config['copernicus']['username'] = input("  Username: ").strip()
@@ -518,7 +518,7 @@ def collect_all_parameters(project_dirs=None):
         print("  Downloading is only useful if you want a local copy for offline use or to avoid re-downloading in future sessions.")
         print("  Warning: Downloaded files are often large (multiple GB) and take a long time to download (several hours).\n")
 
-        # Fix: default-to-NO logic was inverted. "yes" should export, "no" should skip.
+        # "yes" exports, "no" skips
         export = input("  Save hydrodynamic data to file? (yes/no) [default: no]: ").strip().lower() or 'no'
         config['copernicus']['export'] = export in ['yes', 'y']
 
@@ -1575,7 +1575,7 @@ def run_workflow(config):
     with patch('builtins.input', _auto_input):
 
         # Import only pure functions from interactive.py
-        # These functions take parameters and return results WITHOUT prompting
+        # These functions take parameters and return results without prompting
         from comcon.interactive import (
             # Pure functions (No input() calls inside):
             download_hydrodynamic_data,  # Takes params, downloads data
@@ -1814,7 +1814,7 @@ def run_workflow(config):
 
         # Clean occurrence data
         print("\nCleaning occurrence data...")
-        # Occurrence filtering always uses the NATIVE masks (coastal/land classification is a
+        # Occurrence filtering always uses the native masks (coastal/land classification is a
         # geographic property, independent of the binning choice used for the release/settlement grid).
         clean_spp = clean_spp_occ(
             distributions, native_landmask, native_coastalmask, native_lonarray, native_latarray,
@@ -2275,7 +2275,7 @@ def run_workflow(config):
                             sp_data = {sp: df}
                             sp_settle = ({sp: settlement_grids.get(sp)}
                                          if settlement_grids and sp in settlement_grids else None)
-                            # Pass FULL release_grids to keep a consistent study extent across species
+                            # Pass full release_grids to keep a consistent study extent across species
                             sp_network = network_analysis(
                                 sp_data, release_grids, sp_settle,
                                 coastal_grid_df, grid_ids, coastal_grid_df, scale,
@@ -2316,7 +2316,7 @@ def run_workflow(config):
                         m.strip().lower().replace(' ', '_') for m in config['analysis']['custom_metrics'])
                     print(f"  Added composite 'custom_composite' from: {_chosen}")
 
-            # Figures FIRST so the Louvain community map writes 'louvain_community' into
+            # Figures first so the Louvain community map writes 'louvain_community' into
             # each result's site_metrics before the CSVs are exported (matches interactive).
             # Gated by the single global 'Save figures' option.
             if config['output'].get('save_figures', True):
@@ -2403,7 +2403,7 @@ def run_workflow(config):
                                     pass
                 print(f"  Figures saved to: {fig_root}")
 
-            # Export Type 2 network CSVs AFTER figures, so 'louvain_community' (written by the
+            # Export Type 2 network CSVs after figures, so 'louvain_community' (written by the
             # community map into site_metrics) is included: results/<level>/<level>_<scale>_*.csv
             results_root = config['output'].get('results_dir', config['project'].get('results', '.'))
             _summary_done = set()  # write the network summary scalars once per dataset
