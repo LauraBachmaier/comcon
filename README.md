@@ -8,9 +8,9 @@ ComCon is a Python package for multi-species marine larval dispersal modelling u
 
 ### 1. Download ComCon
 
-On this GitHub page, click the green **Code** button and then **Download ZIP**. Unzip it somewhere on your computer (not in a OneDrive or Dropbox folder). The folder will be called `comcon-main`.
+On this GitHub page, click the green **Code** button and then **Download ZIP**. Unzip it somewhere on your computer. The unzipped folder is automatically called `comcon-main` and you do not need to rename it. We recommend a local folder rather than a cloud-synced one such as OneDrive or Dropbox, as syncing can interfere with the simulation output files (see the User Guide).
 
-You can also download a fixed version from the **Releases** section on the right of this page. Use a release if you want to cite the exact version you used. If you use Git, you can run `git clone https://github.com/LauraBachmaier/comcon.git` instead.
+The **Releases** section on the right of this page has fixed versions of ComCon, each with its own DOI. The Download ZIP above always gives the latest version, which may include small fixes made since the last release. Use a release if you want to cite the exact version you used. If you use Git, you can run `git clone https://github.com/LauraBachmaier/comcon.git` instead.
 
 ### 2. Install Miniconda
 
@@ -56,7 +56,7 @@ This shows a welcome screen and prompts you to choose a pathway (Passive or Trai
 
 | Pathway | Best For | Description |
 |---------|----------|-------------|
-| **Passive dispersal** | A quick overview; data-poor settings | Releases particles from all ocean cells and extracts connectivity at fixed timepoints (7, 14, 21 and 28 days) for a summer and a winter run. No species traits required. Follows James et al. (2025). |
+| **Passive dispersal** | A quick overview; data-poor scenarios | Releases particles from all ocean cells and extracts connectivity at fixed timepoints (7, 14, 21 and 28 days) for a summer and a winter run. No species traits required. Follows James et al. (2025). |
 | **Trait-defined** | Species-specific connectivity | Constrains release, dispersal and settlement using per-species planktonic larval duration, spawning window and habitat preference for a biologically-informed analysis. |
 
 ## Trait-Defined Pathway: Three Operating Modes
@@ -65,7 +65,7 @@ This shows a welcome screen and prompts you to choose a pathway (Passive or Trai
 |------|----------|-------------|
 | **Interactive** | First-time users | Step-by-step guidance with explanations |
 | **Automatic** | Repeat analyses | Collect parameters upfront, run end-to-end |
-| **Manual** | Custom workflows | Access individual functions for scripting |
+| **Manual** | Custom workflows | Access individual functions for more flexibility |
 
 ## Documentation
 
@@ -88,7 +88,7 @@ Worked examples are provided as Jupyter notebooks in `docs/vignettes/`: single-s
 
 ## Trait database
 
-The built-in trait database (`comcon/data/trait_database.csv`) gives spawning windows and planktonic larval durations for 28 rocky shore species. Most values come from BIOTIC, the Biological Traits Information Catalogue (MarLIN, 2006. BIOTIC - Biological Traits Information Catalogue. Marine Life Information Network. Plymouth: Marine Biological Association of the United Kingdom. Available from www.marlin.ac.uk/biotic). The other values come from the published literature. A full table of sources for each species and value will be added in a later release (planned for early 2027).
+The built-in trait database (`comcon/data/trait_database.csv`) gives spawning windows and planktonic larval durations for 28 rocky shore species. Most values come from BIOTIC, the Biological Traits Information Catalogue (MarLIN, 2006). The other values come from the published literature. A full table of sources for each species and value will be added in a later release (planned for early 2027).
 
 ## Citing ComCon
 
@@ -100,11 +100,11 @@ The DOI for each release will be listed here and on the Releases page. GitHub's 
 
 ## Acknowledgements
 
-ComCon was developed as part of my PhD at the University of Plymouth, supervised by Antony Knights, Pete Cotton and Louise Firth. The Louvain community detection is based on code by Antony Knights. The reflective boundary (unbeaching) method is adapted from Clubley et al. (2024) (https://github.com/cclubley/Multi-generational-dispersal). The passive dispersal pathway follows James et al. (2025). Thank you to Giada Riva for testing ComCon on Mediterranean data.
+ComCon was developed as part of my PhD at the University of Plymouth, supervised by Antony Knights, Pete Cotton, Louise Firth, David Bilton and Kerry Howell. The Louvain community detection is based on code by Antony Knights. The reflective boundary (unbeaching) method is adapted from Clubley et al. (2024) and their code (https://github.com/cclubley/Multi-generational-dispersal). The passive dispersal pathway follows James et al. (2025). Thank you to Giada Riva for testing ComCon on Mediterranean data.
 
 ## Use of AI tools
 
-Generative AI tools were used during the development of ComCon and its documentation. Between 2024 and early 2025, OpenAI ChatGPT (GPT-4o to GPT-4.1) was used as a coding aid to suggest and troubleshoot short code snippets, which I assembled into the working functions. From May 2025, Anthropic Claude (Claude Sonnet 4 to Claude Opus 5.5, through claude.ai and Claude Code) was used to restructure this code into a Python package. This included refactoring, debugging, memory optimisation and packaging, and generating some parts of the analysis and visualisation functions. Claude was also used to draft parts of the user guide and docstrings. I developed the scientific design of ComCon, the workflow and the choice of analyses. I reviewed and tested the AI-assisted code and text, and a full manual review of the code is under way for the next release.
+Generative AI tools were used during the development of ComCon and its documentation. Between 2024 and mid 2025, OpenAI ChatGPT (GPT-4o to GPT-4.1) was used as a coding aid, in a similar way to an online programming forum, to suggest and troubleshoot short code snippets, which I assembled into the working functions. From May 2025, Anthropic Claude (Sonnet 4 to Claude Opus 5.5, through claude.ai and Claude Code) was used to restructure this code into a Python package, including refactoring, debugging, memory optimisation and packaging and to generate some parts of the analysis and visualisation functions. Claude was also used to draft parts of the user guide and docstrings. The scientific design of ComCon, including the trait-based post-processing approach, the architectural workflow, the choice and implementation of analyses and visualisations and the parameter defaults, was developed by me. All AI-generated code and text were reviewed, modified and tested by me, and I take full responsibility for the software.
 
 ## Support
 
@@ -113,3 +113,11 @@ Please report bugs or ask questions by opening an issue on the **Issues** tab of
 ## Licence
 
 ComCon is released under the MIT licence (see `LICENSE`).
+
+## References
+
+Clubley, C.H., Silva, T.A.M., Wood, L.E., Firth, L.B., Bilton, D.T., O'Dea, E. and Knights, A.M. (2024) Multi-generational dispersal and dynamic patch occupancy reveals spatial and temporal stability of seascapes. *Science of the Total Environment*, 952, 175762. https://doi.org/10.1016/j.scitotenv.2024.175762
+
+James, M.K., Lessin, G., Al Azhar, M., Bedington, M., Clubley, C.H., Somerfield, P.J. and Knights, A.M. (2025) The 'everything is everywhere' framework: holistic network analysis as a marine spatial management tool. *Ecological Informatics*, 87, 103105. https://doi.org/10.1016/j.ecoinf.2025.103105
+
+MarLIN (2006) BIOTIC - Biological Traits Information Catalogue. Marine Life Information Network. Plymouth: Marine Biological Association of the United Kingdom. Available from www.marlin.ac.uk/biotic

@@ -3,14 +3,44 @@
   "upload_type": "software",
   "description": "ComCon is a Python package for multi-species marine larval dispersal and connectivity modelling using Lagrangian particle tracking with OceanParcels and Copernicus Marine hydrodynamic data.",
   "creators": [
-    {"name": "Bachmaier, Laura", "affiliation": "University of Plymouth", "orcid": "0009-0002-7870-4334"}
+    {
+      "name": "Bachmaier, Laura",
+      "affiliation": "University of Plymouth",
+      "orcid": "0009-0002-7870-4334"
+    }
   ],
   "contributors": [
-    {"name": "Knights, Antony", "type": "Supervisor"},
-    {"name": "Cotton, Pete", "type": "Supervisor"},
-    {"name": "Firth, Louise", "type": "Supervisor"},
-    {"name": "Riva, Giada", "type": "Other"}
+    {
+      "name": "Knights, Antony",
+      "type": "Supervisor"
+    },
+    {
+      "name": "Cotton, Pete",
+      "type": "Supervisor"
+    },
+    {
+      "name": "Firth, Louise",
+      "type": "Supervisor"
+    },
+    {
+      "name": "Bilton, David",
+      "type": "Supervisor"
+    },
+    {
+      "name": "Howell, Kerry",
+      "type": "Supervisor"
+    },
+    {
+      "name": "Riva, Giada",
+      "type": "Other"
+    }
   ],
   "license": "MIT",
-  "keywords": ["marine connectivity", "larval dispersal", "community connectivity", "OceanParcels", "network analysis"]
+  "keywords": [
+    "marine connectivity",
+    "larval dispersal",
+    "community connectivity",
+    "OceanParcels",
+    "network analysis"
+  ]
 }
