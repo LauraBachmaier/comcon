@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use ComCon, please cite the version you used."
+title: "ComCon: Community Connectivity Package"
+abstract: "ComCon is a Python package for multi-species marine larval dispersal and connectivity modelling using Lagrangian particle tracking with OceanParcels and Copernicus Marine hydrodynamic data."
+type: software
+authors:
+  - family-names: Bachmaier
+    given-names: Laura
+    affiliation: "University of Plymouth"
+version: 1.0.0
+date-released: 2026-11-20
+license: MIT
+repository-code: "https://github.com/LauraBachmaier/comcon"
+keywords:
+  - marine connectivity
+  - larval dispersal
+  - community connectivity
+  - OceanParcels
+  - network analysis

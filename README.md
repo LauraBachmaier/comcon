@@ -6,19 +6,25 @@ ComCon is a Python package for multi-species marine larval dispersal modelling u
 
 ## Quick Start
 
-### 1. Install Miniconda
+### 1. Download ComCon
+
+On this GitHub page, click the green **Code** button and then **Download ZIP**. Unzip it somewhere on your computer (not in a OneDrive or Dropbox folder). The folder will be called `comcon-main`.
+
+You can also download a fixed version from the **Releases** section on the right of this page. Use a release if you want to cite the exact version you used. If you use Git, you can run `git clone https://github.com/LauraBachmaier/comcon.git` instead.
+
+### 2. Install Miniconda
 
 Download and install Miniconda from: https://docs.conda.io/en/latest/miniconda.html
 
 See the User Guide (`docs/ComCon_User_Guide_V2.html`) for detailed installation instructions.
 
-### 2. Create the Environment
+### 3. Create the Environment
 
 Open a terminal (Anaconda Prompt on Windows) and run these commands one after the other:
 
 ```bash
-# Navigate to the comcon_distribution folder (adjust path as needed)
-cd path/to/comcon_distribution
+# Go to the ComCon folder (adjust the path to where you unzipped it)
+cd path/to/comcon-main
 
 # Create the environment with all dependencies (reads environment.yml in this folder)
 conda env create -f environment.yml
@@ -30,13 +36,13 @@ conda activate comcon
 pip install -e .
 ```
 
-### 3. Launch Jupyter Lab
+### 4. Launch Jupyter Lab
 
 ```bash
 jupyter lab
 ```
 
-### 4. Start Using ComCon
+### 5. Start Using ComCon
 
 In a new notebook cell:
 
@@ -80,6 +86,30 @@ Worked examples are provided as Jupyter notebooks in `docs/vignettes/`: single-s
 - Copernicus Marine Service account (free)
 - 8GB+ RAM recommended
 
+## Trait database
+
+The built-in trait database (`comcon/data/trait_database.csv`) was compiled from the published literature. A full table of sources for each trait value will be added in a later release (planned for early 2027).
+
+## Citing ComCon
+
+If you use ComCon, please cite the version you used:
+
+> Bachmaier, L. (2026). ComCon: Community Connectivity Package (v1.0.0). Zenodo. DOI to follow.
+
+The DOI for each release will be listed here and on the Releases page. GitHub's **Cite this repository** button (on the right of this page) gives the citation in other formats.
+
+## Acknowledgements
+
+ComCon was developed as part of my PhD at the University of Plymouth, supervised by Antony Knights, Pete Cotton and Louise Firth. The Louvain community detection is based on code by Antony Knights. The reflective boundary (unbeaching) method is adapted from Clubley et al. (2024) (https://github.com/cclubley/Multi-generational-dispersal). The passive dispersal pathway follows James et al. (2025). Thank you to Giada Riva for testing ComCon on Mediterranean data.
+
+## Use of AI tools
+
+I designed ComCon and developed the science and the workflow. AI tools (Claude and Claude Code, by Anthropic) were used to help write, debug and reorganise parts of the code and to draft parts of the documentation. I reviewed and tested these changes. A full manual review of the code is under way for the next release.
+
 ## Support
 
-For questions or issues, contact: laura.bachmaier@plymouth.ac.uk
+Please report bugs or ask questions by opening an issue on the **Issues** tab of this GitHub page. You can also email laura.bachmaier@plymouth.ac.uk.
+
+## Licence
+
+ComCon is released under the MIT licence (see `LICENSE`).

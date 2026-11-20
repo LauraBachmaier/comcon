@@ -10,7 +10,7 @@ dist/
 .venv/
 venv/
 
-# ComCon generated outputs — anything the workflow creates, never source
+# ComCon generated outputs (anything the workflow creates, never source)
 outputs/
 **/projects/
 *.zarr/
@@ -18,7 +18,7 @@ outputs/
 **/saved_state/
 *.pkl
 
-# Saved run parameters — these can contain Copernicus credentials, never commit them
+# Saved run parameters can contain Copernicus credentials, never commit them
 hydrodynamic_parameters.json
 comcon_config.json
 spp_occ_params.json
@@ -26,10 +26,16 @@ spp_occ_params.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Editor and local tool settings
+.idea/
+.virtual_documents/
+CLAUDE.md
+
 # Sphinx build output
 docs/api/_build/
 
-# Development / testing notebooks — scratch work with large embedded outputs,
+# Development and testing notebooks (scratch work with large embedded outputs),
 # not distributed. The published tutorials live directly in docs/vignettes/.
 docs/vignettes/testing/
 docs/vignettes/files/
