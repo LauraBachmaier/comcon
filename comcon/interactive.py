@@ -6853,6 +6853,9 @@ def reflective_boundary(fieldset, landmask):
     creates a unit vector pointing from land to water. These vectors are used by
     the reflective kernel to prevent particles from becoming stuck on coastlines.
 
+    This approach is adapted from the unbeaching method of Clubley et al. (2024):
+    https://github.com/cclubley/Multi-generational-dispersal
+
     Parameters:
     -----------
     fieldset : parcels.FieldSet
