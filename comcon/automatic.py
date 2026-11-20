@@ -133,7 +133,7 @@ class MemoryMonitor:
         self.start_mem = psutil.Process().memory_info().rss / 1024 ** 3
         return self
 
-    ## Silent exit , automatic mode suppresses memory reports
+    ## Silent exit, automatic mode suppresses memory reports
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Exit without printing memory delta (automatic mode suppresses output)."""
         # Silent in automatic mode
@@ -188,7 +188,7 @@ def get_yes_no(prompt, default='no'):
         print("  Invalid input. Please enter 'yes' or 'no'.")
 
 # region Main Entry Point
-## Entry point for automatic mode , guides parameter collection then runs the workflow end-to-end
+## Entry point for automatic mode, guides parameter collection then runs the workflow end-to-end
 def start_automatic_mode():
     """
     Start the automatic workflow mode.
@@ -1043,7 +1043,7 @@ def collect_all_parameters(project_dirs=None):
                 composite_map = {'1': 'functional', '2': 'centrality', '3': 'overall'}
                 config['analysis']['type2_composite'] = composite_map.get(composite_choice, 'overall')
             # Figure saving is controlled once, by the global 'Save figures' option in
-            # Section 9 (config['output']['save_figures']) , no separate Type 2 prompt.
+            # Section 9 (config['output']['save_figures']), no separate Type 2 prompt.
         else:
             config['analysis']['type2_scales'] = [None]
             config['analysis']['scale_type'] = 'full_domain'
@@ -1056,7 +1056,7 @@ def collect_all_parameters(project_dirs=None):
             print("\nType 3 will run a trait sensitivity comparison:")
             print("  Modifies one trait, re-runs network analysis, compares to baseline.")
 
-            # Reuse the Type 2 distance scale for Type 3 (matching interactive , no separate
+            # Reuse the Type 2 distance scale for Type 3 (matching interactive, no separate
             # prompt). This is also the scale of the baseline network the comparison reuses.
             _t2_scales = config['analysis'].get('type2_scales', [None])
             config['analysis']['type3_scale'] = _t2_scales[0] if _t2_scales else None
@@ -2487,7 +2487,7 @@ def run_workflow(config):
                     )
 
                 # Re-run post-processing + network analysis with the modified traits
-                # post_process returns (final_processed, buffer) , unpack the tuple
+                # post_process returns (final_processed, buffer), unpack the tuple
                 print("  Starting post-processing for the trait sensitivity analysis...")
                 modified_processed, _ = post_process(
                     chunks_dir, modified_traits, release_grids, settlement_grids, grid_ids,

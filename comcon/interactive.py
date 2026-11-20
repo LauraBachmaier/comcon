@@ -529,7 +529,7 @@ def auto_convert_coordinates(df, lat_col='latitude', lon_col='longitude'):
         if pd.api.types.is_numeric_dtype(df[col]):
             continue
 
-        # Try converting , if any value is non-numeric string, attempt DMS parsing
+        # Try converting, if any value is non-numeric string, attempt DMS parsing
         try:
             original_col = f'{col}_original'
             df[original_col] = df[col].copy()
@@ -762,7 +762,7 @@ def get_valid_dir(prompt, default=None):
                 return chosen
         except Exception:
             pass
-        return typed  # empty string , caller should handle
+        return typed  # empty string, caller should handle
 
 
 ## Get a save file path from the user, opening a save dialog if they press Enter
@@ -842,7 +842,7 @@ def get_save_path(prompt, default=None, extensions=None):
                 return chosen
         except Exception:
             pass
-        return typed  # empty string , caller should handle
+        return typed  # empty string, caller should handle
 
 
 ## Auto scales the grid resolution used for release and settlement (not the hydro grid resolution used for the simulation)
@@ -1097,7 +1097,7 @@ def choose_grid_resolution(lonarray, latarray):
     ])
 
     if recommended_km <= native_km * 1.1:
-        # Small domain: native IS the recommended resolution , show 2 options
+        # Small domain: native IS the recommended resolution, show 2 options
         print(f"\n  Options:")
         print(f"    1. Native resolution (~{native_km} km)  [recommended for your domain size]")
         print(f"    2. Choose your own resolution")
@@ -1121,7 +1121,7 @@ def choose_grid_resolution(lonarray, latarray):
             return int(native_km), False
 
     else:
-        # Large domain: native and recommended differ , show all 3
+        # Large domain: native and recommended differ, show all 3
         print(f"\n  Options:")
         print(f"    1. Native resolution (~{native_km} km)")
         print(f"    2. Recommended resolution ({recommended_km} km)  [default]")
@@ -1254,7 +1254,7 @@ def save_session(filepath=None):
         try:
             _hd = globals()['hydro_data']
             if _hd.attrs.get('_comcon_cleaned'):
-                # Already cleaned on a previous save , reuse directly
+                # Already cleaned on a previous save, reuse directly
                 session_data['hydro_data'] = _hd
             else:
                 print("  Preparing hydrodynamic data for session save. This may take a moment...")
@@ -2611,7 +2611,7 @@ def edit_hydro_params(hydro_params):
                 trait_choice = input("\nSelect option (1/2) [default: 1]: ").strip() or '1'
 
                 if trait_choice == '1':
-                    # Use built-in database , re-run species selection
+                    # Use built-in database, re-run species selection
                     traits_df = load_builtin_traits()
                     if traits_df is not None:
                         selected_traits, species_indices = select_species_from_database(traits_df)
@@ -3090,7 +3090,7 @@ def edit_hydro_params(hydro_params):
                             print("Error: Please enter 'yes' or 'no'.")
 
                 elif key == 'runtime':
-                    # Runtime cannot be manually set , it is derived from species traits + buffer
+                    # Runtime cannot be manually set, it is derived from species traits + buffer
                     print(f"\nRuntime ({value} days) is automatically calculated from species traits.")
                     print("To change runtime, edit the species traits file or temporal buffer instead.")
                     continue
@@ -3421,7 +3421,7 @@ def download_hydrodynamic_data(**kwargs):
     ------
     - Requires active internet connection to Copernicus Marine Service
     - By default (export=False), data is streamed directly from Copernicus
-      using lazy loading , no large file download is needed
+      using lazy loading, no large file download is needed
     - Set export=True only if you want a local copy for future offline use
     - When export=True, data is compressed with level 9 compression (NetCDF)
       or default compression (Zarr)
@@ -3758,7 +3758,7 @@ def setup_project_directory(project_name=None, custom_path=None, subfolders=None
             choice = '1'
 
     if choice == '2':
-        # Custom directory , open a folder browser (same pattern as choice 3)
+        # Custom directory, open a folder browser (same pattern as choice 3)
         if custom_path is None:
             try:
                 import tkinter as tk
@@ -3831,7 +3831,7 @@ def setup_project_directory(project_name=None, custom_path=None, subfolders=None
 
     # Build the folder-structure box dynamically so Path A doesn't show entries
     # for folders that don't exist (e.g. occurrence, data).
-    # Printed ONCE after all directories are created (was inside the loop , printed 5x).
+    # Printed ONCE after all directories are created (was inside the loop, printed 5x).
     display_lines = [
         f"Project directory created: {root}",
         "",
@@ -4007,7 +4007,7 @@ def create_map():
 
     Notes
     -----
-    - Uses ipyleaflet if available (captures polygon directly , no manual export needed)
+    - Uses ipyleaflet if available (captures polygon directly, no manual export needed)
     - Falls back to folium if ipyleaflet is not installed (requires manual export)
     - Must be run in a Jupyter environment
     """
@@ -4018,7 +4018,7 @@ def create_map():
     os.makedirs(save_dir, exist_ok=True)
     save_path = os.path.join(save_dir, "study_area.geojson")
 
-    # Try ipyleaflet first (better UX , captures polygon directly)
+    # Try ipyleaflet first (better UX, captures polygon directly)
     try:
         from ipyleaflet import Map, DrawControl, basemaps
 
@@ -4032,7 +4032,7 @@ def create_map():
         m = Map(basemap=basemaps.OpenStreetMap.Mapnik, center=(45, 0), zoom=4,
                 layout=widgets.Layout(width='100%', height='500px'))
 
-        # Add draw control , polygon only
+        # Add draw control, polygon only
         draw_control = DrawControl(
             polygon={'shapeOptions': {'color': '#FF4500', 'weight': 3, 'fillOpacity': 0.1}},
             polyline={}, rectangle={}, circle={}, circlemarker={}, marker={}
@@ -4337,7 +4337,7 @@ def get_spp_occ(species_name, aphia_id, geometry, limit=300):
                 if len(results.get('results', [])) < limit:
                     break
                 time.sleep(0.5)
-            break  # Success , exit retry loop
+            break  # Success, exit retry loop
 
         except Exception as e:
             if attempt < max_retries:
@@ -4955,7 +4955,7 @@ def clean_spp_occ(distributions, landmask, coastalmask, lonarray, latarray, buff
     # Apply the mask
     clean_spp = distributions[keep_mask].copy()
 
-    # Print filtering results (skip for option 3 , no filtering was applied)
+    # Print filtering results (skip for option 3, no filtering was applied)
     n_original = len(distributions)
     n_after = len(clean_spp)
     n_removed = n_original - n_after
@@ -5172,7 +5172,7 @@ def plot_spp_occ(distributions, clean_spp, geojson_file_path, habitat_type, lona
             return f"$\\mathit{{{parts[0]}}}$ $\\mathit{{{parts[1]}}}$"
         return f"$\\mathit{{{formatted}}}$"
 
-    # Styling , match plot_masks
+    # Styling, match plot_masks
     plt.rcParams['figure.dpi'] = 300
     plt.rcParams['font.family'] = 'Arial'
     plt.rcParams['font.size'] = 12
@@ -5283,7 +5283,7 @@ def plot_spp_occ(distributions, clean_spp, geojson_file_path, habitat_type, lona
 
         ax.set_title(title_text, fontsize=14, fontweight='bold', pad=8)
 
-        # Legend row , reflect the groups actually present in THIS panel's data
+        # Legend row, reflect the groups actually present in THIS panel's data
         # (so the "before" map legends its own groups, not just the post-filter ones).
         _present = set(data[group_col].unique()) if len(data) > 0 else set()
         _panel_legend = [
@@ -7218,7 +7218,7 @@ def create_pset(fieldset, meshgrid, runtime):
     particles_per_location = npart * num_intervals
     total_particles = particles_per_location * num_locations
 
-    # Step 5: Horizontal diffusivity , collected before the summary so it appears in the box
+    # Step 5: Horizontal diffusivity, collected before the summary so it appears in the box
     subsection_header("Horizontal Diffusivity")
     info_box([
         "Horizontal diffusivity represents small-scale random motion caused by turbulence.",
@@ -7591,7 +7591,7 @@ def process_sim_results(zarr_path, chunk_size=None, runtime_days=None):
     chunks_dir = os.path.join(zarr_dir, '_temp_chunks')
     os.makedirs(chunks_dir, exist_ok=True)
 
-    # Process in chunks , write each to disk instead of keeping in memory
+    # Process in chunks, write each to disk instead of keeping in memory
     n_chunks = (n_trajectories + chunk_size - 1) // chunk_size
     chunk_files = []
 
@@ -7615,7 +7615,7 @@ def process_sim_results(zarr_path, chunk_size=None, runtime_days=None):
         chunk_df.to_parquet(chunk_path, index=False, engine='pyarrow')
         chunk_files.append(chunk_path)
 
-        # Clean up immediately , data is safely on disk
+        # Clean up immediately, data is safely on disk
         del chunk_ds, chunk_df
         gc.collect()
 
@@ -7731,7 +7731,7 @@ def assign_release_id(chunks_dir, interval):
     Returns:
     --------
     chunks_dir : str
-        Same directory path , chunk files are updated in-place with 'release_id' column.
+        Same directory path, chunk files are updated in-place with 'release_id' column.
 
     Notes:
     ------
@@ -7827,7 +7827,7 @@ def execute_simulation(pset, kernels, adjusted_runtime, interval):
     Returns
     -------
     tuple
-        (output_path, chunks_dir) , the path to the Zarr output file, and the path to the directory of parquet chunk files holding the processed trajectory data.
+        (output_path, chunks_dir), the path to the Zarr output file, and the path to the directory of parquet chunk files holding the processed trajectory data.
 
     Notes
     -----
@@ -8564,7 +8564,7 @@ def post_process(chunks_dir_or_traj, traits, release_grids, settlement_grids, gr
     total_successful = 0
     n_species = len(traits_list)
 
-    # Count total unique trajectories in the raw input , used to report
+    # Count total unique trajectories in the raw input, used to report
     # how many were filtered out at each step (per species).
     if use_chunks:
         _input_traj_ids = set()
@@ -9646,7 +9646,7 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
         drawn here, so the ranking stays legible.
 
         Network-only map (network_only=True): neutral site dots plus the directed
-        connectivity structure , arrows (width/opacity by weight) for the strongest
+        connectivity structure, arrows (width/opacity by weight) for the strongest
         site-to-site links and rings for the strongest self-recruiting sites. The
         number of arrows/rings scales with the network so it works for small and large
         datasets alike; a figure caption states how many of each are shown.
@@ -9659,7 +9659,7 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
             Figure title.
         composite_col : str
             Column in site_metrics used for colouring (usually a `{metric}_rank`
-            or a `{type}_composite` column , both are rank-based).
+            or a `{type}_composite` column, both are rank-based).
         cmap : str
             Matplotlib colormap name. Default `viridis_r` so low rank = yellow = best.
         network_graph : networkx.DiGraph, optional
@@ -9687,7 +9687,7 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
     # Main map
     ax = fig.add_subplot(gs[0], projection=ccrs.PlateCarree())
 
-    # Reduced buffer , less wasted ocean space
+    # Reduced buffer, less wasted ocean space
     if zoom_extent:
         ax.set_extent(zoom_extent, crs=ccrs.PlateCarree())
     else:
@@ -9769,7 +9769,7 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
 
     # All sites as outlined circles, coloured by rank
     if network_only:
-        # No metric , all sites as small neutral dots, drawn UNDER the edges so the
+        # No metric, all sites as small neutral dots, drawn UNDER the edges so the
         # connections stay visible even on large, densely-sampled domains. (Also
         # never references composite_col, avoiding the old None-metric crash, Fix 10.)
         scatter = ax.scatter(
@@ -9904,7 +9904,7 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
         # Type 3 comparison maps show) and/or the zero-value/grey-sites note. When any note is
         # shown, push the title up so the note has its own space beneath it and never overlaps.
         # Put the metric being shown into the title. The caller's title is only the
-        # level + scale (e.g. "Community , full_domain"), so append the metric name so
+        # level + scale (e.g. "Community, full_domain"), so append the metric name so
         # every hotspot map states what it maps - closeness, self-recruitment, source, etc.
         _metric_names = {
             'source_strength': 'Source strength', 'sink_strength': 'Sink strength',
@@ -9933,7 +9933,7 @@ def create_network_map(site_metrics, top_10, title="Directed connectivity networ
     gl.top_labels = False
     gl.right_labels = False
 
-    # Legend , entries depend on the map type.
+    # Legend, entries depend on the map type.
     legend_handles = []
     if network_only:
         # Network-only map: neutral sites, self-recruitment rings and connection strengths.
@@ -10264,7 +10264,7 @@ def create_matrix_with_map(connectivity_matrix, site_metrics,
     ax_map.add_feature(cfeature.OCEAN, facecolor='lightblue', edgecolor='none')
     ax_map.add_feature(cfeature.COASTLINE, linewidth=0.5, color='#555555')
 
-    # Uniform fill colour. No latitude gradient , the colour isn't encoding anything meaningful.
+    # Uniform fill colour. No latitude gradient, the colour isn't encoding anything meaningful.
     ax_map.scatter(
         map_sites['longitude'], map_sites['latitude'],
         c='#7b9ec9', s=40,
@@ -11249,7 +11249,7 @@ def build_network_summary(network_results):
 def network_metrics_viewer(all_network_results):
     """Interactive viewer for Type 2 network results (summary + per-site metrics).
 
-    Two dropdowns , analysis level (Community or species) and spatial scale ,
+    Two dropdowns, analysis level (Community or species) and spatial scale ,
     matching the other network viewers.
     """
     levels, scales, level_lookup = _get_viewer_options(all_network_results)
@@ -12486,7 +12486,7 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
     # =====================================================================
     rows = []
     matched_paths = set()  # absolute paths already accounted for in the catalogue
-    # The metadata file itself doesn't exist on disk yet at walk time , special-case it.
+    # The metadata file itself doesn't exist on disk yet at walk time, special-case it.
     _self_filename = os.path.basename(output_path)
 
     for folder_role, pattern, description in reference:
@@ -12552,7 +12552,7 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
                 if fnmatch.fnmatch(f, pattern) and os.path.isfile(full_path):
                     found.append((None, f, full_path))
                 elif fnmatch.fnmatch(f, pattern) and os.path.isdir(full_path) and pattern.endswith('.zarr'):
-                    # .zarr is technically a directory , treat as a single match
+                    # .zarr is technically a directory, treat as a single match
                     found.append((None, f, full_path))
 
         if found:
@@ -12632,7 +12632,7 @@ def write_project_metadata(project_dirs, config_dict, pathway, output_path):
     # =====================================================================
     # Write the workbook
     # =====================================================================
-    # Sheet 3: metric definitions , how every reported metric is calculated, so
+    # Sheet 3: metric definitions, how every reported metric is calculated, so
     # results can be interpreted and reproduced without reading the source code.
     metric_definitions = [
         ('Connectivity (matrix value)',
@@ -13234,7 +13234,7 @@ def post_analysis(final_processed):
 
     # Resolve raw trajectory data for mortality calculation.
     # Uses full traj DataFrame if available, otherwise loads just obs=0 rows from chunks.
-    # This is fully automatic , users don't need to know about the chunked storage.
+    # This is fully automatic, users don't need to know about the chunked storage.
     _traj_raw = None
     if 'traj' in globals() and isinstance(traj, pd.DataFrame) and not traj.empty:
         _traj_raw = traj
@@ -13824,7 +13824,7 @@ def post_analysis(final_processed):
                     if len(scales) == 1:
                         sensitivity_scale = scales[0]
                     else:
-                        # Several Type 2 scales , let the user pick which to reuse.
+                        # Several Type 2 scales, let the user pick which to reuse.
                         # None is the full domain (no distance filter); keep it sortable (placed last).
                         _ordered = sorted(scales, key=lambda s: (s is None, s if s is not None else 0))
                         print("\nType 2 was run at several distance thresholds, so choose which one the sensitivity analysis should use.")
@@ -13841,7 +13841,7 @@ def post_analysis(final_processed):
                     else:
                         print(f"\nUsing the {sensitivity_scale} km threshold from Type 2.")
                 else:
-                    # No Type 2 scale to reuse , ask with the same style as Type 2 (not a bare km default).
+                    # No Type 2 scale to reuse, ask with the same style as Type 2 (not a bare km default).
                     print("\nNo Type 2 scale to reuse. Choose a distance scale for the sensitivity analysis:")
                     print("  1. Full domain (include all connections regardless of distance)")
                     print("  2. Single scale (set one distance threshold)")
@@ -14107,7 +14107,7 @@ def post_analysis(final_processed):
             type3=results.get('type3') or results.get('type3_sensitivity'),
             extra=_extra_meta,
         )
-        # Resolve project_dirs , set up by setup_project_directory(), may be a global
+        # Resolve project_dirs, set up by setup_project_directory(), may be a global
         _proj_dirs = globals().get('project_dirs', None)
         if _proj_dirs is None:
             # Fallback: build a minimal project_dirs from get_default_dir() for each known role
@@ -14452,7 +14452,7 @@ def workflow_step(step_number):
                 hydro_data, geojson_file_path=None, show_map=False
             )
 
-            # 1. Grid resolution , reuse the value saved for this project on a rerun, otherwise let the user choose (the choice is saved at the end of Step 1).
+            # 1. Grid resolution, reuse the value saved for this project on a rerun, otherwise let the user choose (the choice is saved at the end of Step 1).
             _saved_res = _saved_bin = None
             if os.path.exists(_hp_path):
                 try:
@@ -14496,7 +14496,7 @@ def workflow_step(step_number):
                     f"Native ocean cells:   {_n_native_ocean:,}",
                     f"Native coastal cells: {_n_native_coastal:,}",
                 ])
-            # 3. Visualise , one map if native, two if binned (with coastal layer)
+            # 3. Visualise, one map if native, two if binned (with coastal layer)
             # Capture each figure, save it to the grids folder (not figures), then close, mirroring the passive pathway so both maps render reliably and are exported.
             subsection_header("Visualising the Hydrodynamic Extent")
             _loading_out = widgets.Output()
@@ -14625,7 +14625,7 @@ def workflow_step(step_number):
     elif step_number == 3:
         step_box(3, "Simulation Setup")
 
-        # Grid resolution selection , use Step 1 choice if available, otherwise ask now
+        # Grid resolution selection, use Step 1 choice if available, otherwise ask now
         if '_selected_resolution_km' in dir() or (
                 '_selected_resolution_km' in globals() and _selected_resolution_km is not None):
             resolution_km = _selected_resolution_km
@@ -14723,7 +14723,7 @@ def workflow_step(step_number):
     elif step_number == 4:
         step_box(4, "Execute the Simulation")
 
-        # pset/kernels contain compiled C code , rebuild from saved config if missing
+        # pset/kernels contain compiled C code, rebuild from saved config if missing
         if 'pset' not in globals() or pset is None or 'kernels' not in globals() or kernels is None:
             config_path = os.path.join(project_dirs['config'],
                                        'pset_config.json') if 'project_dirs' in globals() and project_dirs else None
