@@ -441,7 +441,7 @@
                 <tr><td>Create the comcon environment (<code>conda env create -f environment.yml</code>)</td><td><strong>Once only.</strong> The environment and all its packages remain on your computer.</td></tr>
                 <tr><td>Install ComCon (<code>pip install -e .</code>)</td><td><strong>Once only</strong> (unless you receive an updated version).</td></tr>
                 <tr><td>Activate the environment (<code>conda activate comcon</code>)</td><td><strong>Every time</strong> you open a new terminal window.</td></tr>
-                <tr><td>Navigate to your folder (<code>cd path/to/comcon_distribution</code>)</td><td><strong>Every time</strong> you open a new terminal window.</td></tr>
+                <tr><td>Navigate to your folder (<code>cd path/to/comcon-main</code>)</td><td><strong>Every time</strong> you open a new terminal window.</td></tr>
                 <tr><td>Launch Jupyter Lab (<code>jupyter lab</code>)</td><td><strong>Every time</strong> you want to use ComCon.</td></tr>
                 <tr><td>Run <code>import comcon</code></td><td><strong>Every time</strong> you start a new notebook session or restart the kernel.</td></tr>
             </tbody>
@@ -932,13 +932,20 @@
 
         <h2 id="installing-comcon">Installing ComCon</h2>
 
-        <p>In this section you'll set up your ComCon folder, create the ComCon environment and install ComCon itself. You should have received a folder called <code>comcon_distribution</code> (either as a ZIP file or shared folder).</p>
+        <p>In this section you'll download ComCon, create the ComCon environment and install ComCon itself.</p>
 
-        <p><strong>1. Locate the ComCon folder</strong></p>
-        <p>If you received a ZIP file, first unzip it:</p>
+        <p><strong>1. Download ComCon</strong></p>
+        <p>ComCon is available on GitHub at <a href="https://github.com/LauraBachmaier/comcon" target="_blank">https://github.com/LauraBachmaier/comcon</a>. You do not need a GitHub account to download it.</p>
+        <ul>
+            <li>Go to the GitHub page and click the green <strong>Code</strong> button. Then click <strong>Download ZIP</strong>.</li>
+            <li>If you need a fixed version (for example to cite in a paper), download it from the <strong>Releases</strong> section on the right of the GitHub page instead.</li>
+            <li>If you already use Git you can run <code>git clone https://github.com/LauraBachmaier/comcon.git</code> instead. The folder will then be called <code>comcon</code>.</li>
+        </ul>
+        <p>Then unzip the file:</p>
         <ul>
             <li><strong>Windows:</strong> Right-click the ZIP file → "Extract All..." → Choose a location (e.g., Documents)</li>
             <li><strong>Mac:</strong> Double-click the ZIP file to unzip it</li>
+            <li>The unzipped folder will be called <code>comcon-main</code> (or <code>comcon-</code> followed by the version number if you downloaded a release). This guide calls it <code>comcon-main</code>. If yours has a different name, use your folder name in the commands below.</li>
         <div class="info-box">
             <strong>Important: </strong>We recommend saving your ComCon project folder to a <strong>local drive</strong> rather than
             a cloud-synced folder (such as OneDrive, Dropbox or Google Drive). Cloud sync services can
@@ -949,7 +956,7 @@
             or <code>/Users/YourName/Documents/</code> on Mac).
         </div>
         <div class="tip-box">
-            <strong>Check for a nested folder.</strong> After extracting, you should have <em>one</em> folder named <code>comcon_distribution</code> containing <code>pyproject.toml</code> and <code>environment.yml</code>. When downloading the folder, some extractors create a folder inside a folder of the same name (e.g. <code>comcon/comcon/</code>). If you see that, move the inner folder up one level or simply point your directory (<code>cd</code>) into the inner one, so that <code>pyproject.toml</code> sits directly in the folder you run <code>pip install -e .</code> from. <code>import comcon</code> will fail if you are one level too high or too low as it cannot find the install instructions.
+            <strong>Check for a nested folder.</strong> After extracting, you should have <em>one</em> folder named <code>comcon-main</code> containing <code>pyproject.toml</code> and <code>environment.yml</code>. When downloading the folder, some extractors create a folder inside a folder of the same name (e.g. <code>comcon-main/comcon-main/</code>). Note that the folder will also contain a subfolder called <code>comcon</code>. That subfolder is the package code itself, so do not move it. If you see that, move the inner folder up one level or simply point your directory (<code>cd</code>) into the inner one, so that <code>pyproject.toml</code> sits directly in the folder you run <code>pip install -e .</code> from. <code>import comcon</code> will fail if you are one level too high or too low as it cannot find the install instructions.
         </div>
         </ul>
 
@@ -957,10 +964,10 @@
         <p>Open your terminal (Anaconda Prompt on Windows, or Terminal on Mac/Linux), then tell it where the ComCon files are using the <code>cd</code> (change directory) command. Adjust the path to where you unzipped the folder.</p>
 
         <pre><code><span class="comment"># Windows example: </span>
-cd C:\Users\YourName\Documents\comcon_distribution
+cd C:\Users\YourName\Documents\comcon-main
 
 <span class="comment"># Mac example:</span>
-cd ~/Documents/comcon_distribution</code></pre>
+cd ~/Documents/comcon-main</code></pre>
 
         <div class="tip-box">
             <strong>Easy way to get the folder path:</strong>
@@ -978,7 +985,7 @@ cd ~/Documents/comcon_distribution</code></pre>
         </div>
 
         <p><strong>3. Create the environment with all dependencies</strong></p>
-        <p>Make sure you are inside the <code>comcon_distribution</code> folder (from the previous step), then copy and paste the following command and press <kbd>Enter</kbd>:</p>
+        <p>Make sure you are inside the <code>comcon-main</code> folder (from the previous step), then copy and paste the following command and press <kbd>Enter</kbd>:</p>
 
         <pre><code>conda env create -f environment.yml</code></pre>
 
@@ -1060,7 +1067,7 @@ Executing transaction: done
         <p>Your <strong>working directory</strong> is the folder on your computer that Jupyter Lab considers "home" for your current session. This means ComCon will search for any data you will use and any outputs you create during your session, in this folder. When ComCon saves a file to <code>./projects/MyProject/figures/map.png</code>, the <code>./</code> means "starting from the working directory". So the file ends up inside your working directory, in the project subfolder.</p>
 
         <div class="warning-box">
-            <strong>Key Rule:</strong> Always launch Jupyter Lab from inside your <code>comcon_distribution</code> folder. This ensures your working directory is correct and all ComCon file paths work properly.
+            <strong>Key Rule:</strong> Always launch Jupyter Lab from inside your <code>comcon-main</code> folder. This ensures your working directory is correct and all ComCon file paths work properly.
         </div>
 
         <h3>How to Launch Jupyter Lab</h3>
@@ -1073,15 +1080,15 @@ Executing transaction: done
         <p><strong>Step 3:</strong> Navigate to your ComCon folder using the <code>cd</code> command:</p>
 
         <p><strong>Windows:</strong></p>
-        <pre><code>cd C:\Users\YourName\Documents\comcon_distribution</code></pre>
+        <pre><code>cd C:\Users\YourName\Documents\comcon-main</code></pre>
 
         <p><strong>macOS/Linux:</strong></p>
-        <pre><code>cd /Users/YourName/Documents/comcon_distribution</code></pre>
+        <pre><code>cd /Users/YourName/Documents/comcon-main</code></pre>
 
         <div class="tip-box">
             <strong>How to find the path:</strong>
             <ul>
-                <li><strong>Windows:</strong> Open File Explorer, navigate to your comcon_distribution folder, click the address bar at the top and it will show the full path. Copy it.</li>
+                <li><strong>Windows:</strong> Open File Explorer, navigate to your comcon-main folder, click the address bar at the top and it will show the full path. Copy it.</li>
                 <li><strong>macOS:</strong> Open Finder, navigate to the folder, right-click the folder while holding <kbd>Option</kbd>, and select "Copy as Pathname".</li>
             </ul>
         </div>
@@ -1233,7 +1240,7 @@ start_automatic_mode()</code></pre>
                     <td><strong>Every time</strong> you open a new terminal window.</td>
                 </tr>
                 <tr>
-                    <td>Navigate to your folder (<code>cd path/to/comcon_distribution</code>)</td>
+                    <td>Navigate to your folder (<code>cd path/to/comcon-main</code>)</td>
                     <td><strong>Every time</strong> you open a new terminal window.</td>
                 </tr>
                 <tr>
@@ -1258,7 +1265,7 @@ start_automatic_mode()</code></pre>
                 <pre><code>conda activate comcon</code></pre>
             </li>
             <li>Navigate to your ComCon folder:
-                <pre><code>cd path/to/comcon_distribution</code></pre>
+                <pre><code>cd path/to/comcon-main</code></pre>
             </li>
             <li>Launch Jupyter Lab:
                 <pre><code>jupyter lab</code></pre>
@@ -1329,7 +1336,7 @@ start_automatic_mode()</code></pre>
 
         <p>ComCon asks you for a <strong>project name</strong> and creates a structured folder inside <code>projects/</code> in your working directory. This folder will be given an automatic name with the mode, date and time included to create a unique folder name for each analysis. All outputs are automatically saved into the correct subfolder:</p>
 
-        <pre><code>comcon_distribution/
+        <pre><code>comcon-main/
 └── projects/
     └── MyProject/
         ├── config/:           Saved parameter files (.json)
@@ -1458,7 +1465,7 @@ Create ComCon subfolders inside this directory? (yes/no) [default: yes]: yes
 print(os.getcwd())</code></pre>
 
         <div class="success-box">
-            <strong>Expected output:</strong> The path should end with <code>comcon_distribution</code> (or whatever you named your folder). For example: <code>/Users/Laura/Documents/comcon_distribution</code>
+            <strong>Expected output:</strong> The path should end with <code>comcon-main</code> (or whatever you named your folder). For example: <code>/Users/Laura/Documents/comcon-main</code>
         </div>
 
         <div class="critical-box">
@@ -2674,7 +2681,7 @@ metrics = calculate_connectivity_metrics(
                 </tr>
                 <tr>
                     <td>Navigate to ComCon folder</td>
-                    <td><code>cd path/to/comcon_distribution</code></td>
+                    <td><code>cd path/to/comcon-main</code></td>
                 </tr>
                 <tr>
                     <td>Install ComCon (first time only)</td>
